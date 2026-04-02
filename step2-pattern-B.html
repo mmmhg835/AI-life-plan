@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pattern B - チェック式</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif;background:#f1f5f9;margin:0}
+    .wrap{max-width:640px;margin:0 auto;padding:16px}
+    .card{background:#fff;border:1px solid #c2d3f8;border-radius:10px;padding:14px}
+    .ttl{font-size:12px;font-weight:700;color:#1a56db;margin-bottom:10px}
+    .row{display:grid;grid-template-columns:auto 1fr 120px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9}
+    .row:last-child{border-bottom:none}
+    input[type="number"]{width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px}
+    .badge{display:inline-block;background:#eef3fd;color:#1240a8;padding:4px 8px;border-radius:999px;font-size:11px;margin-bottom:10px}
+    .off{opacity:.45}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">Pattern B: チェックON/OFF + 金額入力</div>
+    <div class="card">
+      <div class="ttl">その他固定費（チェック式）</div>
+      <div class="row"><input type="checkbox" checked><span>駐車場代</span><input type="number" value="1.5"></div>
+      <div class="row"><input type="checkbox"><span class="off">ジム・フィットネス</span><input type="number" value="0" disabled></div>
+      <div class="row"><input type="checkbox" checked><span>習い事・学習</span><input type="number" value="0.8"></div>
+      <div class="row"><input type="checkbox"><span class="off">タバコ</span><input type="number" value="0" disabled></div>
+      <div class="row"><input type="checkbox"><span class="off">ペット関連</span><input type="number" value="0" disabled></div>
+      <div class="row"><input type="checkbox" checked><span>美容・サロン</span><input type="number" value="0.6"></div>
+    </div>
+  </div>
+</body>
+</html>
