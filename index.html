@@ -52,22 +52,29 @@
     .hdr {
       max-width: 600px;
       margin: 0 auto;
-      padding: 16px;
+      padding: 14px 16px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
     }
 
-    .hdr-icon {
-      width: 40px;
-      height: 40px;
-      background: var(--orange);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
+    .hdr-reset {
       flex-shrink: 0;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Noto Sans JP', sans-serif;
+      color: white;
+      background: rgba(255, 255, 255, .15);
+      border: 1.5px solid rgba(255, 255, 255, .45);
+      border-radius: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .hdr-reset:active {
+      background: rgba(255, 255, 255, .25);
     }
 
     .hdr-eye {
@@ -118,7 +125,7 @@
       border-bottom-color: var(--orange);
     }
 
-    .snum {
+    .step-num {
       display: block;
       font-size: 17px;
       font-weight: 900;
@@ -218,6 +225,7 @@
     /* FIELD */
     .field {
       margin-bottom: 14px;
+      min-width: 0;
     }
 
     .field:last-child {
@@ -332,6 +340,61 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      min-width: 0;
+    }
+
+    .invest-pair-row .rate-field {
+      flex: 0 0 auto;
+    }
+
+    .pct-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      background: var(--gray-50);
+      text-align: right;
+    }
+
+    .pct-input:focus {
+      outline: none;
+      border-color: var(--blue);
+      background: white;
+    }
+
+    .pct-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .pct-inline .pct-input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .pct-sfx {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-600);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 480px) {
+      .input-unit {
+        font-size: 10px;
+        max-width: 3.2em;
+        text-align: right;
+      }
+
+      .field .input-unit-wrap input[type=number] {
+        font-size: 14px;
+        padding-right: 2px;
+      }
     }
 
     .fhint {
@@ -760,44 +823,51 @@
       display: block;
     }
 
-    /* シミュレーション年次明細 */
-    .sim-detail {
+    /* シミュレーション年次明細（details は iOS で挙動が不安定なため button パネルに統一） */
+    .sim-panel {
       margin-top: 10px;
+      border: 1.5px solid var(--blue-bdr);
+      border-radius: 8px;
+      overflow: hidden;
+      background: white;
     }
 
-    .sim-detail>summary {
-      list-style: none;
-      cursor: pointer;
+    .sim-panel-hdr {
+      width: 100%;
+      border: none;
+      background: var(--blue-light);
+      padding: 10px 12px;
       font-size: 12px;
       font-weight: 700;
       color: var(--blue-dark);
-      padding: 10px 12px;
-      background: var(--blue-light);
-      border: 1.5px solid var(--blue-bdr);
-      border-radius: 8px;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .sim-detail>summary::-webkit-details-marker {
+    .sim-panel-hdr .sim-chev {
+      font-size: 10px;
+      color: var(--gray-400);
+      flex-shrink: 0;
+    }
+
+    .sim-panel[data-collapsed="1"] .sim-panel-body {
       display: none;
     }
 
-    .sim-detail>summary::after {
-      content: '▼';
-      font-size: 10px;
-      color: var(--gray-400);
-      transition: transform .15s;
+    .sim-panel-body {
+      padding: 12px 8px 8px;
     }
 
-    .sim-detail[open]>summary::after {
-      transform: rotate(-180deg);
-    }
-
-    .sim-detail-body {
-      padding: 12px 0 4px;
+    @media (max-width: 520px) {
+      .frow.invest-pair-row {
+        grid-template-columns: 1fr;
+      }
     }
 
     .sim-detail-hint {
@@ -805,6 +875,34 @@
       color: var(--gray-400);
       margin-bottom: 10px;
       line-height: 1.5;
+    }
+
+    .sim-metric-help {
+      font-size: 11px;
+      color: var(--gray-600);
+      line-height: 1.55;
+      margin: 12px 0 14px;
+      padding: 12px 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+    }
+
+    .sim-metric-help dt {
+      font-weight: 700;
+      color: var(--blue-dark);
+      margin-top: 10px;
+      font-size: 11px;
+    }
+
+    .sim-metric-help dt:first-child {
+      margin-top: 0;
+    }
+
+    .sim-metric-help dd {
+      margin: 4px 0 0;
+      padding-left: 0;
+      color: var(--gray-600);
     }
 
     .sim-year-stack {
@@ -846,6 +944,12 @@
       padding: 8px 12px;
       font-size: 12px;
       border-bottom: 1px solid var(--gray-100);
+    }
+
+    .sim-drow .dval {
+      min-width: 0;
+      text-align: right;
+      word-break: break-word;
     }
 
     .sim-drow:last-child {
@@ -903,6 +1007,8 @@
       padding: 8px 10px;
       text-align: right;
       border-bottom: 1px solid var(--gray-100);
+      max-width: 8.5rem;
+      word-break: break-word;
     }
 
     .sim-table th:first-child,
@@ -937,6 +1043,19 @@
       font-weight: 500;
     }
 
+    @media (max-width: 480px) {
+      .sim-table {
+        font-size: 10px;
+        min-width: 340px;
+      }
+
+      .sim-table th,
+      .sim-table td {
+        padding: 6px 5px;
+        max-width: 6.5rem;
+      }
+    }
+
     /* REPORT */
     .rload {
       text-align: center;
@@ -969,6 +1088,17 @@
       letter-spacing: 1px;
     }
 
+    .ltxt-sub {
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--gray-400);
+      line-height: 1.45;
+      max-width: 280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
     .scard {
       background: var(--blue);
       color: white;
@@ -993,7 +1123,7 @@
       background: rgba(255, 255, 255, .08);
     }
 
-    .snum {
+    .scr-num {
       font-family: 'DM Mono', monospace;
       font-size: 26px;
       font-weight: 500;
@@ -1097,19 +1227,17 @@
 
   <header>
     <div class="hdr">
-      <div class="hdr-icon">📊</div>
-      <div>
-        <div class="hdr-ttl">LifePlan <span>AI</span></div>
-      </div>
+      <div class="hdr-ttl">LifePlan <span>AI</span></div>
+      <button type="button" class="hdr-reset" onclick="resetAll()">リセット</button>
     </div>
   </header>
 
   <div class="sbar">
-    <button class="sbtn active" onclick="goTo(0)"><span class="snum">01</span><span class="slbl">基本情報</span></button>
-    <button class="sbtn" onclick="goTo(1)"><span class="snum">02</span><span class="slbl">収支設定</span></button>
-    <button class="sbtn" onclick="goTo(2)"><span class="snum">03</span><span class="slbl">イベント</span></button>
-    <button class="sbtn" onclick="goTo(3)"><span class="snum">04</span><span class="slbl">グラフ</span></button>
-    <button class="sbtn" onclick="goTo(4)"><span class="snum">05</span><span class="slbl">AI診断</span></button>
+    <button class="sbtn active" onclick="goTo(0)"><span class="step-num">01</span><span class="slbl">基本情報</span></button>
+    <button class="sbtn" onclick="goTo(1)"><span class="step-num">02</span><span class="slbl">収支設定</span></button>
+    <button class="sbtn" onclick="goTo(2)"><span class="step-num">03</span><span class="slbl">イベント</span></button>
+    <button class="sbtn" onclick="goTo(3)"><span class="step-num">04</span><span class="slbl">グラフ</span></button>
+    <button class="sbtn" onclick="goTo(4)"><span class="step-num">05</span><span class="slbl">AI診断</span></button>
   </div>
 
   <main>
@@ -1164,6 +1292,8 @@
             <div class="nsub-row"><span>住民税</span><span class="nsub-val" id="residentTaxLabel">—</span></div>
             <div class="ndiv"></div>
             <div class="nrow ntotal"><span>推定手取り年収</span><span class="nval" id="netIncomeLabel">—</span></div>
+            <div class="nsub-row"><span>額面（月）</span><span class="nsub-val" id="grossIncomeMonthLabel">—</span></div>
+            <div class="nsub-row"><span>手取り（月）</span><span class="nsub-val" id="netIncomeMonthLabel">—</span></div>
           </div>
         </div>
 
@@ -1188,6 +1318,8 @@
             <div class="nsub-row"><span>住民税</span><span class="nsub-val" id="d_residentTaxLabel">—</span></div>
             <div class="ndiv"></div>
             <div class="nrow ntotal"><span>推定手取り年収</span><span class="nval" id="detailNetLabel">—</span></div>
+            <div class="nsub-row"><span>額面（月）</span><span class="nsub-val" id="detailGrossMonthLabel">—</span></div>
+            <div class="nsub-row"><span>手取り（月）</span><span class="nsub-val" id="detailNetMonthLabel">—</span></div>
           </div>
         </div>
 
@@ -1549,55 +1681,27 @@
 
       <div class="card">
         <div class="ctitle">投資・貯蓄（月額・万円）</div>
-        <div class="frow">
+        <div class="frow invest-pair-row">
           <div class="field"><label>NISA・投資信託（積立）</label><input type="number" id="investNisa" step="1"
               placeholder="例：20"></div>
+          <div class="field"><label>想定年利（%）</label>
+            <div class="pct-inline"><input type="number" id="investNisaReturn" class="pct-input" inputmode="decimal"
+                step="0.1" min="0" max="30" placeholder="例：5" title="未入力は0%として計算"><span class="pct-sfx">%</span></div>
+            <div class="fhint" style="margin-top:6px;">長期インデックス想定なら例：5〜7%</div>
+          </div>
+        </div>
+        <div class="frow invest-pair-row">
           <div class="field"><label>iDeCo</label><input type="number" id="investIdeco" step="1" placeholder="0"></div>
+          <div class="field"><label>想定年利（%）</label>
+            <div class="pct-inline"><input type="number" id="investIdecoReturn" class="pct-input" inputmode="decimal"
+                step="0.1" min="0" max="30" placeholder="例：3" title="未入力は0%として計算"><span class="pct-sfx">%</span></div>
+            <div class="fhint" style="margin-top:6px;">保守的に見るなら例：2〜4%</div>
+          </div>
         </div>
         <div class="frow">
           <div class="field"><label>保険積立（月払い）</label><input type="number" id="insuranceReserve" step="1"
               placeholder="0"></div>
           <div class="field"><label>貯金</label><input type="number" id="saving" step="1" placeholder="例：5"></div>
-        </div>
-        <div class="field">
-          <label>NISA・投資信託の想定年利（%）</label>
-          <div class="range-with-controls">
-            <input type="range" id="investNisaReturn" class="rng-slider" data-unset="1" min="1" max="10" step="0.5"
-              value="1" oninput="syncRangeFromSlider('investNisaReturn')">
-            <div class="rng-row">
-              <button type="button" class="rng-step" onclick="stepRangeCtrl('investNisaReturn',-1)"
-                aria-label="減らす">−</button>
-              <div class="rng-num-wrap">
-                <input type="number" class="rng-num" id="investNisaReturnNum" inputmode="decimal" step="0.5" min="1"
-                  max="10" placeholder="—" oninput="syncSliderFromNumber('investNisaReturn')"
-                  onchange="syncSliderFromNumber('investNisaReturn')" onblur="blurRangeNumber('investNisaReturn')">
-                <span class="rng-num-sfx">%</span>
-              </div>
-              <button type="button" class="rng-step" onclick="stepRangeCtrl('investNisaReturn',1)"
-                aria-label="増やす">＋</button>
-            </div>
-          </div>
-          <div class="fhint">長期株式インデックス想定なら例：5〜7%</div>
-        </div>
-        <div class="field">
-          <label>iDeCoの想定年利（%）</label>
-          <div class="range-with-controls">
-            <input type="range" id="investIdecoReturn" class="rng-slider" data-unset="1" min="0" max="6" step="0.5"
-              value="0" oninput="syncRangeFromSlider('investIdecoReturn')">
-            <div class="rng-row">
-              <button type="button" class="rng-step" onclick="stepRangeCtrl('investIdecoReturn',-1)"
-                aria-label="減らす">−</button>
-              <div class="rng-num-wrap">
-                <input type="number" class="rng-num" id="investIdecoReturnNum" inputmode="decimal" step="0.5" min="0"
-                  max="6" placeholder="—" oninput="syncSliderFromNumber('investIdecoReturn')"
-                  onchange="syncSliderFromNumber('investIdecoReturn')" onblur="blurRangeNumber('investIdecoReturn')">
-                <span class="rng-num-sfx">%</span>
-              </div>
-              <button type="button" class="rng-step" onclick="stepRangeCtrl('investIdecoReturn',1)"
-                aria-label="増やす">＋</button>
-            </div>
-          </div>
-          <div class="fhint">運用タイプによって差が大きいです。保守的に見るなら例：2〜4%</div>
         </div>
         <div class="field">
           <label>保険積立の想定年利（%）</label>
@@ -1627,6 +1731,13 @@
       <div class="card" id="step1SummaryCard">
         <div class="ctitle">月間の見え方（プレビュー）</div>
         <div class="np" id="step1SummaryBox">
+          <div class="nsec-ttl">収入（月）</div>
+          <div class="nrow"><span>手取り（本人）</span><span class="nval" id="sumNetMonthSelf">—</span></div>
+          <div class="nrow" id="sumNetMonthSpouseRow" style="display:none;"><span>手取り（パートナー）</span><span
+              class="nval" id="sumNetMonthSpouse">—</span></div>
+          <div class="nrow ntotal"><span>手取り 合計（月）</span><span class="nval" id="sumNetMonthTotal">—</span></div>
+          <div class="ndiv"></div>
+          <div class="nsec-ttl">支出（月）</div>
           <div class="nrow"><span>固定費（主要）</span><span class="nval" id="sumFixedBase">—</span></div>
           <div class="nrow"><span>固定費（その他＋自由入力）</span><span class="nval" id="sumFixedExtra">—</span></div>
           <div class="nrow"><span>変動費（月平均）</span><span class="nval" id="sumVariable">—</span></div>
@@ -1636,6 +1747,8 @@
           <div class="nrow"><span>投資・貯蓄・保険積立（月）</span><span class="nval" id="sumInvestSave">—</span></div>
           <div class="ndiv"></div>
           <div class="nrow ntotal"><span>支出の目安 合計（月）</span><span class="nval" id="sumTotalOut">—</span></div>
+          <div class="ndiv"></div>
+          <div class="nrow ntotal"><span>収支差（手取り合計−支出・月）</span><span class="nval" id="sumBalanceMonth">—</span></div>
         </div>
       </div>
 
@@ -1705,7 +1818,7 @@
           <div class="field"><label>購入周期（年）</label><input type="number" id="carCycle" placeholder="例：8"></div>
         </div>
       </div>
-      <button class="btn btn-s" onclick="runSimulation()">📈 シミュレーション実行</button>
+      <button class="btn btn-s" onclick="runSimulation()">シミュレーション実行</button>
       <button class="btn btn-o" onclick="goTo(1)">← 戻る</button>
     </div>
 
@@ -1725,23 +1838,25 @@
         <div class="chart-canvas-wrap"><canvas id="balanceChart"></canvas></div>
       </div>
       <div class="card" id="simYearDetailCard" style="display:none;">
-        <div class="ctitle">数字の推移（年次）</div>
-        <p class="sim-detail-hint" style="margin-bottom:0;">
-          グラフの読み取りにくい部分を、年ごとの数値で補足します。投資・積立は「累積投入＝これまでの積立の合計（概算）」「運用収益＝評価額−累積投入」のイメージです。</p>
-        <details class="sim-detail" open>
-          <summary>カード形式（年ごと）</summary>
-          <div class="sim-detail-body">
-            <div class="sim-year-stack" id="simYearCards"></div>
-          </div>
-        </details>
-        <details class="sim-detail" open style="margin-top:10px;">
-          <summary>一覧表（横スクロール）</summary>
-          <div class="sim-detail-body">
-            <div class="sim-table-wrap">
-              <table class="sim-table" id="simYearTable" aria-label="年次シミュレーション"></table>
-            </div>
-          </div>
-        </details>
+        <div class="ctitle">年次の数値一覧</div>
+        <p class="sim-detail-hint" style="margin-bottom:0;">グラフの年ごとの内訳です。金額の単位は万円です（特に記載がない限り）。</p>
+        <dl class="sim-metric-help">
+          <dt>期末総資産</dt>
+          <dd>その年の終わり時点の「現金＋株式＋NISA・iDeCo・保険積立の評価額＋パートナー資産（入力時）」の合計です。毎年の収支・運用・イベント（住宅・車など）をシミュレーションに通した結果の総資産額で、資産推移グラフの各点と一致します。</dd>
+          <dt>1年増減</dt>
+          <dd>「今年の期末総資産 − 前年の期末総資産」です。初年度だけは「今年の期末総資産 − シミュレーション開始時点の金融資産（現金・株式・パートナー分の入力合計）」で、1年間で資産がどれだけ増えた／減ったかの目安になります。</dd>
+          <dt>年間収支</dt>
+          <dd>その年のキャッシュフロー（年間換算）です。式は「手取り収入 − 生活費・教育費などの支出 − NISA・iDeCo・貯金・保険積立の月額合計×12」に近いイメージです（住宅ローン・ボーナス月の扱いなどはシミュレーション内で調整）。棒グラフ「年間キャッシュ増減」と同じ値です。</dd>
+          <dt>投資評価</dt>
+          <dd>NISA・iDeCo・保険積立の3つを足した、期末時点の評価額の合計です。入力した想定年利と積立額で複利・積立をざっくり反映した結果です。</dd>
+          <dt>累積投入</dt>
+          <dd>その年までに積み立てた元本の累計（概算）です。在職中は毎月のNISA・iDeCo・保険積立の投入分を年単位で積み上げたイメージで、利回りによる値上がりは含みません。</dd>
+          <dt>運用収益</dt>
+          <dd>「投資評価 − 累積投入」です。評価額のうち、積み立てた元本を超えた分を運用収益として見た目安です（税・手数料は簡略化しています）。</dd>
+        </dl>
+        <div class="sim-table-wrap">
+          <table class="sim-table" id="simYearTable" aria-label="年次シミュレーション"></table>
+        </div>
       </div>
       <button class="btn btn-p" onclick="runAIReport()">🤖 AIに診断してもらう</button>
       <button class="btn btn-o" onclick="goTo(2)">← 条件を変更</button>
@@ -1756,6 +1871,7 @@
       <div id="reportLoading" class="rload">
         <div class="spin"></div>
         <div class="ltxt">ANALYZING YOUR LIFE PLAN...</div>
+        <div class="ltxt-sub">目安 3〜8 秒（初回や混雑時はやや遅れることがあります）</div>
       </div>
       <div id="reportContent"></div>
       <div id="reportActions" style="display:none;"><button class="btn btn-o" onclick="goTo(3)">← グラフに戻る</button></div>
@@ -1765,6 +1881,17 @@
 
   <script>
     let chartAsset = null, chartBalance = null, simData = null;
+
+    function dismissChartTooltipsIfOutside(ev) {
+      if (!chartAsset && !chartBalance) return;
+      const t = ev.target;
+      if (t.closest && t.closest('.chart-canvas-wrap')) return;
+      [chartAsset, chartBalance].forEach(ch => {
+        if (!ch) return;
+        ch.setActiveElements([]);
+        ch.update();
+      });
+    }
 
     /* 税計算（扶養控除対応） */
     function calcNet(grossMan, extraDeduct = 0) {
@@ -1861,6 +1988,7 @@
       document.getElementById('modeGrossFields').style.display = m === 'gross' ? 'block' : 'none';
       document.getElementById('modeDetailFields').style.display = m === 'detail' ? 'block' : 'none';
       updateIncomeGrowthPreview();
+      updateStep1Summary();
     }
     function setSpouseMode(m) {
       spouseMode = m;
@@ -1868,6 +1996,11 @@
       document.getElementById('spouseModeDetail').classList.toggle('active', m === 'detail');
       document.getElementById('spouseGrossFields').style.display = m === 'gross' ? 'block' : 'none';
       document.getElementById('spouseDetailFields').style.display = m === 'detail' ? 'block' : 'none';
+      updateStep1Summary();
+    }
+    function fmtManPerMonthFromAnnual(manAnnual) {
+      const m = manAnnual / 12;
+      return (Math.round(m * 10) / 10).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '万円';
     }
     function onGrossChange() {
       const v = parseFloat(document.getElementById('grossIncome').value) || 0;
@@ -1879,7 +2012,11 @@
       document.getElementById('incomeTaxLabel').textContent = r.incomeTaxMan + '万円';
       document.getElementById('residentTaxLabel').textContent = r.residentTaxMan + '万円';
       document.getElementById('netIncomeLabel').textContent = r.netMan + '万円/年';
+      const gm = document.getElementById('grossIncomeMonthLabel'), nm = document.getElementById('netIncomeMonthLabel');
+      if (gm) gm.textContent = fmtManPerMonthFromAnnual(v);
+      if (nm) nm.textContent = fmtManPerMonthFromAnnual(r.netMan);
       updateIncomeGrowthPreview();
+      updateStep1Summary();
     }
     function onDetailChange() {
       const gross = (parseFloat(document.getElementById('monthSalary').value) || 0) * 12 + (parseFloat(document.getElementById('bonusSalary').value) || 0);
@@ -1891,7 +2028,11 @@
       document.getElementById('d_incomeTaxLabel').textContent = r.incomeTaxMan + '万円';
       document.getElementById('d_residentTaxLabel').textContent = r.residentTaxMan + '万円';
       document.getElementById('detailNetLabel').textContent = r.netMan + '万円/年';
+      const dgm = document.getElementById('detailGrossMonthLabel'), dnm = document.getElementById('detailNetMonthLabel');
+      if (dgm) dgm.textContent = fmtManPerMonthFromAnnual(gross);
+      if (dnm) dnm.textContent = fmtManPerMonthFromAnnual(r.netMan);
       updateIncomeGrowthPreview();
+      updateStep1Summary();
     }
     function onSpouseGrossChange() {
       const v = parseFloat(document.getElementById('spouseGrossIncome').value) || 0;
@@ -1903,6 +2044,7 @@
       document.getElementById('sp_incomeTaxLabel').textContent = r.incomeTaxMan + '万円';
       document.getElementById('sp_residentTaxLabel').textContent = r.residentTaxMan + '万円';
       document.getElementById('spouseNetLabel').textContent = r.netMan + '万円/年';
+      updateStep1Summary();
     }
     function onSpouseDetailChange() {
       const gross = (parseFloat(document.getElementById('spouseMonthSalary').value) || 0) * 12 + (parseFloat(document.getElementById('spouseBonusSalary').value) || 0);
@@ -1914,6 +2056,7 @@
       document.getElementById('sd_incomeTaxLabel').textContent = r.incomeTaxMan + '万円';
       document.getElementById('sd_residentTaxLabel').textContent = r.residentTaxMan + '万円';
       document.getElementById('spouseDetailNetLabel').textContent = r.netMan + '万円/年';
+      updateStep1Summary();
     }
 
     function suffixForNumberInput(id) {
@@ -1924,7 +2067,7 @@
       return '万円';
     }
     function ensureUnitSuffix(el) {
-      if (!el || el.type !== 'number' || el.closest('.input-unit-wrap') || el.classList.contains('rng-num')) return;
+      if (!el || el.type !== 'number' || el.closest('.input-unit-wrap') || el.classList.contains('rng-num') || el.classList.contains('pct-input')) return;
       const wrap = document.createElement('div');
       wrap.className = 'input-unit-wrap';
       el.parentNode.insertBefore(wrap, el);
@@ -1946,6 +2089,11 @@
       document.querySelectorAll('.sec').forEach((s, idx) => s.classList.toggle('active', idx === i));
       document.querySelectorAll('.sbtn').forEach((b, idx) => b.classList.toggle('active', idx === i));
       window.scrollTo(0, 0);
+    }
+
+    function resetAll() {
+      if (!confirm('入力内容をすべて消してページを再読み込みしますか？')) return;
+      location.reload();
     }
 
     /** デモ用：サンプル値を流し込み、シミュレーションまで実行 */
@@ -2021,8 +2169,8 @@
       setInputVal('investIdeco', 3);
       setInputVal('insuranceReserve', 1);
       setInputVal('saving', 5);
-      setRangeDemo('investNisaReturn', 5);
-      setRangeDemo('investIdecoReturn', 3);
+      setInputVal('investNisaReturn', 5);
+      setInputVal('investIdecoReturn', 3);
       setRangeDemo('insuranceReturn', 2);
       updateStep1Summary();
 
@@ -2108,7 +2256,7 @@
       runRangeExtra(rangeId);
     }
     function refreshRangeLabels() {
-      ['incomeGrowth', 'assetStockRate', 'spouseAssetStockRate', 'investNisaReturn', 'investIdecoReturn', 'insuranceReturn', 'loanRate'].forEach(id => {
+      ['incomeGrowth', 'assetStockRate', 'spouseAssetStockRate', 'insuranceReturn', 'loanRate'].forEach(id => {
         const r = document.getElementById(id), n = document.getElementById(id + 'Num');
         if (!r || !n) return;
         if (r.hasAttribute('data-unset')) n.value = '';
@@ -2116,12 +2264,13 @@
       });
     }
     function g(id) { const e = document.getElementById(id); return e ? parseFloat(e.value) || 0 : 0; }
-    /** type=range で未操作（data-unset）のときは計算上 0 */
+    /** type=range で未操作（data-unset）のときは計算上 0。数値 input は空欄を 0 */
     function gr(id) {
       const e = document.getElementById(id);
       if (!e) return 0;
       if (e.getAttribute('type') === 'range' && e.hasAttribute('data-unset')) return 0;
-      return parseFloat(e.value) || 0;
+      const v = parseFloat(e.value);
+      return Number.isFinite(v) ? v : 0;
     }
     function updateIncomeGrowthPreview() {
       const baseNet = getNetIncomeMan();
@@ -2168,7 +2317,7 @@
     }
     function gb(id) { const e = document.getElementById(id); return e ? e.checked : false; }
     function gs(id) { const e = document.getElementById(id); return e ? e.value : ''; }
-    function toggleSpouse() { document.getElementById('spouseFields').style.display = gb('hasSpouse') ? 'block' : 'none'; updateAssetTotal(); }
+    function toggleSpouse() { document.getElementById('spouseFields').style.display = gb('hasSpouse') ? 'block' : 'none'; updateAssetTotal(); updateStep1Summary(); }
     function toggleHouse() { document.getElementById('houseFields').style.display = gb('buyHouse') ? 'block' : 'none'; }
     function renderChildren() {
       const n = parseInt(document.getElementById('childCount').value), w = document.getElementById('childrenFields');
@@ -2210,8 +2359,24 @@
       const living = fixedBase + fixedExtra + variable + specialMonthly;
       const investSave = g('investNisa') + g('investIdeco') + g('saving') + g('insuranceReserve');
       const totalOut = living + investSave;
+      const netSelf = getNetIncomeMan() / 12;
+      const hs = gb('hasSpouse');
+      const netSpouse = hs ? getSpouseNetMan() / 12 : 0;
+      const netTotal = netSelf + netSpouse;
+      const balance = netTotal - totalOut;
       const fmt = v => v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '万円';
       const el = id => document.getElementById(id);
+      if (el('sumNetMonthSelf')) el('sumNetMonthSelf').textContent = fmt(netSelf);
+      const srow = el('sumNetMonthSpouseRow');
+      if (srow) {
+        srow.style.display = hs ? 'flex' : 'none';
+        if (hs && el('sumNetMonthSpouse')) el('sumNetMonthSpouse').textContent = fmt(netSpouse);
+      }
+      if (el('sumNetMonthTotal')) el('sumNetMonthTotal').textContent = fmt(netTotal);
+      if (el('sumBalanceMonth')) {
+        el('sumBalanceMonth').textContent = fmt(balance);
+        el('sumBalanceMonth').style.color = balance >= 0 ? 'var(--green)' : 'var(--red)';
+      }
       if (el('sumFixedBase')) el('sumFixedBase').textContent = fmt(fixedBase);
       if (el('sumFixedExtra')) el('sumFixedExtra').textContent = fmt(fixedExtra);
       if (el('sumVariable')) el('sumVariable').textContent = fmt(variable);
@@ -2322,7 +2487,8 @@
       const kids = []; for (let i = 0; i < cc; i++)kids.push({ ca: g(`childAge${i}`), u: gs(`childUniv${i}`) });
       const crc = g('carCost'), cycRaw = g('carCycle'), cyc = crc > 0 ? (cycRaw > 0 ? cycRaw : 8) : 0;
       const spouseAgeSim = hs ? (g('spouseAge') > 0 ? g('spouseAge') : age) : age;
-      const initialTot = Math.round((gb('hasCash') ? g('assetCash') : 0) + (gb('hasStock') ? g('assetStock') : 0) + (gb('hasSpouse') && gb('spouseHasCash') ? g('spouseAssetCash') : 0) + (gb('hasSpouse') && gb('spouseHasStock') ? g('spouseAssetStock') : 0));
+      const initialExact = (gb('hasCash') ? g('assetCash') : 0) + (gb('hasStock') ? g('assetStock') : 0) + (gb('hasSpouse') && gb('spouseHasCash') ? g('spouseAssetCash') : 0) + (gb('hasSpouse') && gb('spouseHasStock') ? g('spouseAssetStock') : 0);
+      const initialTot = Math.round(initialExact);
       const lbls = [], aD = [], bD = [], invEvalD = [], invPrincipalD = [], invGainD = [];
       let cash = assetCash, stock = assetStock, spStock = spAssetStock, spCash = spAssetCash, invNisa = 0, invIdeco = 0, invIns = 0, cumInvIn = 0;
       // 年金推計（老齢厚生年金＋老齢基礎年金の簡易計算）
@@ -2359,7 +2525,7 @@
         const tot = Math.max(-5000, cash + stock + invNisa + invIdeco + invIns + spCash + spStock);
         aD.push(Math.round(tot)); bD.push(Math.round(net * 12));
       }
-      simData = { age, retireAge, endAge, lbls, aD, bD, initialAssets: initialTot, invEvalD, invPrincipalD, invGainD, totalAssets: aD[aD.length - 1], retireAssets: aD[retireAge - age] ?? 0, peakAssets: Math.max(...aD), incomeBase, me, mi, ms, cc, bh, hp, pm: pmMonth, hs };
+      simData = { age, retireAge, endAge, lbls, aD, bD, initialAssets: initialTot, initialExact, invEvalD, invPrincipalD, invGainD, totalAssets: aD[aD.length - 1], retireAssets: aD[retireAge - age] ?? 0, peakAssets: Math.max(...aD), incomeBase, me, mi, ms, cc, bh, hp, pm: pmMonth, hs };
       document.getElementById('simTitle').textContent = `${age}歳〜${endAge}歳 シミュレーション`;
       const sur = Math.round((incomeBase - me - mi - ms - mIns) * 12);
       const surHint = hs ? '（本人の手取りのみ。パートナー収入は含みません）' : '（本人の月手取り−生活費−NISA・iDeCo−貯金−保険積立）×12';
@@ -2420,31 +2586,21 @@
     }
 
     function renderSimulationYearDetail(d) {
-      const card = document.getElementById('simYearDetailCard'), stack = document.getElementById('simYearCards'), tbl = document.getElementById('simYearTable');
-      if (!card || !stack || !tbl || !d || !d.lbls) return;
+      const card = document.getElementById('simYearDetailCard'), tbl = document.getElementById('simYearTable');
+      if (!card || !tbl || !d || !d.lbls) return;
       card.style.display = 'block';
       const n = d.lbls.length;
-      const rows = [];
       let tableHtml = '<thead><tr><th>年齢</th><th>期末総資産</th><th>1年増減</th><th>年間収支</th><th>投資評価</th><th>累積投入</th><th>運用収益</th></tr></thead><tbody>';
+      const startVal = typeof d.initialExact === 'number' ? d.initialExact : d.initialAssets;
       for (let y = 0; y < n; y++) {
-        const prev = y === 0 ? d.initialAssets : d.aD[y - 1];
+        const prev = y === 0 ? startVal : d.aD[y - 1];
         const delta = d.aD[y] - prev;
         const dCls = delta >= 0 ? 'pos' : 'neg';
         const bCls = d.bD[y] >= 0 ? 'pos' : 'neg';
         const igCls = d.invGainD[y] >= 0 ? 'pos' : 'neg';
-        rows.push(`<div class="sim-year-card"><div class="sim-year-hdr">${d.lbls[y]}（${y + 1}年目）</div><div class="sim-year-rows">
-      <div class="sim-drow"><span class="dlab">期末の総資産</span><span class="dval">${fmtManPlain(d.aD[y])}</span></div>
-      <div class="sim-drow"><span class="dlab">1年間の増減</span><span class="dval ${dCls}">${fmtManSigned(delta)}</span></div>
-      <div class="sim-drow"><span class="dlab">年間収支バランス</span><span class="dval ${bCls}">${fmtManSigned(d.bD[y])}</span></div>
-      <div class="sim-subcap">投資・積立（NISA・iDeCo・保険積立）</div>
-      <div class="sim-drow"><span class="dlab">評価額（期末）</span><span class="dval">${fmtManPlain(d.invEvalD[y])}</span></div>
-      <div class="sim-drow"><span class="dlab">累積投入（概算）</span><span class="dval">${fmtManPlain(d.invPrincipalD[y])}</span></div>
-      <div class="sim-drow"><span class="dlab">運用収益（概算）</span><span class="dval ${igCls}">${fmtManSigned(d.invGainD[y])}</span></div>
-    </div></div>`);
         tableHtml += `<tr><td>${d.lbls[y]}</td><td>${fmtManPlain(d.aD[y])}</td><td class="${dCls}">${fmtManSigned(delta)}</td><td class="${bCls}">${fmtManSigned(d.bD[y])}</td><td>${fmtManPlain(d.invEvalD[y])}</td><td>${fmtManPlain(d.invPrincipalD[y])}</td><td class="${igCls}">${fmtManSigned(d.invGainD[y])}</td></tr>`;
       }
       tableHtml += '</tbody>';
-      stack.innerHTML = rows.join('');
       tbl.innerHTML = tableHtml;
     }
 
@@ -2456,8 +2612,19 @@
       document.getElementById('reportContent').innerHTML = '';
       document.getElementById('reportActions').style.display = 'none';
       const d = simData;
-      const prompt = `あなたはプロのFP（ファイナンシャルプランナー）です。以下のライフプランを日本語で診断してください。\n【基本情報】年齢${d.age}歳、退職予定${d.retireAge}歳、月手取り${Math.round(d.incomeBase)}万、パートナー${d.hs ? 'あり' : 'なし'}、子供${d.cc}人\n【収支】生活費${Math.round(d.me)}万/月、投資${d.mi}万/月、貯金${d.ms}万/月\n【イベント】住宅購入${d.bh ? 'あり(' + d.hp + '万)' : 'なし'}\n【結果】退職時資産${d.retireAssets}万、ピーク${d.peakAssets}万、最終${d.totalAssets}万、年金${d.pm}万/月\nJSON形式のみで回答（他テキスト不要）:\n{"score":<0-100>,"scoreComment":"<20字以内>","overview":"<2〜3文>","strengths":["<s1>","<s2>","<s3>"],"risks":["<r1>","<r2>"],"actions":["<a1>","<a2>","<a3>"],"fireStatus":"<2文>"}`;
+      if (!d) {
+        document.getElementById('reportLoading').style.display = 'none';
+        document.getElementById('reportContent').innerHTML = '<div class="card"><p style="font-size:13px;color:var(--gray-600)">先に「シミュレーション実行」でグラフを表示してください。</p></div>';
+        return;
+      }
+      const prompt = `FPとして診断。出力は有効なJSON1つのみ（前後に説明・\`\`\`禁止）。
+データ: ${d.age}歳/退職${d.retireAge}歳/月手取${Math.round(d.incomeBase)}万/配偶${d.hs ? '有' : '無'}/子${d.cc}/生活費${Math.round(d.me)}万月/投${d.mi}万月/貯${d.ms}万月/住宅${d.bh ? d.hp + '万' : '無'}/退職時資産${d.retireAssets}万/最終${d.totalAssets}万/年金月${d.pm}万
+必須キーと制限: score 0-100整数, scoreComment 12字以内, overview 1文45字以内, strengths 文字列3つ各22字以内, risks 2つ各28字以内, actions 3つ各22字以内, fireStatus 1文40字以内
+例: {"score":65,"scoreComment":"バランス型","overview":"...","strengths":["","",""],"risks":["",""],"actions":["","",""],"fireStatus":"..."}`;
 
+      const ac = new AbortController();
+      const timeoutMs = 25000;
+      const timer = setTimeout(() => ac.abort(), timeoutMs);
       try {
         const res = await fetch('/api/ai-report', {
           method: 'POST',
@@ -2466,13 +2633,16 @@
           },
           body: JSON.stringify({
             prompt
-          })
+          }),
+          signal: ac.signal
         });
         if (!res.ok) throw new Error(`AI API error: ${res.status}`);
         const data = await res.json();
         renderReport(data);
       } catch (e) {
         renderFallback();
+      } finally {
+        clearTimeout(timer);
       }
     }
 
@@ -2481,7 +2651,7 @@
       document.getElementById('reportLoading').style.display = 'none';
       document.getElementById('reportContent').innerHTML = `
     <div class="scard">
-      <div class="scirc"><div class="snum">${r.score}</div><div class="sden">/100</div></div>
+      <div class="scirc"><div class="scr-num">${r.score}</div><div class="sden">/100</div></div>
       <div><div class="seye">FINANCIAL HEALTH SCORE</div><div class="scom">${r.scoreComment}</div><div class="sovw">${r.overview}</div></div>
     </div>
     <div class="rblk good"><div class="rttl">✓ 強み・評価ポイント</div>${r.strengths.map(s => `<div class="ritem"><span style="color:var(--green);flex-shrink:0">●</span><span>${s}</span></div>`).join('')}</div>
@@ -2522,6 +2692,7 @@
     updateStep1Summary();
     refreshRangeLabels();
     updateIncomeGrowthPreview();
+    document.addEventListener('click', dismissChartTooltipsIfOutside);
   </script>
 </body>
 

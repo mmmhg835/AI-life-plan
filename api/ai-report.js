@@ -14,6 +14,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid prompt' });
   }
 
+  const upstream = new AbortController();
+  const upTimer = setTimeout(() => upstream.abort(), 22000);
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -24,9 +26,11 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
+        max_tokens: 500,
+        temperature: 0.3,
         messages: [{ role: 'user', content: prompt }]
-      })
+      }),
+      signal: upstream.signal
     });
 
     if (!anthropicRes.ok) {
@@ -40,5 +44,7 @@ export default async function handler(req, res) {
     return res.status(200).json(parsed);
   } catch (error) {
     return res.status(500).json({ error: 'AI report generation failed' });
+  } finally {
+    clearTimeout(upTimer);
   }
 }

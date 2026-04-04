@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/ai-report.js": {
+      "maxDuration": 60
+    }
+  }
+}
