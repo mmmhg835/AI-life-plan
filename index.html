@@ -2369,8 +2369,11 @@
         netExact: (g - sA - it - rt) / 10000,
         incomeTaxExact: it / 10000,
         residentTaxExact: rt / 10000,
-        /* 給与所得（＝額面－給与所得控除）。住宅ローン控除の所得制限判定に使う */
+        socialExact: sA / 10000,
+        /* 給与所得（＝額面－給与所得控除） */
         salaryIncomeExact: (g - sd) / 10000,
+        /* 合計所得。年金があれば雑所得を足したものになる（住宅ローン控除の所得制限に使う） */
+        totalIncomeExact: (g - sd) / 10000,
         salaryIncomeMan: Math.round((g - sd) / 10000),
         kenpoMan: Math.round(kenpo * 12 / 10000),
         koseiMan: Math.round(kosei * 12 / 10000),
@@ -2446,6 +2449,8 @@
        超えると、超えた分の半分が支給停止になる。令和7年度の調整額は51万円。
        基礎年金と加給年金は停止の対象外。 */
     const ZAISHOKU_THRESHOLD = 51;
+    /* 繰下げ受給の上限年齢 */
+    const PENSION_MAX_START_AGE = 75;
     function zaishokuStopAnnual(koseiAnnualMan, salaryAnnualMan) {
       const koseiM = Math.max(0, koseiAnnualMan) / 12;
       const over = koseiM + Math.max(0, salaryAnnualMan) / 12 - ZAISHOKU_THRESHOLD;
@@ -2491,6 +2496,40 @@
       const it = incomeTaxYen((base - 48) * 10000) / 10000;
       const rt = Math.max(0, base - 43) * .10;
       return Math.max(0, grossMan - social - it - rt);
+    }
+
+    /* 給与と公的年金を同じ年に受け取る場合の手取り（万円/年）。
+       社会保険料は給与から引かれるぶんだけにする。在職中は勤務先の健康保険・
+       厚生年金に入っているので、年金にさらに国民健康保険料をかけると二重になる。
+       所得税・住民税は給与所得と雑所得（公的年金等）を合算した累進で計算する。
+       年金が0なら calcNet と同じ結果になる。 */
+    function taxOfYear(salaryGrossMan, pensionGrossMan, age, extraDeduct = 0) {
+      const c = calcNet(salaryGrossMan, extraDeduct);
+      const pg = Math.max(0, nz(pensionGrossMan));
+      if (pg <= 0) return c;
+      const zatsu = Math.max(0, pg - pensionDeduct(pg, age));   /* 雑所得（公的年金等） */
+      const income = c.salaryIncomeExact + zatsu;
+      const tx = Math.max(0, income - c.socialExact - 48 - extraDeduct);
+      const txR = Math.max(0, income - c.socialExact - 43 - extraDeduct);
+      const it = incomeTaxYen(tx * 10000) / 10000;
+      const rt = Math.max(0, txR * .10 - 0.25) + (txR > 0 ? 0.5 : 0);
+      return Object.assign({}, c, {
+        netExact: salaryGrossMan + pg - c.socialExact - it - rt,
+        incomeTaxExact: it, residentTaxExact: rt, totalIncomeExact: income
+      });
+    }
+    function netSalaryPlusPension(salaryGrossMan, pensionGrossMan, age, extraDeduct = 0) {
+      return taxOfYear(salaryGrossMan, pensionGrossMan, age, extraDeduct).netExact;
+    }
+
+    /* 年金額面のうち老齢基礎年金にあたる部分（万円/年）。
+       在職老齢年金は厚生年金部分にしかかからないので、これを差し引いて使う。
+       加入年数の基準は自動推計（estimatePensionMonthly）と揃え、
+       繰上げ・繰下げの増減率も同じだけ掛ける。額面を手入力した場合でも
+       年金額面を超えないよう頭打ちにする。 */
+    function kisoPartOf(pensionGrossMan, retireAge, startRate) {
+      const wy = Math.max(10, (retireAge || 60) - DEFAULT_WORK_START_AGE);
+      return Math.min(Math.max(0, nz(pensionGrossMan)), kisoAnnual(wy) * (startRate || 1));
     }
 
     /* 退職所得の税額（万円）。退職所得控除→1/2→分離課税。
@@ -2833,11 +2872,13 @@
          手取り入力モードでも grossOf() が額面を逆算するので同じ扱いにでき、
          累進課税で手取りの伸びが額面より鈍る点が反映される。
          手取り入力の初年度は入力値そのものを使いたいので、伸び率だけを借りる */
-      const netAtYear = (per, gross0, growth, dep, y) => {
+      const netAtYear = (per, gross0, growth, dep, y, dep0) => {
         if (!gross0) return incomeModeOf(per) === 'net' ? nz(per.netIncome) : 0;
-        const netY = calcNet(gross0 * Math.pow(growth, y), dep).netMan;
+        const netY = calcNet(gross0 * Math.pow(growth, y), dep).netExact;
         if (incomeModeOf(per) !== 'net') return netY;
-        const net0 = calcNet(gross0, dep).netMan;
+        /* 基準は初年度の扶養控除で固定する。毎年の控除で割ってしまうと
+           扶養控除の増減が打ち消し合って手取りに出てこない */
+        const net0 = calcNet(gross0, dep0 == null ? dep : dep0).netExact;
         return net0 > 0 ? nz(per.netIncome) * (netY / net0) : netY;
       };
       /* 年金は額面で保持し、受給年ごとに手取りへ換算する。
@@ -2854,13 +2895,18 @@
          退職年齢まで繰下げたものとして扱う（従来どおりの既定） */
       const selfWorkPension = b.workPension === true;
       const pWorkPension = p.workPension === true;
-      const selfPenStart = selfWorkPension
-        ? (nz(b.pensionStartAge) || 65) : Math.max(nz(b.pensionStartAge || 65), retireAge);
-      const selfPensionGross = selfPensionBase * pensionStartRate(selfPenStart);
+      /* 繰下げは75歳が上限。それより遅く退職する場合は75歳から受け取り始め、
+         在職中なら在職老齢年金の対象になる */
+      const selfPenStart = Math.min(PENSION_MAX_START_AGE, selfWorkPension
+        ? (nz(b.pensionStartAge) || 65) : Math.max(nz(b.pensionStartAge || 65), retireAge));
+      const selfPenRate = pensionStartRate(selfPenStart);
+      const selfPensionGross = selfPensionBase * selfPenRate;
       const pPenStart = pHas
-        ? (pWorkPension ? (nz(p.pensionStartAge) || 65) : Math.max(nz(p.pensionStartAge || 65), pRetire))
+        ? Math.min(PENSION_MAX_START_AGE, pWorkPension
+          ? (nz(p.pensionStartAge) || 65) : Math.max(nz(p.pensionStartAge || 65), pRetire))
         : 65;
-      const pPensionGross = pPensionBase * pensionStartRate(pPenStart);
+      const pPenRate = pensionStartRate(pPenStart);
+      const pPensionGross = pPensionBase * pPenRate;
 
       /* 退職金（額面→退職所得課税を引いた手取りを、受取年に一括計上） */
       const selfWorkYears = Math.max(1, retireAge - (nz(b.workStartAge) || DEFAULT_WORK_START_AGE));
@@ -2882,9 +2928,9 @@
       const kakyuAt = (selfAge, partnerAge, partnerGrossY) =>
         (kakyuEligible && selfAge >= 65 && selfAge >= selfPenStart
           && partnerAge < 65 && partnerGrossY < KAKYU_SPOUSE_INCOME_CAP) ? KAKYU_ANNUAL : 0;
-      /* 在職老齢年金の支給停止額。基礎年金と加給年金は対象外なので厚生年金部分だけで見る */
-      const zaishokuCut = (pensionGross, workYears, salaryGrossY) =>
-        zaishokuStopAnnual(Math.max(0, pensionGross - kisoAnnual(workYears)), salaryGrossY);
+      /* 老齢厚生年金にあたる部分。在職老齢年金はここにしかかからない */
+      const selfKoseiPart = Math.max(0, selfPensionGross - kisoPartOf(selfPensionGross, retireAge, selfPenRate));
+      const pKoseiPart = Math.max(0, pPensionGross - kisoPartOf(pPensionGross, pRetire, pPenRate));
 
       /* 子供（出生順ソート・計算対象のみ） */
       const kids = sc.children
@@ -2963,11 +3009,14 @@
       let invNisa = 0, invIdeco = 0, invIns = 0, cumInvIn = 0;
       const initialExact = cash + stock + pStock;
 
+      /* 手取り入力モードの基準になる、初年度の扶養控除 */
+      const dep0 = depDeductAt(b, kids, startYear);
+
       const rows = [];
       const lbls = [], aD = [], bD = [], invEvalD = [], invPrincipalD = [], invGainD = [];
       let depletionAge = null;
       let cgTaxTotal = 0, loanCreditTotal = 0, idecoSavingTotal = 0;
-      let kakyuTotal = 0, pensionCutTotal = 0, idecoLumpTotal = 0;
+      let kakyuTotal = 0, pensionCutTotal = 0, idecoLumpTotal = 0, lumpNetTotal = 0;
 
       for (let y = 0; y < years; y++) {
         const year = startYear + y, curAge = age + y;
@@ -2989,10 +3038,27 @@
 
         /* --- 収入 --- */
         const depY = depDeductAt(b, kids, year);
-        /* その年の額面と税額。iDeCoの掛金は全額が所得控除（小規模企業共済等掛金控除）になる */
         const selfGrossY = selfGross0 * Math.pow(ig, y);
-        const taxPlain = (wk && selfGross0) ? calcNet(selfGrossY, depY) : null;
-        const taxAfterIdeco = (taxPlain && idecoIn > 0) ? calcNet(selfGrossY, depY + idecoIn) : taxPlain;
+        const pAgeY = pHas ? pAge0 + y : curAge;
+        const pGrossY = pHas && pAgeY < pRetire ? pGross0 * Math.pow(pIg, y) : 0;
+
+        /* 年金。65歳以降は加給年金が乗り、在職中なら在職老齢年金で一部が止まる */
+        let pensionCut = 0, kakyu = 0, pensionGrossY = 0;
+        if (curAge >= selfPenStart) {
+          kakyu = kakyuAt(curAge, pAgeY, pGrossY);
+          if (wk) pensionCut = zaishokuStopAnnual(selfKoseiPart, selfGrossY);
+          /* 厚生年金が全額止まると加給年金も出ない */
+          if (pensionCut >= selfKoseiPart - 1e-9 && selfKoseiPart > 0) kakyu = 0;
+          pensionGrossY = Math.max(0, selfPensionGross - pensionCut) + kakyu;
+        }
+
+        /* その年の税額。在職中に年金も受け取る年は、給与と年金を合算した累進で見る。
+           社会保険料は給与ぶんだけ（勤務先の健保・厚生年金に入っているため）。
+           iDeCoの掛金は全額が所得控除（小規模企業共済等掛金控除）になる */
+        const penForTax = wk ? pensionGrossY : 0;
+        const taxPlain = (wk && selfGross0) ? taxOfYear(selfGrossY, penForTax, curAge, depY) : null;
+        const taxAfterIdeco = (taxPlain && idecoIn > 0)
+          ? taxOfYear(selfGrossY, penForTax, curAge, depY + idecoIn) : taxPlain;
         /* 控除を額面側に入れず「軽くなった税額」として足すことで、
            手取り入力モードでも同じように効かせる */
         const idecoSaving = (taxPlain && idecoIn > 0)
@@ -3001,7 +3067,7 @@
         /* 住宅ローン控除：年末残高×0.7%。所得税＋住民税（9.75万まで）の範囲内でしか戻らない */
         let loanCredit = 0;
         if (hCredit && taxAfterIdeco && year >= h.buyY && year < h.buyY + hCreditYears
-          && taxAfterIdeco.salaryIncomeExact <= LOAN_CREDIT_INCOME_CAP) {
+          && taxAfterIdeco.totalIncomeExact <= LOAN_CREDIT_INCOME_CAP) {
           const bal = loanBalanceAt(hPrincipal, nz(h.loanYears), nz(h.loanRate),
             year * 12 + 12 - hStartIdx + 1);
           const room = taxAfterIdeco.incomeTaxExact
@@ -3009,25 +3075,25 @@
           loanCredit = Math.max(0, Math.min(Math.min(bal, hCreditLimit) * LOAN_CREDIT_RATE, room));
         }
 
-        const pAgeY = pHas ? pAge0 + y : curAge;
-        const pGrossY = pHas && pAgeY < pRetire ? pGross0 * Math.pow(pIg, y) : 0;
-
-        let incSelf = wk ? netAtYear(b, selfGross0, ig, depY, y) : 0;
-        if (wk) incSelf += nz(b.sideIncome);
-        /* 年金。65歳以降は加給年金が乗り、在職中なら在職老齢年金で一部が止まる */
-        let pensionCut = 0, kakyu = 0;
-        if (curAge >= selfPenStart) {
-          kakyu = kakyuAt(curAge, pAgeY, pGrossY);
-          if (wk) pensionCut = zaishokuCut(selfPensionGross, selfWorkYears, selfGrossY);
-          const g = Math.max(0, selfPensionGross - pensionCut) + kakyu;
-          incSelf += pensionNetAnnual(g, curAge);
+        let incSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0) : 0;
+        if (pensionGrossY > 0) {
+          if (wk && selfGross0) {
+            /* 年金を足したことによる手取りの増分だけを乗せる */
+            incSelf += Math.max(0, taxOfYear(selfGrossY, pensionGrossY, curAge, depY).netExact
+              - calcNet(selfGrossY, depY).netExact);
+          } else {
+            incSelf += pensionNetAnnual(pensionGrossY, curAge);
+          }
         }
+        if (wk) incSelf += nz(b.sideIncome);
         /* iDeCoは受取年齢に一時金で受け取る。会社の退職金と同じ年なら
            退職所得控除を分け合うのでまとめて課税計算する */
         let idecoLump = 0, severance = 0;
         const takeIdeco = curAge === idecoTakeAge && invIdeco > 0;
         if (takeIdeco) { idecoLump = invIdeco; invIdeco = 0; }
-        if (curAge === selfSevAge && takeIdeco) {
+        /* 退職金とiDeCoを同じ年に受け取るときだけ、控除枠を分け合う。
+           退職金がない年は勤続年数を持ち出せないので、加入年数だけで計算する */
+        if (curAge === selfSevAge && takeIdeco && nz(b.severance) > 0) {
           severance += severanceNet(nz(b.severance) + idecoLump, Math.max(selfWorkYears, idecoYears));
         } else {
           if (curAge === selfSevAge) severance += selfSevNet;
@@ -3039,10 +3105,17 @@
           const wsFrac = p.workStartY
             ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
             : 1;
-          if (pwk && wsFrac > 0) incPartner += netAtYear(p, pGross0, pIg, 0, y) * wsFrac + nz(p.sideIncome);
+          if (pwk && wsFrac > 0) incPartner += netAtYear(p, pGross0, pIg, 0, y, 0) * wsFrac + nz(p.sideIncome);
           if (pAgeY >= pPenStart) {
-            const cut = pwk ? zaishokuCut(pPensionGross, pWorkYears, pGrossY) : 0;
-            incPartner += pensionNetAnnual(Math.max(0, pPensionGross - cut), pAgeY);
+            const cut = pwk ? zaishokuStopAnnual(pKoseiPart, pGrossY) : 0;
+            const pg = Math.max(0, pPensionGross - cut);
+            pensionCut += cut;
+            if (pwk && pGross0 && pGrossY > 0) {
+              incPartner += Math.max(0, netSalaryPlusPension(pGrossY, pg, pAgeY, 0)
+                - calcNet(pGrossY, 0).netExact);
+            } else {
+              incPartner += pensionNetAnnual(pg, pAgeY);
+            }
           }
           if (pAgeY === pSevAge) severance += pSevNet;
         }
@@ -3181,6 +3254,7 @@
         loanCreditTotal += loanCredit;
         idecoSavingTotal += idecoSaving;
         kakyuTotal += kakyu;
+        lumpNetTotal += severance;
         pensionCutTotal += pensionCut;
         idecoLumpTotal += idecoLump;
       }
@@ -3194,7 +3268,8 @@
         retireAssets: aD[retireAge - age - 1] ?? Math.round(initialExact),
         peakAssets: Math.max(...aD),
         depletionAge,
-        severanceNetTotal: Math.round(selfSevNet + pSevNet),
+        /* 実際に受け取った一時金の合計（退職金＋iDeCo、合算課税を反映した手取り） */
+        severanceNetTotal: Math.round(lumpNetTotal),
         cgTaxTotal: Math.round(cgTaxTotal),
         loanCreditTotal: Math.round(loanCreditTotal),
         idecoSavingTotal: Math.round(idecoSavingTotal),
@@ -3202,7 +3277,7 @@
         pensionCutTotal: Math.round(pensionCutTotal),
         idecoLumpTotal: Math.round(idecoLumpTotal),
         idecoTakeAge, selfPenStart,
-        netMonthly: netAtYear(b, selfGross0, ig, depDeductAt(b, kids, startYear), 0) / 12,
+        netMonthly: netAtYear(b, selfGross0, ig, dep0, 0, dep0) / 12,
         kidCount: kids.length,
         hBuy, hPrice: nz(h.price),
         pm: Math.round(pensionNetAnnual(selfPensionGross, Math.max(65, selfPenStart)) / 12),
@@ -4056,7 +4131,7 @@
         ? `<div class="klbl-hint neg">想定年利−${bandPct}%だと${bandLo.depletionAge}歳で尽きます</div>` : '';
       kpi.innerHTML = `
         <div class="kcard"><div class="klbl">退職直前の資産（${sim.retireAge}歳時点）</div><div class="kval ${sim.retireAssets >= 0 ? 'pos' : 'neg'}">${fmtM(sim.retireAssets)}</div>
-          ${sim.severanceNetTotal ? `<div class="klbl-hint">退職金${fmtM(sim.severanceNetTotal)}（手取り）は受取年に加算</div>` : ''}</div>
+          ${sim.severanceNetTotal ? `<div class="klbl-hint">退職一時金${fmtM(sim.severanceNetTotal)}（手取り・iDeCo一時金を含む）は受取年に加算</div>` : ''}</div>
         <div class="kcard"><div class="klbl">最終資産（${sim.endAge}歳）</div><div class="kval ${sim.totalAssets >= 0 ? 'pos' : 'neg'}">${fmtM(sim.totalAssets)}</div>${bandNote}</div>
         <div class="kcard"><div class="klbl">資産が尽きる年齢</div>
           <div class="kval ${sim.depletionAge == null ? 'pos' : 'neg'}">${sim.depletionAge == null ? '枯渇なし' : sim.depletionAge + '歳'}</div>
@@ -4364,11 +4439,11 @@
     <div class="rblk"><div class="rttl">→ 今すぐやるべきアクション</div>${r.actions.map((a2, i) => `<div class="ritem"><span style="color:var(--orange);font-weight:700;flex-shrink:0">${i + 1}</span><span>${a2}</span></div>`).join('')}</div>
     <div class="rblk fire"><div class="rttl">🔥 FIRE達成シナリオ</div><div class="ritem"><span>${r.fireStatus}</span></div></div>
     <div class="card" style="margin-top:4px;"><div class="ctitle">数値サマリー</div>
-      ${[[`退職直前の資産（${d.retireAge}歳時点）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（手取り月額）', d.pm + '万円', true], ['退職金（手取り）', fmtM(d.severanceNetTotal), true],
+      ${[[`退職直前の資産（${d.retireAge}歳時点）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（手取り月額）', d.pm + '万円', true], ['退職一時金（手取り・iDeCo含む）', fmtM(d.severanceNetTotal), true],
       ...(d.loanCreditTotal > 0 ? [['住宅ローン控除の総額', fmtM(d.loanCreditTotal), true]] : []),
       ...(d.idecoSavingTotal > 0 ? [['iDeCo所得控除の節税総額', fmtM(d.idecoSavingTotal), true]] : []),
       ...(d.cgTaxTotal > 0 ? [['取り崩し時の譲渡益税', fmtM(d.cgTaxTotal), false]] : []),
-      ...(d.idecoLumpTotal > 0 ? [[`iDeCo一時金（${d.idecoTakeAge}歳・税引前）`, fmtM(d.idecoLumpTotal), true]] : []),
+      ...(d.idecoLumpTotal > 0 ? [[`うちiDeCo一時金（${d.idecoTakeAge}歳・税引前）`, fmtM(d.idecoLumpTotal), true]] : []),
       ...(d.kakyuTotal > 0 ? [['加給年金の総額', fmtM(d.kakyuTotal), true]] : []),
       ...(d.pensionCutTotal > 0 ? [['在職老齢年金による支給停止', fmtM(d.pensionCutTotal), false]] : []),
       ['資産が尽きる年齢', d.depletionAge == null ? '枯渇なし' : d.depletionAge + '歳', d.depletionAge == null], [`最終資産（${d.endAge}歳）`, fmtM(d.totalAssets), d.totalAssets >= 0]].map(([l, v, p]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);"><span style="font-size:13px;color:var(--gray-600)">${l}</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${p ? 'var(--green)' : 'var(--red)'}">${v}</span></div>`).join('')}
