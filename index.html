@@ -2086,7 +2086,7 @@
         partner: {
           has: null, age: null, retireAge: null, mode: 'gross',
           grossIncome: null, monthSalary: null, bonusSalary: null, netIncome: null,
-          workStartY: null, workStartM: null,
+          workStartY: null, workStartM: null, incomeGrowth: null,
           sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
           severance: null, severanceAge: null, workStartAge: null,
           assetCash: null, assetStock: null, assetStockRate: null
@@ -2351,7 +2351,11 @@
       const tx = Math.max(0, g - sd - sA - 480000 - extraDeduct * 10000);
       const txR = Math.max(0, g - sd - sA - 430000 - extraDeduct * 10000);
       let it = incomeTaxYen(tx);
-      const rt = Math.max(0, txR * .10 - 2500);
+      /* 所得割（調整控除2,500円を差引）＋均等割。均等割は所得に関わらず定額で、
+         市町村民税3,000円＋道府県民税1,000円＋森林環境税1,000円＝年5,000円。
+         非課税限度額を下回る低所得では課税されないため、その場合は加算しない */
+      const kintou = txR > 0 ? 5000 : 0;
+      const rt = Math.max(0, txR * .10 - 2500) + kintou;
       return {
         netMan: Math.round((g - sA - it - rt) / 10000),
         kenpoMan: Math.round(kenpo * 12 / 10000),
@@ -2389,7 +2393,25 @@
       if (incomeModeOf(p) === 'net') return p.netIncome || 0;
       return calcNet(grossOf(p), extraDeduct).netMan;
     }
+    /* 扶養控除（万円）。年齢は12月31日時点。
+       16歳未満は児童手当があるため対象外、19〜22歳は特定扶養親族で63万 */
+    function kidDeductAt(age) {
+      if (age >= 19 && age <= 22) return 63;
+      if (age >= 16) return 38;
+      return 0;
+    }
+    /* 子ども以外（親など）の扶養＋配偶者控除。子どもは年齢から自動計算する */
     function depDeduct(b) { return (b.spouseDeduct || 0) + (b.depCount || 0) * 38; }
+    /* その暦年の扶養控除の合計 */
+    function depDeductAt(b, kids, year) {
+      return depDeduct(b) + kids.reduce((s, c) => s + kidDeductAt(year - c.birthYear), 0);
+    }
+
+    /* 年金の繰上げ・繰下げ（1ヶ月あたり 繰上げ0.4%減・繰下げ0.7%増、60〜75歳） */
+    function pensionStartRate(startAge) {
+      const a = Math.min(75, Math.max(60, nz(startAge) || 65));
+      return a < 65 ? 1 - 0.004 * (65 - a) * 12 : 1 + 0.007 * (a - 65) * 12;
+    }
 
     /* 年金の自動推計（厚生年金＋基礎年金・万円/月） */
     function estimatePensionMonthly(grossMan, retireAge) {
@@ -2443,7 +2465,8 @@
     }
 
     /* ---------- 共通ヘルパー ---------- */
-    function fmtM(v) { if (Math.abs(v) >= 10000) return (v / 10000).toFixed(1) + '億'; return Math.round(v).toLocaleString() + '万'; }
+    /* 単位は万円で統一する（1つの画面に億と万が混ざると比べにくいため） */
+    function fmtM(v) { return Math.round(v).toLocaleString() + '万'; }
     function fmtManPlain(v) { return Math.round(v).toLocaleString() + '万円'; }
     function fmtManSigned(v) { const n = Math.round(v); return (n > 0 ? '+' : '') + n.toLocaleString() + '万円'; }
     function nz(v) { return (v == null || isNaN(v)) ? 0 : v; }
@@ -2721,18 +2744,35 @@
       const years = endAge - age;
       const startYear = NOW_YEAR;
 
-      const dep = depDeduct(b);
-      const selfNetAnnual = netOf(b, dep);
       const pHas = !!p.has;
-      const pNetAnnual = pHas ? netOf(p) : 0;
       const ig = 1 + nz(b.incomeGrowth) / 100;
-      /* 年金は額面で保持し、受給年ごとに手取りへ換算する */
-      const selfPensionGross = (b.pensionAnnual != null && b.pensionAnnual !== 0)
-        ? nz(b.pensionAnnual) : estimatePensionMonthly(grossOf(b, dep), retireAge) * 12;
-      const pPensionGross = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
-        ? nz(p.pensionAnnual) : estimatePensionMonthly(grossOf(p), p.retireAge) * 12) : 0;
+      const pIg = 1 + nz(p.incomeGrowth) / 100;
+      /* 昇給は額面に対して起きるので、額面を伸ばしてから毎年の手取りを計算する。
+         手取り入力モードでも grossOf() が額面を逆算するので同じ扱いにでき、
+         累進課税で手取りの伸びが額面より鈍る点が反映される。
+         手取り入力の初年度は入力値そのものを使いたいので、伸び率だけを借りる */
+      const netAtYear = (per, gross0, growth, dep, y) => {
+        if (!gross0) return incomeModeOf(per) === 'net' ? nz(per.netIncome) : 0;
+        const netY = calcNet(gross0 * Math.pow(growth, y), dep).netMan;
+        if (incomeModeOf(per) !== 'net') return netY;
+        const net0 = calcNet(gross0, dep).netMan;
+        return net0 > 0 ? nz(per.netIncome) * (netY / net0) : netY;
+      };
+      /* 年金は額面で保持し、受給年ごとに手取りへ換算する。
+         繰上げ・繰下げの増減率は「実際に受け取り始める年齢」で決まる */
+      const selfGross0 = grossOf(b, depDeduct(b));
+      const pGross0 = pHas ? grossOf(p) : 0;
+      const selfPensionBase = (b.pensionAnnual != null && b.pensionAnnual !== 0)
+        ? nz(b.pensionAnnual) : estimatePensionMonthly(selfGross0, retireAge) * 12;
+      const pPensionBase = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
+        ? nz(p.pensionAnnual) : estimatePensionMonthly(pGross0, p.retireAge) * 12) : 0;
       const pAge0 = pHas ? (nz(p.age) || age) : age;
       const pRetire = pHas ? (nz(p.retireAge) || retireAge) : 0;
+      /* 在職中は受け取らない前提なので、退職より早い受給開始は退職年齢まで繰下げになる */
+      const selfPenStart = Math.max(nz(b.pensionStartAge || 65), retireAge);
+      const selfPensionGross = selfPensionBase * pensionStartRate(selfPenStart);
+      const pPenStart = pHas ? Math.max(nz(p.pensionStartAge || 65), pRetire) : 65;
+      const pPensionGross = pPensionBase * pensionStartRate(pPenStart);
 
       /* 退職金（額面→退職所得課税を引いた手取りを、受取年に一括計上） */
       const selfWorkYears = Math.max(1, retireAge - (nz(b.workStartAge) || DEFAULT_WORK_START_AGE));
@@ -2819,9 +2859,10 @@
         const wk = curAge < retireAge;
 
         /* --- 収入 --- */
-        let incSelf = wk ? selfNetAnnual * Math.pow(ig, y) : 0;
+        const depY = depDeductAt(b, kids, year);
+        let incSelf = wk ? netAtYear(b, selfGross0, ig, depY, y) : 0;
         if (wk) incSelf += nz(b.sideIncome);
-        if (!wk && curAge >= nz(b.pensionStartAge || 65)) incSelf += pensionNetAnnual(selfPensionGross, curAge);
+        if (!wk && curAge >= selfPenStart) incSelf += pensionNetAnnual(selfPensionGross, curAge);
         let severance = 0;
         if (curAge === selfSevAge) severance += selfSevNet;
         let incPartner = 0;
@@ -2831,8 +2872,8 @@
           const wsFrac = p.workStartY
             ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
             : 1;
-          if (pwk && wsFrac > 0) incPartner += pNetAnnual * wsFrac + nz(p.sideIncome);
-          if (!pwk && pAgeY >= nz(p.pensionStartAge || 65)) incPartner += pensionNetAnnual(pPensionGross, pAgeY);
+          if (pwk && wsFrac > 0) incPartner += netAtYear(p, pGross0, pIg, 0, y) * wsFrac + nz(p.sideIncome);
+          if (!pwk && pAgeY >= pPenStart) incPartner += pensionNetAnnual(pPensionGross, pAgeY);
           if (pAgeY === pSevAge) severance += pSevNet;
         }
         let allowance = 0;
@@ -2964,10 +3005,12 @@
         peakAssets: Math.max(...aD),
         depletionAge,
         severanceNetTotal: Math.round(selfSevNet + pSevNet),
-        netMonthly: selfNetAnnual / 12, kidCount: kids.length,
+        netMonthly: netAtYear(b, selfGross0, ig, depDeductAt(b, kids, startYear), 0) / 12,
+        kidCount: kids.length,
         hBuy, hPrice: nz(h.price),
-        pm: Math.round(pensionNetAnnual(selfPensionGross, 65) / 12),
-        pmGross: Math.round(selfPensionGross / 12), pHas
+        pm: Math.round(pensionNetAnnual(selfPensionGross, Math.max(65, selfPenStart)) / 12),
+        pmGross: Math.round(selfPensionGross / 12),
+        penStart: selfPenStart, penRate: pensionStartRate(selfPenStart), pHas
       };
     }
 
@@ -3024,13 +3067,22 @@
         { hint: '額面で入力すると手取りを自動計算します。手取りがわかっていれば直接入力するのが確実です', onInput: updateIncomePreview, afterRender: updateIncomePreview });
       q('y_growth', 'you', '年収は毎年どのくらい上がりそうですか？',
         [nf('basic.incomeGrowth', '年収上昇率', '%/年', '例：1.5', { step: 0.5 })],
-        { hint: '定期昇給＋ベアの目安。わからなければ空欄（0%扱い）でOK', optional: true });
+        {
+          hint: '定期昇給＋ベアの目安。わからなければ空欄（0%扱い）でOK。上昇率は額面に対して適用し、'
+            + '毎年あらためて税・社会保険料を計算するので、累進課税で手取りの伸びは額面より緩やかになります（手取りで入力した場合も同じ扱いです）',
+          optional: true
+        });
       q('y_side', 'you', '副業などの収入はありますか？',
         [nf('basic.sideIncome', '副業収入（手取り目安）', '万円/年', '例：50')],
         { hint: '在職中のみ収入に加算します。なければ空欄でOK', optional: true });
       q('y_pension', 'you', '年金の見込み額はわかりますか？',
         [[nf('basic.pensionAnnual', '年金（額面・年額）', '万円/年', '空欄＝自動推計'), nf('basic.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
-        { hint: 'ねんきん定期便の額面をそのまま入力してください。社会保険料・税を引いた手取りに自動換算します。空欄なら年収から厚生年金＋基礎年金を自動推計します', optional: true });
+        {
+          hint: 'ねんきん定期便の額面をそのまま入力してください（65歳から受け取る前提の額）。社会保険料・税を引いた手取りに自動換算します。空欄なら年収から厚生年金＋基礎年金を自動推計します。'
+            + '受給開始年齢は60〜75歳。65歳より早めると1ヶ月あたり0.4%減（60歳で24%減）、遅らせると1ヶ月あたり0.7%増（75歳で84%増）で一生続きます。'
+            + '退職年齢より早い開始を指定した場合は、退職まで働く前提で退職年齢からの受給として計算します',
+          optional: true
+        });
       q('y_severance', 'you', '退職金の見込み額は？',
         [[nf('basic.severance', '退職金（額面）', '万円', '例：1500'), nf('basic.severanceAge', '受取年齢', '歳', '空欄＝退職年齢')],
         nf('basic.workStartAge', '就職した年齢', '歳', '例：22')],
@@ -3043,8 +3095,13 @@
         { hint: '長期インデックス想定なら年利4〜6%が目安', optional: true });
       q('y_dep', 'you', '税金の扶養控除はありますか？',
         [[sf('basic.spouseDeduct', '配偶者控除', [['0', 'なし'], ['38', '配偶者控除38万'], ['26', '配偶者特別控除26万']], { num: true }),
-        sf('basic.depCount', '子・親の扶養人数', [['0', '0人'], ['1', '1人'], ['2', '2人'], ['3', '3人'], ['4', '4人以上']], { num: true })]],
-        { hint: '手取り計算に反映します。わからなければそのままでOK', optional: true });
+        sf('basic.depCount', '親など（子ども以外）の扶養人数', [['0', '0人'], ['1', '1人'], ['2', '2人'], ['3', '3人'], ['4', '4人以上']], { num: true })]],
+        {
+          hint: 'お子さんの扶養控除は生年から自動計算するので、ここには入れないでください'
+            + '（16歳未満は児童手当があるため控除なし、16〜18歳は38万、19〜22歳は特定扶養で63万）。'
+            + 'ここは親などを扶養している場合の人数です',
+          optional: true
+        });
 
       /* --- パートナー --- */
       q('p_has', 'partner', 'パートナー（配偶者）の収入も一緒に計算しますか？',
@@ -3056,13 +3113,16 @@
         q('p_income', 'partner', 'パートナーの収入は？',
           () => incomeFields('partner', sc.partner.mode),
           { onInput: updateIncomePreview, afterRender: updateIncomePreview });
+        q('p_growth', 'partner', 'パートナーの年収は毎年どのくらい上がりそうですか？',
+          [nf('partner.incomeGrowth', '年収上昇率', '%/年', '例：1.0', { step: 0.5 })],
+          { hint: '本人とは別に設定できます。空欄なら0%（横ばい）扱いです', optional: true });
         q('p_workstart', 'partner', 'パートナーはいつから働きますか？',
           [ymf('partner.workStartY', 'partner.workStartM', '就労開始（年・月）')],
           { hint: 'すでに働いていれば空欄でOK。育休明けの復職・就職予定があれば年月を指定（開始年は月割り計算）', optional: true });
         q('p_side', 'partner', 'パートナーの副業・年金は？',
           [nf('partner.sideIncome', '副業収入', '万円/年', '例：0'),
           [nf('partner.pensionAnnual', '年金（額面・年額）', '万円/年', '空欄＝自動推計'), nf('partner.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
-          { hint: '年金は額面で入力してください（手取りへ自動換算します）', optional: true });
+          { hint: '年金は額面（65歳から受け取る前提の額）で入力してください。手取りへ自動換算し、受給開始年齢に応じて繰上げ減額・繰下げ増額も反映します', optional: true });
         q('p_severance', 'partner', 'パートナーの退職金は？',
           [[nf('partner.severance', '退職金（額面）', '万円', '例：800'), nf('partner.severanceAge', '受取年齢', '歳', '空欄＝退職年齢')],
           nf('partner.workStartAge', '就職した年齢', '歳', '例：22')],
