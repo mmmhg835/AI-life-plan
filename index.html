@@ -1471,6 +1471,82 @@
       display: flex;
       gap: 6px;
       align-items: center;
+      overflow-x: auto;
+    }
+
+    .scen-btn.save {
+      color: white;
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    /* 保存したプラン */
+    .saves-empty {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--gray-600);
+      margin-top: 10px;
+    }
+
+    .save-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .save-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .save-main {
+      flex: 1 1 190px;
+      min-width: 0;
+    }
+
+    .save-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-800);
+      word-break: break-word;
+    }
+
+    .save-meta {
+      font-size: 10.5px;
+      color: var(--gray-400);
+      margin-top: 2px;
+    }
+
+    .save-nums {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 12px;
+      margin-top: 5px;
+      font-size: 11px;
+      color: var(--gray-600);
+    }
+
+    .save-nums b {
+      font-family: 'DM Mono', monospace;
+      color: var(--gray-800);
+      margin-left: 3px;
+    }
+
+    .save-nums b.pos {
+      color: var(--green);
+    }
+
+    .save-nums b.neg {
+      color: var(--red);
+    }
+
+    .save-acts {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
     }
 
     .scen-sel {
@@ -1831,6 +1907,7 @@
     <button class="scen-btn" onclick="duplicateScenario()">＋複製</button>
     <button class="scen-btn" onclick="renameScenario()">名前</button>
     <button class="scen-btn" onclick="deleteScenario()">削除</button>
+    <button class="scen-btn save" onclick="saveCurrentPlan()">💾 保存</button>
   </div>
 
   <main>
@@ -1859,6 +1936,12 @@
       <div class="ph">
         <div class="ph-bar"></div>
         <div class="ph-ttl">入力内容サマリー</div>
+      </div>
+      <div class="card" id="savesCard">
+        <div class="ctitle">保存したプラン</div>
+        <p class="sim-detail-hint">いまの入力内容に名前を付けて残しておけば、あとから呼び出して比べられます。保存はこの端末のブラウザ内だけに残ります。</p>
+        <button class="btn btn-o" onclick="saveCurrentPlan()" style="margin-top:10px;">💾 いまの内容を保存する</button>
+        <div id="savesList"></div>
       </div>
       <div id="summaryBody"></div>
       <button class="btn btn-s" onclick="runSimulation()">シミュレーション実行 →</button>
@@ -1935,6 +2018,9 @@
 
     const NOW_YEAR = new Date().getFullYear();
     const STORE_KEY = 'lifeplan_v2';
+    const SAVE_KEY = 'lifeplan_saves_v1'; /* 保存したプラン（現在の入力とは別枠） */
+    const SAVE_MAX = 20;              /* 保存しておける件数 */
+    const MAX_SCENARIOS = 5;          /* 同時に比較できるシナリオ数 */
     const DEFAULT_END_AGE = 95;       /* 試算の終了年齢（未指定時） */
     const DEFAULT_WORK_START_AGE = 22; /* 勤続年数の起点（未指定時） */
     const IDECO_UNLOCK_AGE = 60;      /* iDeCoの受給開始可能年齢 */
@@ -2029,31 +2115,143 @@
     function save() {
       try { localStorage.setItem(STORE_KEY, JSON.stringify(APP)); } catch (e) { }
     }
+    /* 保存済みデータに新フィールドを足して読む（バージョン間の後方互換） */
+    function mergeScenario(sc) {
+      const base = newScenario(sc.name);
+      const merged = Object.assign({}, base, sc);
+      merged.basic = Object.assign({}, base.basic, sc.basic || {});
+      merged.partner = Object.assign({}, base.partner, sc.partner || {});
+      merged.housing = Object.assign({}, base.housing, sc.housing || {});
+      merged.exp = Object.assign({}, base.exp, sc.exp || {});
+      merged.exp.inflFlags = Object.assign({}, base.exp.inflFlags, (sc.exp || {}).inflFlags || {});
+      merged.inv = Object.assign({}, base.inv, sc.inv || {});
+      merged.ccSibling = Object.assign({}, base.ccSibling, sc.ccSibling || {});
+      merged.children = (sc.children || []).map(c => Object.assign(newChild(), c));
+      merged.cars = (sc.cars || []).map(c => Object.assign(newCar(), c));
+      merged.events = (sc.events || []).map(x => Object.assign(newEvent(), x));
+      return merged;
+    }
+
     function load() {
       try {
         const raw = localStorage.getItem(STORE_KEY);
         if (!raw) return;
         const d = JSON.parse(raw);
         if (d && Array.isArray(d.scenarios) && d.scenarios.length) {
-          // マージ（新フィールド追加時の後方互換）
-          d.scenarios = d.scenarios.map(sc => {
-            const base = newScenario(sc.name);
-            const merged = Object.assign({}, base, sc);
-            merged.basic = Object.assign({}, base.basic, sc.basic || {});
-            merged.partner = Object.assign({}, base.partner, sc.partner || {});
-            merged.housing = Object.assign({}, base.housing, sc.housing || {});
-            merged.exp = Object.assign({}, base.exp, sc.exp || {});
-            merged.exp.inflFlags = Object.assign({}, base.exp.inflFlags, (sc.exp || {}).inflFlags || {});
-            merged.inv = Object.assign({}, base.inv, sc.inv || {});
-            merged.ccSibling = Object.assign({}, base.ccSibling, sc.ccSibling || {});
-            merged.children = (sc.children || []).map(c => Object.assign(newChild(), c));
-            merged.cars = (sc.cars || []).map(c => Object.assign(newCar(), c));
-            merged.events = (sc.events || []).map(x => Object.assign(newEvent(), x));
-            return merged;
-          });
+          d.scenarios = d.scenarios.map(mergeScenario);
           APP = { scenarios: d.scenarios, active: Math.min(d.active || 0, d.scenarios.length - 1) };
         }
       } catch (e) { }
+    }
+
+    /* =====================================================================
+       保存したプラン（現在の入力とは別枠で、この端末に名前付きで残す）
+       ===================================================================== */
+    function readSaves() {
+      try {
+        const d = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]');
+        return Array.isArray(d) ? d : [];
+      } catch (e) { return []; }
+    }
+    function writeSaves(list) {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(list)); return true; }
+      catch (e) { alert('保存できませんでした。ブラウザの保存容量がいっぱいの可能性があります。古い保存を削除してからもう一度お試しください。'); return false; }
+    }
+    function saveStamp(d) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    function saveCurrentPlan() {
+      const sc = S();
+      if (!nz(sc.basic.age) || !nz(sc.basic.retireAge)) {
+        alert('「現在の年齢」と「退職予定年齢」を入力してから保存してください。');
+        return;
+      }
+      const now = new Date(), stamp = saveStamp(now);
+      const name = prompt('保存する名前を入力してください', `${sc.name}（${stamp}）`);
+      if (name == null) return;
+      const sim = simulate(sc);
+      const list = readSaves();
+      list.unshift({
+        id: 'sv' + now.getTime() + Math.random().toString(36).slice(2, 6),
+        name: (name.trim() || sc.name), stamp, savedAt: now.toISOString(),
+        summary: sim ? {
+          age: sim.age, retireAge: sim.retireAge, endAge: sim.endAge,
+          retireAssets: sim.retireAssets, totalAssets: sim.totalAssets, depletionAge: sim.depletionAge
+        } : null,
+        scenario: JSON.parse(JSON.stringify(sc))
+      });
+      if (list.length > SAVE_MAX) list.length = SAVE_MAX;
+      if (!writeSaves(list)) return;
+      renderSaves();
+      alert(`「${list[0].name}」として保存しました。`);
+    }
+    /* 呼び出しは新しいシナリオとして追加する（いまの入力を壊さないため）。
+       上限に達しているときだけ、確認のうえ表示中のものに上書きする。 */
+    function restoreSave(id) {
+      const item = readSaves().find(x => x.id === id);
+      if (!item || !item.scenario) { alert('保存データが見つかりませんでした。'); return; }
+      const restored = mergeScenario(JSON.parse(JSON.stringify(item.scenario)));
+      restored.name = item.name;
+      if (APP.scenarios.length < MAX_SCENARIOS) {
+        APP.scenarios.push(restored);
+        APP.active = APP.scenarios.length - 1;
+      } else {
+        if (!confirm(`シナリオは最大${MAX_SCENARIOS}件です。表示中の「${S().name}」に上書きして呼び出しますか？`)) return;
+        APP.scenarios[APP.active] = restored;
+      }
+      save();
+      renderScenarioBar();
+      renderSaves();
+      wizRefresh();
+      renderSummary();
+      runSimulation();
+    }
+    function deleteSave(id) {
+      const list = readSaves();
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+      if (!confirm(`保存した「${item.name}」を削除しますか？`)) return;
+      if (!writeSaves(list.filter(x => x.id !== id))) return;
+      renderSaves();
+    }
+    function renameSave(id) {
+      const list = readSaves();
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+      const name = prompt('新しい名前', item.name);
+      if (name == null || !name.trim()) return;
+      item.name = name.trim();
+      if (writeSaves(list)) renderSaves();
+    }
+    function renderSaves() {
+      const el = document.getElementById('savesList');
+      if (!el) return;
+      const list = readSaves();
+      if (!list.length) {
+        el.innerHTML = '<p class="saves-empty">まだ保存はありません。入力が固まったら「いまの内容を保存する」を押しておくと、あとから呼び出せます。</p>';
+        return;
+      }
+      el.innerHTML = list.map(s => {
+        const m = s.summary;
+        const nums = m ? `<div class="save-nums">
+            <span>退職直前 <b>${fmtM(m.retireAssets)}</b></span>
+            <span>最終 <b>${fmtM(m.totalAssets)}</b></span>
+            <span>枯渇 <b class="${m.depletionAge == null ? 'pos' : 'neg'}">${m.depletionAge == null ? 'なし' : m.depletionAge + '歳'}</b></span>
+          </div>` : '';
+        return `<div class="save-row">
+          <div class="save-main">
+            <div class="save-name">${escapeHtml(s.name)}</div>
+            <div class="save-meta">${escapeHtml(s.stamp || '')}${m ? ` ・ ${m.age}歳〜${m.endAge}歳／退職${m.retireAge}歳` : ''}</div>
+            ${nums}
+          </div>
+          <div class="save-acts">
+            <button class="scen-btn" onclick="restoreSave('${s.id}')">呼び出す</button>
+            <button class="scen-btn" onclick="renameSave('${s.id}')">名前</button>
+            <button class="scen-btn" onclick="deleteSave('${s.id}')">削除</button>
+          </div>
+        </div>`;
+      }).join('');
     }
 
     /* パス指定で状態を読み書き（'basic.age' / 'children.0.birthYear'） */
@@ -2080,7 +2278,7 @@
       if (currentView === 'graph') runSimulation(false);
     }
     function duplicateScenario() {
-      if (APP.scenarios.length >= 5) { alert('シナリオは最大5つまでです'); return; }
+      if (APP.scenarios.length >= MAX_SCENARIOS) { alert(`シナリオは最大${MAX_SCENARIOS}つまでです`); return; }
       const copy = JSON.parse(JSON.stringify(S()));
       copy.name = S().name + 'のコピー';
       APP.scenarios.push(copy);
@@ -3433,6 +3631,7 @@
       return parts.join(' / ');
     }
     function renderSummary() {
+      renderSaves();
       wizQ = buildQuestions();
       const sc = S(), a = sc._answered || {};
       const pr = wizProgress();
@@ -3834,7 +4033,7 @@
     }
 
     function resetAll() {
-      if (!confirm('入力内容（全シナリオ）をすべて消してリセットしますか？')) return;
+      if (!confirm('入力内容（全シナリオ）をすべて消してリセットしますか？\n※「保存したプラン」は消えずに残ります')) return;
       try { localStorage.removeItem(STORE_KEY); } catch (e) { }
       location.reload();
     }
@@ -3842,6 +4041,7 @@
     /* 初期化 */
     load();
     renderScenarioBar();
+    renderSaves();
     wizRefresh();
   </script>
 </body>
