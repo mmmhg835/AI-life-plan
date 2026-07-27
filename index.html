@@ -1200,6 +1200,20 @@
       background: rgba(22, 163, 74, .08);
     }
 
+    .yc-why {
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: var(--gray-600);
+      background: var(--blue-light);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-top: 7px;
+    }
+
+    .yc-why::before {
+      content: '💡 ';
+    }
+
     .yc-foot {
       display: flex;
       flex-wrap: wrap;
@@ -2263,9 +2277,13 @@
     /* =====================================================================
        支出が動く年の抽出（できごと・前年差・費目別の内訳）
        ===================================================================== */
-    /* 年ごとの「できごと」。支出が動いた理由を名前で示すための目印 */
+    /* 年ごとの「できごと」（marks）と、費目が動いた理由（causes）。
+       causes には目に見えないもの——前年かぎりの頭金が消える、ローンが
+       終わる、4月始まりの学費が翌年に通年化する——も入れる。これが無いと
+       できごとの無い年の増減が説明できない。 */
     function buildYearMarks(sim, sc) {
       const marks = new Map();
+      const causes = new Map();
       const lo = sim.rows[0].year, hi = sim.rows[sim.rows.length - 1].year;
       /* 開始年が試算の初年度なら「変化」ではないので目印を出さない */
       const at = (y, icon, text) => {
@@ -2273,6 +2291,17 @@
         if (!marks.has(y)) marks.set(y, []);
         marks.get(y).push({ icon, text });
       };
+      /* 費目catがその年に動いた理由。w＝おおよその金額（万円）で、
+         複数の理由が重なる年に主因だけを選ぶために使う */
+      const why = (y, cat, text, w) => {
+        if (y == null || y <= lo || y > hi) return;
+        if (!causes.has(y)) causes.set(y, {});
+        const m = causes.get(y);
+        (m[cat] = m[cat] || []).push({ text, w: Math.abs(nz(w)) });
+      };
+      /* 費用が消える年（12月終了なら翌年、年途中ならその年に大きく落ちる） */
+      const dropY = (endY, endM) => ((endM || 12) === 12 ? endY + 1 : endY);
+      const idxToYM = idx => { const y = Math.floor((idx - 1) / 12); return [y, idx - y * 12]; };
       /* 終了の印は「支出が実際に大きく落ちる年」に置く。
          12月終了なら翌年にまるごと消えるが、年途中の終了はその年に
          残り月数ぶんしか計上されないので、落ち込みは終了年に出る。 */
@@ -2292,19 +2321,40 @@
           /* 学齢nに上がる暦年 */
           const yearAt = n => c.birthYear + n + ((c.birthMonth || 4) >= 4 ? 1 : 0);
           if (nz(c.ccFee) > 0 && c.ccStartY) {
+            const yr = nz(c.ccFee) * 12;
             at(c.ccStartY, '👶', `${who} 保育園 入園`);
-            if (c.ccEndY) endAt(c.ccEndY, c.ccEndM, '👶', `${who} 保育料の終了`);
+            why(c.ccStartY, 'edu', `${who}の保育料が始まった`, yr);
+            if (c.ccEndY) {
+              endAt(c.ccEndY, c.ccEndM, '👶', `${who} 保育料の終了`);
+              why(dropY(c.ccEndY, c.ccEndM), 'edu', `${who}の保育料がなくなった`, yr);
+              why(dropY(c.ccEndY, c.ccEndM) + 1, 'edu', `${who}の保育料の残りがなくなった`, yr * .25);
+            }
           }
           if (nz(c.lessonFee) > 0 && c.lsStartY) {
+            const yr = nz(c.lessonFee) * 12;
             at(c.lsStartY, '👶', `${who} 習い事・塾 開始`);
-            if (c.lsEndY) endAt(c.lsEndY, c.lsEndM, '👶', `${who} 習い事・塾 終了`);
+            why(c.lsStartY, 'edu', `${who}の習い事・塾が始まった`, yr);
+            if (c.lsEndY) {
+              endAt(c.lsEndY, c.lsEndM, '👶', `${who} 習い事・塾 終了`);
+              why(dropY(c.lsEndY, c.lsEndM), 'edu', `${who}の習い事・塾が終わった`, yr);
+            }
           }
-          at(yearAt(3), '👶', `${who} 幼稚園（${c.kg}）入園`);
-          at(yearAt(6), '👶', `${who} 小学校（${c.elem}）入学`);
-          at(yearAt(12), '👶', `${who} 中学校（${c.jhs}）入学`);
-          at(yearAt(15), '👶', `${who} 高校（${c.hs}）入学`);
-          at(yearAt(18), '🎓', `${who} 大学（${c.univ}）入学`);
+          /* 学費は4月始まりで暦年に9/12だけ乗るので、翌年に通年化して少し増える */
+          const stage = (n, icon, label, name) => {
+            const amt = stageAmt(c, n);
+            at(yearAt(n), icon, `${who} ${label}`);
+            why(yearAt(n), 'edu', `${who}が${name}に進学`, amt * .75);
+            why(yearAt(n) + 1, 'edu', `${who}の${name}の学費が通年になった`, amt * .25);
+          };
+          stage(3, '👶', `幼稚園（${c.kg}）入園`, `${c.kg}の幼稚園`);
+          stage(6, '👶', `小学校（${c.elem}）入学`, `${c.elem}の小学校`);
+          stage(12, '👶', `中学校（${c.jhs}）入学`, `${c.jhs}の中学校`);
+          stage(15, '👶', `高校（${c.hs}）入学`, `${c.hs}の高校`);
+          stage(18, '🎓', `大学（${c.univ}）入学`, `${c.univ}の大学`);
+          const uni = stageAmt(c, 21);
           at(yearAt(22), '🎓', `${who} 大学 卒業（教育費の終了）`);
+          why(yearAt(22), 'edu', `${who}が大学を卒業して学費がなくなった`, uni * .75);
+          why(yearAt(22) + 1, 'edu', `${who}の学費の残りがなくなった`, uni * .25);
         });
 
       const h = sc.housing;
@@ -2312,30 +2362,90 @@
       if (nz(h.rent) > 0) {
         const rEndY = h.rentEndY || (hBuy ? h.buyY : null);
         const rEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
-        if (rEndY) endAt(rEndY, rEndM, '🏠', '賃貸の終了');
+        if (rEndY) {
+          const yr = nz(h.rent) * 12;
+          endAt(rEndY, rEndM, '🏠', '賃貸の終了');
+          why(dropY(rEndY, rEndM), 'housing', '家賃の支払いが終わった', yr);
+          why(dropY(rEndY, rEndM) + 1, 'housing', '家賃の残りがなくなった', yr * .25);
+        }
       }
       if (hBuy) {
         const sIdx = h.buyY * 12 + (h.buyM || 1);
         at(h.buyY, '🏠', nz(h.loanYears) > 0 ? '住宅購入（ローン返済 開始）' : '住宅購入');
-        if (nz(h.loanYears) > 0) endAtIdx(sIdx + nz(h.loanYears) * 12 - 1, '🏠', '住宅ローン 完済');
+        const hPmtYr = pmtMonthly(Math.max(0, nz(h.price) + nz(h.misc) - nz(h.down)), nz(h.loanYears), nz(h.loanRate)) * 12;
+        if (nz(h.down) > 0) {
+          why(h.buyY, 'housing', `住宅の頭金${fmtManPlain(nz(h.down))}を支払った`, nz(h.down));
+          why(h.buyY + 1, 'housing', `前年に払った住宅の頭金${fmtManPlain(nz(h.down))}がなくなった`, nz(h.down));
+        }
+        why(h.buyY, 'housing', nz(h.loanYears) > 0 ? '住宅ローンの返済が始まった' : '住宅を購入した', hPmtYr);
+        /* 買った年は月割りなので、翌年にローン・管理費が通年化して増える */
+        if ((h.buyM || 1) > 1) why(h.buyY + 1, 'housing', 'ローンと維持費が通年になった', hPmtYr * .25);
+        if (nz(h.loanYears) > 0) {
+          const [ey, em] = idxToYM(sIdx + nz(h.loanYears) * 12 - 1);
+          endAtIdx(sIdx + nz(h.loanYears) * 12 - 1, '🏠', '住宅ローン 完済');
+          why(dropY(ey, em), 'housing', '住宅ローンを完済した', hPmtYr);
+          why(dropY(ey, em) + 1, 'housing', 'ローン返済の残りがなくなった', hPmtYr * .25);
+        }
       }
 
       sc.cars.filter(c => c.use && c.buyY && nz(c.price) > 0).forEach((c, i) => {
-        at(c.buyY, '🚗', `${i + 1}台目 購入`);
-        if (c.endY) endAt(c.endY, c.endM, '🚗', `${i + 1}台目 手放す`);
+        const nth = `${i + 1}台目`;
+        at(c.buyY, '🚗', `${nth} 購入`);
+        /* 購入年だけ出ていく現金（頭金－下取り、ローンなしなら車両代の一括） */
+        const oneOff = nz(c.down) - nz(c.tradeIn)
+          + (nz(c.loanYears) > 0 ? 0 : Math.max(0, nz(c.price) - nz(c.tradeIn) - nz(c.down)));
+        const carPmtYr = pmtMonthly(Math.max(0, nz(c.price) - nz(c.tradeIn) - nz(c.down)), nz(c.loanYears), nz(c.loanRate)) * 12;
+        const maintYr = (nz(c.insurance) + nz(c.parking) + nz(c.fuel)) * 12 + nz(c.taxYear);
+        if (Math.abs(oneOff) >= CHANGE_MIN_CAT) {
+          why(c.buyY, 'car', `${nth}の購入で${fmtManPlain(Math.abs(oneOff))}を支払った`, oneOff);
+          why(c.buyY + 1, 'car', `前年に払った${nth}の購入費${fmtManPlain(Math.abs(oneOff))}がなくなった`, oneOff);
+        }
+        if (nz(c.loanYears) > 0) {
+          why(c.buyY, 'car', `${nth}のローン返済が始まった`, carPmtYr);
+          const [ey, em] = idxToYM(c.buyY * 12 + (c.buyM || 1) + nz(c.loanYears) * 12 - 1);
+          why(dropY(ey, em), 'car', `${nth}のローンを完済した`, carPmtYr);
+          why(dropY(ey, em) + 1, 'car', `${nth}のローン返済の残りがなくなった`, carPmtYr * .25);
+        }
+        if ((c.buyM || 1) > 1) why(c.buyY + 1, 'car', `${nth}の維持費が通年になった`, maintYr * .25);
+        if (c.endY) {
+          endAt(c.endY, c.endM, '🚗', `${nth} 手放す`);
+          why(dropY(c.endY, c.endM), 'car', `${nth}を手放して維持費がなくなった`, maintYr);
+          why(dropY(c.endY, c.endM) + 1, 'car', `${nth}の維持費の残りがなくなった`, maintYr * .25);
+        }
       });
 
       (sc.events || []).filter(ev => nz(ev.amount) !== 0 && ev.startY).forEach((ev, i) => {
         const name = ev.name || `ライフイベント${i + 1}`;
-        if (ev.mode === 'once') { at(ev.startY, '⭐', name); return; }
+        const amt = nz(ev.amount);
+        if (ev.mode === 'once') {
+          at(ev.startY, '⭐', name);
+          why(ev.startY, 'event', `${name}に${fmtManPlain(amt)}を支払った`, amt);
+          why(ev.startY + 1, 'event', `前年かぎりの「${name}」がなくなった`, amt);
+          return;
+        }
+        const yr = ev.mode === 'monthly' ? amt * 12 : amt;
         at(ev.startY, '⭐', `${name} 開始`);
-        if (ev.endY) endAt(ev.endY, ev.endM, '⭐', `${name} 終了`);
+        why(ev.startY, 'event', `「${name}」が始まった`, yr);
+        if ((ev.startM || 1) > 1) why(ev.startY + 1, 'event', `「${name}」が通年になった`, yr * .25);
+        if (ev.endY) {
+          endAt(ev.endY, ev.endM, '⭐', `${name} 終了`);
+          why(dropY(ev.endY, ev.endM), 'event', `「${name}」が終わった`, yr);
+          why(dropY(ev.endY, ev.endM) + 1, 'event', `「${name}」の残りがなくなった`, yr * .25);
+        }
       });
 
-      at(sim.startYear + (sim.retireAge - sim.age), '💼', '退職');
+      const retireYear = sim.startYear + (sim.retireAge - sim.age);
+      at(retireYear, '💼', '退職');
+      const rate = sc.exp.retireLivingRate;
+      if (rate != null && rate !== '' && nz(rate) !== 100) {
+        why(retireYear, 'living', `退職後の生活費（現役の${nz(rate)}%）に切り替わった`, 9e6);
+      }
+      if (nz(sc.exp.retireMedical) > 0) {
+        why(retireYear, 'living', '医療・介護費の上乗せが始まった', nz(sc.exp.retireMedical) * 12);
+      }
       const pensionAge = nz(sc.basic.pensionStartAge || 65);
       if (pensionAge > sim.retireAge) at(sim.startYear + (pensionAge - sim.age), '💼', '年金 受給開始');
-      return marks;
+      return { marks, causes };
     }
 
     /* 支出が動いた年だけを抜き出し、前年差と内訳を添える */
@@ -2344,20 +2454,38 @@
     function buildYearChanges(sim, sc) {
       const rows = sim.rows;
       if (!rows.length) return [];
-      const marks = buildYearMarks(sim, sc);
+      const { marks, causes } = buildYearMarks(sim, sc);
       const CATS = [['living', '生活費'], ['edu', '教育・保育'], ['housing', '住宅'], ['car', '車'], ['event', 'イベント']];
+      const inflRate = nz(sc.exp.inflationRate);
+      /* 動いた費目の上位2つについて、それぞれ金額の一番大きい理由だけを拾う。
+         重なる年は理由が何本も立つので、主因に絞らないと一言にならない */
+      const reasonOf = (year, diffs) => {
+        const m = causes.get(year) || {};
+        const parts = [];
+        diffs.slice(0, 2).forEach(([, v, key]) => {
+          const list = m[key];
+          if (list && list.length) {
+            parts.push(list.reduce((a, b) => (b.w > a.w ? b : a)).text);
+          } else if (key === 'living' && inflRate > 0 && v > 0) {
+            parts.push(`物価上昇（年${inflRate}%）で生活費が上がった`);
+          }
+        });
+        return [...new Set(parts)].join('／');
+      };
       return rows.map((r, i) => {
         const prev = i > 0 ? rows[i - 1] : null;
+        const diffs = prev
+          ? CATS.map(([k, l]) => [l, r[k] - prev[k], k])
+            .filter(([, v]) => Math.abs(v) >= CHANGE_MIN_CAT)
+            .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+          : [];
         return {
           year: r.year, age: r.age,
           marks: marks.get(r.year) || [],
           first: i === 0,
           dExpense: prev ? r.expense - prev.expense : 0,
-          diffs: prev
-            ? CATS.map(([k, l]) => [l, r[k] - prev[k]])
-              .filter(([, v]) => Math.abs(v) >= CHANGE_MIN_CAT)
-              .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-            : [],
+          diffs,
+          reason: prev ? reasonOf(r.year, diffs) : '',
           expense: r.expense, balance: r.balance, total: r.total
         };
       }).filter(c => c.first || c.marks.length || Math.abs(c.dExpense) >= CHANGE_MIN);
@@ -3517,9 +3645,10 @@
           ? `<div class="yc-diffs">${c.diffs.map(([l, v]) =>
             `<span class="yc-diff ${dir(v)}">${l} ${arrow(v)}${fmtManPlain(Math.abs(v))}</span>`).join('')}</div>`
           : '';
+        const why = c.reason ? `<div class="yc-why">${escapeHtml(c.reason)}</div>` : '';
         return `<div class="yc-card ${c.first ? 'flat' : d}">
           <div class="yc-when"><b>${c.year}年</b><span>${c.age}歳</span>${headline}</div>
-          ${marks}${diffs}
+          ${marks}${diffs}${why}
           <div class="yc-foot">
             <span class="yc-kv">年間支出<b>${fmtM(c.expense)}</b></span>
             <span class="yc-kv">収支<b class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtM(c.balance)}</b><i>${c.balance >= 0 ? '黒字' : '赤字'}</i></span>
