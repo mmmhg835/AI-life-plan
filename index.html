@@ -823,6 +823,11 @@
       margin-top: 4px;
     }
 
+    /* 描画前のcanvasは既定幅300pxを持つため、狭い端末ではみ出さないように */
+    .chart-canvas-wrap canvas {
+      max-width: 100%;
+    }
+
     .chart-canvas-wrap canvas {
       display: block;
     }
@@ -1045,35 +1050,196 @@
       font-weight: 700;
     }
 
-    /* 支出が動く年の表：できごとと内訳のバッジ */
-    .yc-mark,
-    .yc-diff {
-      display: block;
+    /* 横に伸びる表であることをスマホでも気づけるように */
+    .scroll-hint {
       font-size: 10px;
-      font-weight: 500;
-      line-height: 1.5;
-      white-space: nowrap;
+      color: var(--gray-400);
+      text-align: center;
+      margin: 6px 0 -2px;
     }
 
-    .yc-mark {
+    @media (min-width: 700px) {
+      .scroll-hint {
+        display: none;
+      }
+    }
+
+    /* 支出が動く年：スマホ幅で横スクロールせずに読めるカード形式 */
+    .yc-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .yc-key {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    .yc-key.up {
+      color: var(--red);
+      background: rgba(220, 38, 38, .09);
+    }
+
+    .yc-key.down {
+      color: var(--green);
+      background: rgba(22, 163, 74, .1);
+    }
+
+    .yc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .yc-card {
+      border: 1.5px solid var(--blue-bdr);
+      border-left-width: 4px;
+      border-radius: 8px;
+      background: white;
+      padding: 10px 12px;
+    }
+
+    .yc-card.up {
+      border-left-color: var(--red);
+    }
+
+    .yc-card.down {
+      border-left-color: var(--green);
+    }
+
+    .yc-card.flat {
+      border-left-color: var(--gray-200);
+    }
+
+    .yc-when {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }
+
+    .yc-when>b {
+      font-family: 'DM Mono', monospace;
+      font-size: 15px;
+      color: var(--blue-dark);
+    }
+
+    .yc-when>span {
+      font-size: 11px;
       color: var(--gray-600);
     }
 
-    .yc-diff.pos {
-      color: var(--green);
+    .yc-delta,
+    .yc-flat {
+      flex: 1 1 100%;
+      font-size: 13px;
+      font-weight: 700;
     }
 
-    .yc-diff.neg {
+    .yc-delta b {
+      font-family: 'DM Mono', monospace;
+      font-size: 15px;
+    }
+
+    .yc-delta.up {
       color: var(--red);
     }
 
-    .yc-diffs {
-      font-family: 'DM Mono', monospace;
+    .yc-delta.down {
+      color: var(--green);
     }
 
-    .yc-none {
-      color: var(--gray-400, #9ca3af);
-      font-weight: 400;
+    .yc-flat {
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+
+    .yc-marks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .yc-mark {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--gray-800);
+      background: var(--gray-50);
+      border-radius: 6px;
+      padding: 3px 7px;
+    }
+
+    .yc-diffs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .yc-diff {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 6px;
+      padding: 3px 7px;
+    }
+
+    .yc-diff.up {
+      color: var(--red);
+      background: rgba(220, 38, 38, .07);
+    }
+
+    .yc-diff.down {
+      color: var(--green);
+      background: rgba(22, 163, 74, .08);
+    }
+
+    .yc-foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px solid var(--gray-100);
+    }
+
+    .yc-kv {
+      font-size: 11px;
+      color: var(--gray-600);
+    }
+
+    .yc-kv b {
+      font-family: 'DM Mono', monospace;
+      font-size: 12.5px;
+      color: var(--gray-800);
+      margin-left: 4px;
+    }
+
+    .yc-kv b.pos {
+      color: var(--green);
+    }
+
+    .yc-kv b.neg {
+      color: var(--red);
+    }
+
+    .yc-kv i {
+      font-style: normal;
+      margin-left: 3px;
+    }
+
+    /* 画面が広いときは2列にして一覧性を上げる */
+    @media (min-width: 640px) {
+      .yc-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     .ph-span {
@@ -1694,10 +1860,10 @@
       <div class="kgrid" id="kpiGrid"></div>
       <div class="card" id="phaseCard" style="display:none;">
         <div class="ctitle">支出が動く年とその理由</div>
-        <p class="sim-detail-hint">住宅購入・車の買い替え・入学・保育料の終了など、年間支出が前年から30万円以上動いた年と、できごとがあった年だけを抜き出しています。単位は万円。<b class="neg">赤＝支出が増える</b>（家計が苦しくなる方向）、<b class="pos">緑＝支出が減る</b>（楽になる方向）。「内訳」でどの費目が動いたかがわかります。</p>
-        <div class="sim-table-wrap">
-          <table class="sim-table" id="phaseTable" aria-label="支出が動く年とその理由"></table>
-        </div>
+        <p class="sim-detail-hint">住宅購入・車の買い替え・入学・保育料の終了など、年間支出が前年から30万円以上動いた年と、できごとがあった年だけを抜き出しています。
+          <span class="yc-legend"><span class="yc-key up">↑ 増える＝家計が苦しくなる</span><span class="yc-key down">↓ 減る＝楽になる</span></span>
+        </p>
+        <div id="phaseList" class="yc-list"></div>
       </div>
       <div class="ccard" id="cmpCard" style="display:none;">
         <div class="clbl">🔀 シナリオ比較</div>
@@ -1720,6 +1886,7 @@
       <div class="card" id="simYearDetailCard" style="display:none;">
         <div class="ctitle">年次の数値一覧</div>
         <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支、イベント＝登録したライフイベントです。児童手当・年金・退職金は収入に含まれています（いずれも手取り換算）。取り崩し＝現金が不足した分を投資資産（課税口座→NISA→保険積立→iDeCo）の売却で補った額です。</p>
+        <div class="scroll-hint">← 横にスクロールできます →</div>
         <div class="sim-table-wrap">
           <table class="sim-table wide" id="simYearTable" aria-label="年次シミュレーション"></table>
         </div>
@@ -3325,31 +3492,41 @@
       tbl.innerHTML = th + '</tbody>';
     }
 
+    /* 増減は符号ではなく矢印と「増／減」で示す。
+       前年差の＋と収支の＋は意味が逆（支出増＝悪い、収支＋＝良い）なので、
+       同じ記号を使うと読み違えるため。 */
     function renderPhases(sim) {
       const card = document.getElementById('phaseCard');
       const changes = buildYearChanges(sim, S());
       if (!changes.length) { card.style.display = 'none'; return; }
       card.style.display = 'block';
-      /* 前年差を左に置いて、横スクロールなしでも増減が読めるようにする */
-      let html = `<thead><tr><th>年・できごと</th><th>支出の前年差</th><th>内訳</th><th>年間支出</th><th>年間収支</th><th>期末資産</th></tr></thead><tbody>`;
-      changes.forEach(c => {
-        const ev = c.marks.length
-          ? c.marks.map(m => `<span class="yc-mark">${m.icon} ${escapeHtml(m.text)}</span>`).join('')
-          : '<span class="yc-none">—</span>';
-        /* 支出が増える＝家計が苦しくなる方向なので赤、減る＝楽になるので緑 */
-        const dCls = c.first ? '' : c.dExpense > 0 ? 'neg' : c.dExpense < 0 ? 'pos' : '';
+      const dir = v => (v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+      const arrow = v => (v > 0 ? '↑' : v < 0 ? '↓' : '→');
+
+      document.getElementById('phaseList').innerHTML = changes.map(c => {
+        const d = dir(c.dExpense);
+        const headline = c.first
+          ? '<span class="yc-flat">試算の開始年</span>'
+          : d === 'flat'
+            ? '<span class="yc-flat">→ 支出はほぼ変わらず</span>'
+            : `<span class="yc-delta ${d}">${arrow(c.dExpense)} 支出が <b>${fmtManPlain(Math.abs(c.dExpense))}</b> ${d === 'up' ? '増える' : '減る'}</span>`;
+        const marks = c.marks.length
+          ? `<div class="yc-marks">${c.marks.map(m => `<span class="yc-mark">${m.icon} ${escapeHtml(m.text)}</span>`).join('')}</div>`
+          : '';
         const diffs = c.diffs.length
-          ? c.diffs.map(([l, v]) => `<span class="yc-diff ${v > 0 ? 'neg' : 'pos'}">${l} ${fmtManSigned(v)}</span>`).join('')
-          : '<span class="yc-none">—</span>';
-        html += `<tr>
-          <td><span class="ph-name">${c.year}年 ・ ${c.age}歳</span><br>${ev}</td>
-          <td class="${dCls}">${c.first ? '—' : fmtManSigned(c.dExpense)}</td>
-          <td class="yc-diffs">${diffs}</td>
-          <td>${fmtManPlain(c.expense)}</td>
-          <td class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(c.balance)}</td>
-          <td class="${c.total >= 0 ? '' : 'neg'}">${fmtManPlain(c.total)}</td></tr>`;
-      });
-      document.getElementById('phaseTable').innerHTML = html + '</tbody>';
+          ? `<div class="yc-diffs">${c.diffs.map(([l, v]) =>
+            `<span class="yc-diff ${dir(v)}">${l} ${arrow(v)}${fmtManPlain(Math.abs(v))}</span>`).join('')}</div>`
+          : '';
+        return `<div class="yc-card ${c.first ? 'flat' : d}">
+          <div class="yc-when"><b>${c.year}年</b><span>${c.age}歳</span>${headline}</div>
+          ${marks}${diffs}
+          <div class="yc-foot">
+            <span class="yc-kv">年間支出<b>${fmtM(c.expense)}</b></span>
+            <span class="yc-kv">収支<b class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtM(c.balance)}</b><i>${c.balance >= 0 ? '黒字' : '赤字'}</i></span>
+            <span class="yc-kv">年末の資産<b class="${c.total >= 0 ? '' : 'neg'}">${fmtM(c.total)}</b></span>
+          </div>
+        </div>`;
+      }).join('');
     }
 
     function renderCompare(sim) {
