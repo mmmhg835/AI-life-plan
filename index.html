@@ -4039,19 +4039,33 @@
       const sc = S();
       const eduTotal = d.rows.reduce((s, r) => s + r.edu, 0);
       const withdrawTotal = d.rows.reduce((s, r) => s + r.withdraw, 0);
-      const prompt = `FPとして診断。出力は有効なJSON1つのみ（前後に説明・\`\`\`禁止）。
-データ: ${d.age}歳/退職${d.retireAge}歳/${d.endAge}歳まで試算/月手取${Math.round(d.netMonthly)}万/配偶${d.pHas ? '有' : '無'}/子${d.kidCount}人/教育費総額${Math.round(eduTotal)}万/住宅${d.hBuy ? d.hPrice + '万購入予定' : '賃貸'}/車${(sc.cars || []).filter(c => c.use && c.buyY).length}台計画/退職時資産${d.retireAssets}万/最終${d.totalAssets}万/年金手取月${d.pm}万/退職金手取${d.severanceNetTotal}万/老後取り崩し総額${Math.round(withdrawTotal)}万/資産枯渇${d.depletionAge == null ? 'なし' : d.depletionAge + '歳'}/シナリオ名${sc.name}
-必須キーと制限: score 0-100整数, scoreComment 12字以内, overview 1文45字以内, strengths 文字列3つ各22字以内, risks 2つ各28字以内, actions 3つ各22字以内, fireStatus 1文40字以内
-例: {"score":65,"scoreComment":"バランス型","overview":"...","strengths":["","",""],"risks":["",""],"actions":["","",""],"fireStatus":"..."}`;
+      /* 送るのは数値と真偽値のみ。文章はサーバー側で組み立てる（プロンプト注入対策） */
+      const payload = {
+        age: d.age, retireAge: d.retireAge, endAge: d.endAge,
+        netMonthly: Math.round(d.netMonthly),
+        hasPartner: !!d.pHas,
+        kidCount: d.kidCount,
+        eduTotal: Math.round(eduTotal),
+        buyHouse: !!d.hBuy,
+        housePrice: Math.round(nz(d.hPrice)),
+        carCount: (sc.cars || []).filter(c => c.use && c.buyY).length,
+        retireAssets: Math.round(d.retireAssets),
+        totalAssets: Math.round(d.totalAssets),
+        pensionMonthly: Math.round(nz(d.pm)),
+        severanceNet: Math.round(nz(d.severanceNetTotal)),
+        withdrawTotal: Math.round(withdrawTotal),
+        depletionAge: d.depletionAge == null ? null : d.depletionAge
+      };
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 25000);
       try {
         const res = await fetch('/api/ai-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify(payload),
           signal: ac.signal
         });
+        if (res.status === 429) { renderFallback('AI診断の利用が短時間に集中したため、簡易診断を表示しています。しばらく待つと再度AI診断が使えます。'); return; }
         if (!res.ok) throw new Error('AI API error: ' + res.status);
         const data = await res.json();
         renderReport(data);
@@ -4062,10 +4076,11 @@
       }
     }
 
-    function renderReport(r) {
+    function renderReport(r, note) {
       const d = simData;
       document.getElementById('reportLoading').style.display = 'none';
       document.getElementById('reportContent').innerHTML = `
+    ${note ? `<div class="card" style="margin-bottom:8px;"><p style="font-size:12px;color:var(--gray-600);margin:0;">${escapeHtml(note)}</p></div>` : ''}
     <div class="scard">
       <div class="scirc"><div class="scr-num">${r.score}</div><div class="sden">/100</div></div>
       <div><div class="seye">FINANCIAL HEALTH SCORE</div><div class="scom">${r.scoreComment}</div><div class="sovw">${r.overview}</div></div>
@@ -4080,7 +4095,7 @@
       document.getElementById('reportActions').style.display = 'block';
     }
 
-    function renderFallback() {
+    function renderFallback(note) {
       const d = simData;
       const sc = d.depletionAge != null ? 32 : d.retireAssets > 5000 ? 78 : d.retireAssets > 2000 ? 58 : 38;
       renderReport({
@@ -4096,7 +4111,7 @@
         ],
         actions: ['投資額を収入の15〜20%に引き上げる', 'iDeCo・NISAを最大限活用する', '半年に一度シミュレーションを更新する'],
         fireStatus: `現在のペースで${d.retireAge}歳退職を目指すプランです。投資利回りと支出コントロール次第で前倒しも可能です。`
-      });
+      }, note);
     }
 
     /* =====================================================================
