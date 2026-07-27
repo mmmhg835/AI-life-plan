@@ -1481,6 +1481,16 @@
     }
 
     /* 保存したプラン */
+    .saves-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--gray-600);
+    }
+
     .saves-empty {
       font-size: 12px;
       line-height: 1.6;
@@ -2215,6 +2225,14 @@
       if (!writeSaves(list.filter(x => x.id !== id))) return;
       renderSaves();
     }
+    /* 端末を人に渡すときなど、保存をまとめて消したい場合 */
+    function clearAllSaves() {
+      const n = readSaves().length;
+      if (!n) return;
+      if (!confirm(`保存したプラン${n}件をすべて削除しますか？\nこの操作は取り消せません。`)) return;
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) { }
+      renderSaves();
+    }
     function renameSave(id) {
       const list = readSaves();
       const item = list.find(x => x.id === id);
@@ -2232,7 +2250,7 @@
         el.innerHTML = '<p class="saves-empty">まだ保存はありません。入力が固まったら「いまの内容を保存する」を押しておくと、あとから呼び出せます。</p>';
         return;
       }
-      el.innerHTML = list.map(s => {
+      el.innerHTML = `<div class="saves-hd"><span>${list.length}件</span><button class="scen-btn" onclick="clearAllSaves()">すべて削除</button></div>` + list.map(s => {
         const m = s.summary;
         const nums = m ? `<div class="save-nums">
             <span>退職直前 <b>${fmtM(m.retireAssets)}</b></span>
@@ -4033,8 +4051,13 @@
     }
 
     function resetAll() {
-      if (!confirm('入力内容（全シナリオ）をすべて消してリセットしますか？\n※「保存したプラン」は消えずに残ります')) return;
+      if (!confirm('入力内容（全シナリオ）をすべて消してリセットしますか？')) return;
       try { localStorage.removeItem(STORE_KEY); } catch (e) { }
+      /* 保存は別枠なので、消すかどうかは分けて聞く */
+      const n = readSaves().length;
+      if (n && confirm(`保存したプラン${n}件も削除しますか？\n「キャンセル」を選ぶと保存は残ります。`)) {
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) { }
+      }
       location.reload();
     }
 
