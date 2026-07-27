@@ -1982,6 +1982,11 @@
         <div class="chart-canvas-wrap"><canvas id="assetChart"></canvas></div>
       </div>
       <div class="ccard">
+        <div class="clbl">⚖️ 収入と支出の推移（万円）</div>
+        <p class="sim-detail-hint" style="margin:0 0 8px;">2本の線の開きが、その年の余裕です。<b class="pos">緑＝収入が上回る</b>、<b class="neg">赤＝支出が上回る</b>。収入には児童手当・年金・退職金を、支出には生活費・教育・住宅・車・イベントを含みます（積立は含みません）。</p>
+        <div class="chart-canvas-wrap"><canvas id="flowChart"></canvas></div>
+      </div>
+      <div class="ccard">
         <div class="clbl">🧱 費目別の支出（万円）</div>
         <p class="sim-detail-hint" style="margin:0 0 8px;">何の費用がいつ増えて、いつ無くなるかを積み上げで表示します。住宅を買った年に住宅の帯が立ち上がり、保育料や教育費の帯は時期が来ると消えます。</p>
         <div class="chart-canvas-wrap"><canvas id="expenseChart"></canvas></div>
@@ -3684,15 +3689,15 @@
     /* =====================================================================
        グラフ・年次表・シナリオ比較
        ===================================================================== */
-    let chartAsset = null, chartBalance = null, chartExpense = null, simData = null;
+    let chartAsset = null, chartBalance = null, chartExpense = null, chartFlow = null, simData = null;
     let cmpChecked = {};
     const CMP_COLORS = ['#1a56db', '#f97316', '#16a34a', '#9333ea', '#dc2626'];
 
     function dismissChartTooltipsIfOutside(ev) {
-      if (!chartAsset && !chartBalance && !chartExpense) return;
+      if (!chartAsset && !chartBalance && !chartExpense && !chartFlow) return;
       const t = ev.target;
       if (t.closest && t.closest('.chart-canvas-wrap')) return;
-      [chartAsset, chartBalance, chartExpense].forEach(ch => {
+      [chartAsset, chartBalance, chartExpense, chartFlow].forEach(ch => {
         if (!ch) return;
         ch.setActiveElements([]);
         ch.update();
@@ -3715,6 +3720,7 @@
         if (chartAsset) { chartAsset.destroy(); chartAsset = null; }
         if (chartBalance) { chartBalance.destroy(); chartBalance = null; }
         if (chartExpense) { chartExpense.destroy(); chartExpense = null; }
+        if (chartFlow) { chartFlow.destroy(); chartFlow = null; }
         return;
       }
       document.getElementById('simTitle').textContent = `${sim.age}歳〜${sim.endAge}歳 シミュレーション`;
@@ -3742,6 +3748,7 @@
       if (chartAsset) chartAsset.destroy();
       if (chartBalance) chartBalance.destroy();
       if (chartExpense) chartExpense.destroy();
+      if (chartFlow) chartFlow.destroy();
       const chartScales = { x: { ticks: { maxTicksLimit: Math.min(14, Math.max(5, sim.lbls.length)), font: { family: 'DM Mono', size: 9 }, maxRotation: 45, minRotation: 0 } }, y: { ticks: { callback: v => fmtM(v), font: { family: 'DM Mono', size: 10 } } } };
       const chartTooltipBase = {
         enabled: true, backgroundColor: 'rgba(30,41,59,0.95)', borderColor: 'rgba(148,163,184,0.35)', borderWidth: 1,
@@ -3778,6 +3785,48 @@
         data: { labels: sim.lbls, datasets },
         options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: datasets.length > 1, labels: { boxWidth: 18, font: { size: 10, family: "'Noto Sans JP',sans-serif" } } }, tooltip: chartTooltipBase }, scales: chartScales }
       });
+      /* 収入と支出の推移：2本の差が余裕。上下で塗り分けて黒字・赤字を示す */
+      chartFlow = new Chart(document.getElementById('flowChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: sim.lbls,
+          datasets: [
+            {
+              label: '収入', data: sim.rows.map(r => r.income),
+              borderColor: '#16a34a', backgroundColor: '#16a34a',
+              tension: .25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5
+            },
+            {
+              label: '支出', data: sim.rows.map(r => r.expense),
+              borderColor: '#dc2626', backgroundColor: '#dc2626',
+              tension: .25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+              /* 収入（1つ前のデータセット）との間を塗る。支出が上＝赤字なので赤 */
+              fill: { target: '-1', above: 'rgba(220,38,38,.16)', below: 'rgba(22,163,74,.16)' }
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, labels: { boxWidth: 14, font: { size: 10, family: "'Noto Sans JP',sans-serif" } } },
+            tooltip: Object.assign({}, chartTooltipBase, {
+              callbacks: Object.assign({}, chartTooltipBase.callbacks, {
+                footer: items => {
+                  const inc = items.find(it => it.dataset.label === '収入');
+                  const exp = items.find(it => it.dataset.label === '支出');
+                  if (!inc || !exp) return '';
+                  const d = inc.parsed.y - exp.parsed.y;
+                  return `差引: ${d >= 0 ? '+' : ''}${fmtM(d)}（${d >= 0 ? '収入が上回る' : '支出が上回る'}）`;
+                }
+              }),
+              footerColor: '#f8fafc', footerFont: { size: 12, weight: '700', family: "'DM Mono',monospace" }
+            })
+          },
+          scales: chartScales
+        }
+      });
+
       /* 費目別の支出（積み上げ）：どの費用がいつ立ち上がり、いつ消えるか */
       const EXPENSE_CATS = [
         ['living', '生活費', '#94a3b8'], ['edu', '教育・保育', '#f97316'],
