@@ -1025,6 +1025,28 @@
       font-weight: 700;
     }
 
+    /* ライフイベント期間表：カテゴリ見出し行（sticky列の指定を打ち消す） */
+    .sim-table tr.ph-grp td {
+      position: static;
+      text-align: left;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      font-weight: 700;
+      max-width: none;
+      white-space: nowrap;
+    }
+
+    .ph-name {
+      font-weight: 700;
+    }
+
+    .ph-span {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--gray-600);
+      white-space: nowrap;
+    }
+
     .sim-table thead th {
       background: var(--blue-light);
       color: var(--blue-dark);
@@ -1634,6 +1656,13 @@
         <div class="ph-ttl" id="simTitle">シミュレーション結果</div>
       </div>
       <div class="kgrid" id="kpiGrid"></div>
+      <div class="card" id="phaseCard" style="display:none;">
+        <div class="ctitle">ライフイベント期間別の収支</div>
+        <p class="sim-detail-hint">保育園・進学・車の保有・住宅ローンなど、支出が大きく動く期間で区切った収支です。単位は万円。「年平均収支」は収入−支出−積立の1年あたり平均、「累計収支」はその期間の合計。「期末資産」は運用益と取り崩しを反映した期間終了時点の総資産なので、累計収支がマイナスでも資産が増えていることがあります。期間どうしは重なります（例：小学校と車の保有）。</p>
+        <div class="sim-table-wrap">
+          <table class="sim-table" id="phaseTable" aria-label="ライフイベント期間別の収支"></table>
+        </div>
+      </div>
       <div class="ccard" id="cmpCard" style="display:none;">
         <div class="clbl">🔀 シナリオ比較</div>
         <div id="cmpChecks"></div>
@@ -2014,6 +2043,103 @@
     function allowAnnualCY(c, year, order) {
       return allowMonthly(schoolAge(year - 1, c.birthYear, c.birthMonth), order) * 3
         + allowMonthly(schoolAge(year, c.birthYear, c.birthMonth), order) * 9;
+    }
+
+    /* =====================================================================
+       ライフイベント期間（保育園・進学・車・住宅・働き方）で区切った収支
+       ===================================================================== */
+    /* [sIdx, eIdx]（年*12+月の通し番号）と暦年yearの重なり月数 */
+    function idxOverlap(year, sIdx, eIdx) {
+      return Math.max(0, Math.min(year * 12 + 12, eIdx) - Math.max(year * 12 + 1, sIdx) + 1);
+    }
+
+    function buildPhases(sim, sc) {
+      const rows = sim.rows;
+      if (!rows.length) return [];
+      /* 条件に当てはまる年の最初〜最後を1区間にまとめる */
+      const span = pred => {
+        let from = null, to = null;
+        rows.forEach(r => { if (pred(r.year, r.age)) { if (from == null) from = r.year; to = r.year; } });
+        return from == null ? null : { label: null, from, to };
+      };
+      const ph = (label, r) => (r ? Object.assign(r, { label }) : null);
+      const groups = [];
+      const add = (title, items) => {
+        const phases = items.filter(Boolean);
+        if (phases.length) groups.push({ title, phases });
+      };
+
+      /* --- 子供：保育園・習い事・各学校段階 --- */
+      sc.children
+        .filter(c => c.enabled && c.birthYear)
+        .slice()
+        .sort((a, b) => (a.birthYear * 12 + (a.birthMonth || 1)) - (b.birthYear * 12 + (b.birthMonth || 1)))
+        .forEach((c, i) => {
+          const sa = y => schoolAge(y, c.birthYear, c.birthMonth);
+          const stage = (label, lo, hi) => ph(label, span(y => sa(y) >= lo && sa(y) <= hi));
+          add(`👶 第${i + 1}子（${c.birthYear}年${c.birthMonth || 1}月生まれ）`, [
+            nz(c.ccFee) > 0 && c.ccStartY
+              ? ph('保育園', span(y => monthsOverlap(y, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0)) : null,
+            nz(c.lessonFee) > 0 && c.lsStartY
+              ? ph('習い事・塾（追加分）', span(y => monthsOverlap(y, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM) > 0)) : null,
+            stage(`幼稚園（${c.kg}）`, 3, 5),
+            stage(`小学校（${c.elem}）`, 6, 11),
+            stage(`中学校（${c.jhs}）`, 12, 14),
+            stage(`高校（${c.hs}）`, 15, 17),
+            stage(`大学（${c.univ}・${c.univHome}）`, 18, 21)
+          ]);
+        });
+
+      /* --- 住まい --- */
+      const h = sc.housing;
+      const hBuy = !!h.buy && !!h.buyY;
+      const rentEndY = h.rentEndY || (hBuy ? h.buyY : null);
+      const rentEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
+      const hStartIdx = hBuy ? h.buyY * 12 + (h.buyM || 1) : 0;
+      const hLoanEndIdx = hBuy && nz(h.loanYears) > 0 ? hStartIdx + nz(h.loanYears) * 12 - 1 : hStartIdx - 1;
+      add('🏠 住まい', [
+        nz(h.rent) > 0 ? ph('賃貸', span(y => monthsOverlap(y, null, null, rentEndY, rentEndM) > 0)) : null,
+        hBuy && nz(h.loanYears) > 0
+          ? ph('住宅ローン返済中', span(y => idxOverlap(y, hStartIdx, hLoanEndIdx) > 0)) : null,
+        hBuy
+          ? ph('ローン完済後（維持費のみ）', span(y => y * 12 + 1 > hLoanEndIdx && y * 12 + 12 >= hStartIdx)) : null
+      ]);
+
+      /* --- 車 --- */
+      add('🚗 車', sc.cars
+        .filter(c => c.use && c.buyY && nz(c.price) > 0)
+        .map((c, i) => ph(`${i + 1}台目 保有`,
+          span(y => idxOverlap(y, c.buyY * 12 + (c.buyM || 1), c.endY ? c.endY * 12 + (c.endM || 12) : Infinity) > 0))));
+
+      /* --- 働き方 --- */
+      const pensionAge = nz(sc.basic.pensionStartAge || 65);
+      add('💼 働き方', [
+        ph('現役（在職中）', span((y, a) => a < sim.retireAge)),
+        ph('退職後・年金受給前', span((y, a) => a >= sim.retireAge && a < pensionAge)),
+        ph('年金受給後', span((y, a) => a >= sim.retireAge && a >= pensionAge))
+      ]);
+
+      /* 各区間の収支を集計 */
+      const byYear = new Map(rows.map(r => [r.year, r]));
+      groups.forEach(g => {
+        g.phases = g.phases.filter(p2 => {
+        const rs = [];
+        for (let y = p2.from; y <= p2.to; y++) if (byYear.has(y)) rs.push(byYear.get(y));
+        if (!rs.length) return false;
+        const n = rs.length;
+        const sum = k => rs.reduce((s, r) => s + r[k], 0);
+        p2.years = rs.length;
+        p2.ageFrom = rs[0].age;
+        p2.ageTo = rs[rs.length - 1].age;
+        p2.avgIncome = sum('income') / n;
+        p2.avgExpense = sum('expense') / n;
+        p2.avgBalance = sum('balance') / n;
+        p2.cumBalance = sum('balance');
+        p2.endTotal = rs[rs.length - 1].total;
+        return true;
+        });
+      });
+      return groups.filter(g => g.phases.length);
     }
 
     function simulate(sc) {
@@ -2977,6 +3103,9 @@
         <div class="kcard"><div class="klbl">老後の取り崩し総額</div><div class="kval">${fmtM(withdrawTotal)}</div><div class="klbl-hint">現金不足を投資資産の売却で補った累計</div></div>
         <div class="kcard"><div class="klbl">教育・保育の総支出</div><div class="kval">${fmtM(kidSpendTotal)}</div><div class="klbl-hint">児童手当 計${fmtM(allowTotal)}は収入に加算済み</div></div>`;
 
+      /* ライフイベント期間別の収支 */
+      renderPhases(sim);
+
       /* シナリオ比較 */
       renderCompare(sim);
 
@@ -3045,6 +3174,28 @@
           <td class="${r.total >= 0 ? '' : 'neg'}">${fmtManPlain(r.total)}</td></tr>`;
       });
       tbl.innerHTML = th + '</tbody>';
+    }
+
+    function renderPhases(sim) {
+      const card = document.getElementById('phaseCard');
+      const groups = buildPhases(sim, S());
+      if (!groups.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      /* 収支を左寄せにして、横スクロールなしでも要点が読めるようにする */
+      let html = `<thead><tr><th>期間</th><th>年平均収支</th><th>累計収支</th><th>年平均収入</th><th>年平均支出</th><th>期末資産</th></tr></thead><tbody>`;
+      groups.forEach(g => {
+        html += `<tr class="ph-grp"><td colspan="6">${escapeHtml(g.title)}</td></tr>`;
+        g.phases.forEach(p => {
+          html += `<tr>
+            <td><span class="ph-name">${escapeHtml(p.label)}</span><br><span class="ph-span">${p.from}〜${p.to}年（${p.years}年）/ ${p.ageFrom}〜${p.ageTo}歳</span></td>
+            <td class="${p.avgBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.avgBalance)}</td>
+            <td class="${p.cumBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.cumBalance)}</td>
+            <td>${fmtManPlain(p.avgIncome)}</td>
+            <td>${fmtManPlain(p.avgExpense)}</td>
+            <td class="${p.endTotal >= 0 ? '' : 'neg'}">${fmtManPlain(p.endTotal)}</td></tr>`;
+        });
+      });
+      document.getElementById('phaseTable').innerHTML = html + '</tbody>';
     }
 
     function renderCompare(sim) {
