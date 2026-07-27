@@ -2,7 +2,7 @@
    クライアントからは数値・真偽値のみを受け取り、プロンプトはこのファイル内で組み立てる。
    文字列を一切そのまま渡さないことで、任意プロンプトの実行（＝APIキーの踏み台化）を防ぐ。 */
 
-const RATE_MAX = num(process.env.AI_RATE_MAX, 1, 1000, 10);          /* 同一IPの上限回数 */
+const RATE_MAX = num(process.env.AI_RATE_MAX, 1, 1000, 20);          /* 同一IPの上限回数 */
 const RATE_WINDOW_MS = num(process.env.AI_RATE_WINDOW_MIN, 1, 1440, 60) * 60000;
 const RATE_MAX_KEYS = 5000;                                          /* メモリ上限 */
 
