@@ -1025,7 +1025,12 @@
       font-weight: 700;
     }
 
-    /* ライフイベント期間表：カテゴリ見出し行（sticky列の指定を打ち消す） */
+    /* 列数の多い年次表は横スクロール幅を広めに取る */
+    .sim-table.wide {
+      min-width: 820px;
+    }
+
+    /* ライフイベント期間表：年の見出し行（sticky列の指定を打ち消す） */
     .sim-table tr.ph-grp td {
       position: static;
       text-align: left;
@@ -1678,9 +1683,9 @@
       </div>
       <div class="card" id="simYearDetailCard" style="display:none;">
         <div class="ctitle">年次の数値一覧</div>
-        <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支です。児童手当・年金・退職金は収入に含まれています（いずれも手取り換算）。取り崩し＝現金が不足した分を投資資産（課税口座→NISA→保険積立→iDeCo）の売却で補った額です。</p>
+        <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支、イベント＝登録したライフイベントです。児童手当・年金・退職金は収入に含まれています（いずれも手取り換算）。取り崩し＝現金が不足した分を投資資産（課税口座→NISA→保険積立→iDeCo）の売却で補った額です。</p>
         <div class="sim-table-wrap">
-          <table class="sim-table" id="simYearTable" aria-label="年次シミュレーション"></table>
+          <table class="sim-table wide" id="simYearTable" aria-label="年次シミュレーション"></table>
         </div>
       </div>
       <button class="btn btn-p" onclick="runAIReport()">🤖 AIに診断してもらう</button>
@@ -1745,6 +1750,10 @@
         insurance: null, parking: null, taxYear: null, fuel: null
       };
     }
+    /* まとまった出費のライフイベント（留学・リフォーム・介護など） */
+    function newEvent() {
+      return { name: null, mode: 'once', amount: null, startY: null, startM: null, endY: null, endM: null };
+    }
     function newScenario(name) {
       return {
         name: name || 'プランA',
@@ -1775,6 +1784,8 @@
         },
         carCount: null,
         cars: [],
+        eventCount: null,
+        events: [],
         exp: {
           food: null, utility: null, telecom: null, insurance: null, subscription: null,
           transport: null, educationManual: null,
@@ -1820,6 +1831,7 @@
             merged.ccSibling = Object.assign({}, base.ccSibling, sc.ccSibling || {});
             merged.children = (sc.children || []).map(c => Object.assign(newChild(), c));
             merged.cars = (sc.cars || []).map(c => Object.assign(newCar(), c));
+            merged.events = (sc.events || []).map(x => Object.assign(newEvent(), x));
             return merged;
           });
           APP = { scenarios: d.scenarios, active: Math.min(d.active || 0, d.scenarios.length - 1) };
@@ -2060,14 +2072,11 @@
       const span = pred => {
         let from = null, to = null;
         rows.forEach(r => { if (pred(r.year, r.age)) { if (from == null) from = r.year; to = r.year; } });
-        return from == null ? null : { label: null, from, to };
+        return from == null ? null : { from, to };
       };
-      const ph = (label, r) => (r ? Object.assign(r, { label }) : null);
-      const groups = [];
-      const add = (title, items) => {
-        const phases = items.filter(Boolean);
-        if (phases.length) groups.push({ title, phases });
-      };
+      const phases = [];
+      /* icon=種別アイコン、ctx=だれの/どれの（任意）、label=イベント名 */
+      const add = (icon, ctx, label, r) => { if (r) phases.push({ icon, ctx, label, from: r.from, to: r.to }); };
 
       /* --- 子供：保育園・習い事・各学校段階 --- */
       sc.children
@@ -2076,18 +2085,19 @@
         .sort((a, b) => (a.birthYear * 12 + (a.birthMonth || 1)) - (b.birthYear * 12 + (b.birthMonth || 1)))
         .forEach((c, i) => {
           const sa = y => schoolAge(y, c.birthYear, c.birthMonth);
-          const stage = (label, lo, hi) => ph(label, span(y => sa(y) >= lo && sa(y) <= hi));
-          add(`👶 第${i + 1}子（${c.birthYear}年${c.birthMonth || 1}月生まれ）`, [
-            nz(c.ccFee) > 0 && c.ccStartY
-              ? ph('保育園', span(y => monthsOverlap(y, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0)) : null,
-            nz(c.lessonFee) > 0 && c.lsStartY
-              ? ph('習い事・塾（追加分）', span(y => monthsOverlap(y, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM) > 0)) : null,
-            stage(`幼稚園（${c.kg}）`, 3, 5),
-            stage(`小学校（${c.elem}）`, 6, 11),
-            stage(`中学校（${c.jhs}）`, 12, 14),
-            stage(`高校（${c.hs}）`, 15, 17),
-            stage(`大学（${c.univ}・${c.univHome}）`, 18, 21)
-          ]);
+          const who = `第${i + 1}子`;
+          const stage = (label, lo, hi) => add('👶', who, label, span(y => sa(y) >= lo && sa(y) <= hi));
+          if (nz(c.ccFee) > 0 && c.ccStartY) {
+            add('👶', who, '保育園', span(y => monthsOverlap(y, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0));
+          }
+          if (nz(c.lessonFee) > 0 && c.lsStartY) {
+            add('👶', who, '習い事・塾（追加分）', span(y => monthsOverlap(y, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM) > 0));
+          }
+          stage(`幼稚園（${c.kg}）`, 3, 5);
+          stage(`小学校（${c.elem}）`, 6, 11);
+          stage(`中学校（${c.jhs}）`, 12, 14);
+          stage(`高校（${c.hs}）`, 15, 17);
+          stage(`大学（${c.univ}・${c.univHome}）`, 18, 21);
         });
 
       /* --- 住まい --- */
@@ -2097,49 +2107,56 @@
       const rentEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
       const hStartIdx = hBuy ? h.buyY * 12 + (h.buyM || 1) : 0;
       const hLoanEndIdx = hBuy && nz(h.loanYears) > 0 ? hStartIdx + nz(h.loanYears) * 12 - 1 : hStartIdx - 1;
-      add('🏠 住まい', [
-        nz(h.rent) > 0 ? ph('賃貸', span(y => monthsOverlap(y, null, null, rentEndY, rentEndM) > 0)) : null,
-        hBuy && nz(h.loanYears) > 0
-          ? ph('住宅ローン返済中', span(y => idxOverlap(y, hStartIdx, hLoanEndIdx) > 0)) : null,
-        hBuy
-          ? ph('ローン完済後（維持費のみ）', span(y => y * 12 + 1 > hLoanEndIdx && y * 12 + 12 >= hStartIdx)) : null
-      ]);
+      if (nz(h.rent) > 0) add('🏠', null, '賃貸', span(y => monthsOverlap(y, null, null, rentEndY, rentEndM) > 0));
+      if (hBuy && nz(h.loanYears) > 0) {
+        add('🏠', null, '住宅ローン返済中', span(y => idxOverlap(y, hStartIdx, hLoanEndIdx) > 0));
+      }
+      if (hBuy) {
+        add('🏠', null, 'ローン完済後（維持費のみ）', span(y => y * 12 + 1 > hLoanEndIdx && y * 12 + 12 >= hStartIdx));
+      }
 
       /* --- 車 --- */
-      add('🚗 車', sc.cars
+      sc.cars
         .filter(c => c.use && c.buyY && nz(c.price) > 0)
-        .map((c, i) => ph(`${i + 1}台目 保有`,
-          span(y => idxOverlap(y, c.buyY * 12 + (c.buyM || 1), c.endY ? c.endY * 12 + (c.endM || 12) : Infinity) > 0))));
+        .forEach((c, i) => add('🚗', null, `${i + 1}台目 保有`,
+          span(y => idxOverlap(y, c.buyY * 12 + (c.buyM || 1), c.endY ? c.endY * 12 + (c.endM || 12) : Infinity) > 0)));
+
+      /* --- 登録したライフイベント --- */
+      (sc.events || [])
+        .filter(ev => nz(ev.amount) !== 0 && ev.startY)
+        .forEach((ev, i) => {
+          const name = ev.name || `ライフイベント${i + 1}`;
+          const unit = ev.mode === 'monthly' ? '万円/月' : ev.mode === 'yearly' ? '万円/年' : '万円';
+          add('⭐', null, `${name}（${nz(ev.amount).toLocaleString()}${unit}）`,
+            ev.mode === 'once'
+              ? span(y => y === ev.startY)
+              : span(y => monthsOverlap(y, ev.startY, ev.startM, ev.endY, ev.endM) > 0));
+        });
 
       /* --- 働き方 --- */
       const pensionAge = nz(sc.basic.pensionStartAge || 65);
-      add('💼 働き方', [
-        ph('現役（在職中）', span((y, a) => a < sim.retireAge)),
-        ph('退職後・年金受給前', span((y, a) => a >= sim.retireAge && a < pensionAge)),
-        ph('年金受給後', span((y, a) => a >= sim.retireAge && a >= pensionAge))
-      ]);
+      add('💼', null, '現役（在職中）', span((y, a) => a < sim.retireAge));
+      add('💼', null, '退職後・年金受給前', span((y, a) => a >= sim.retireAge && a < pensionAge));
+      add('💼', null, '年金受給後', span((y, a) => a >= sim.retireAge && a >= pensionAge));
 
-      /* 各区間の収支を集計 */
+      /* 各区間の収支を集計し、開始年で時系列に並べる */
       const byYear = new Map(rows.map(r => [r.year, r]));
-      groups.forEach(g => {
-        g.phases = g.phases.filter(p2 => {
+      return phases.filter(p => {
         const rs = [];
-        for (let y = p2.from; y <= p2.to; y++) if (byYear.has(y)) rs.push(byYear.get(y));
+        for (let y = p.from; y <= p.to; y++) if (byYear.has(y)) rs.push(byYear.get(y));
         if (!rs.length) return false;
         const n = rs.length;
         const sum = k => rs.reduce((s, r) => s + r[k], 0);
-        p2.years = rs.length;
-        p2.ageFrom = rs[0].age;
-        p2.ageTo = rs[rs.length - 1].age;
-        p2.avgIncome = sum('income') / n;
-        p2.avgExpense = sum('expense') / n;
-        p2.avgBalance = sum('balance') / n;
-        p2.cumBalance = sum('balance');
-        p2.endTotal = rs[rs.length - 1].total;
+        p.years = n;
+        p.ageFrom = rs[0].age;
+        p.ageTo = rs[n - 1].age;
+        p.avgIncome = sum('income') / n;
+        p.avgExpense = sum('expense') / n;
+        p.avgBalance = sum('balance') / n;
+        p.cumBalance = sum('balance');
+        p.endTotal = rs[n - 1].total;
         return true;
-        });
-      });
-      return groups.filter(g => g.phases.length);
+      }).sort((a, b) => a.from - b.from || a.to - b.to || a.label.localeCompare(b.label, 'ja'));
     }
 
     function simulate(sc) {
@@ -2203,6 +2220,14 @@
           cashAtBuy: nz(c.down) - nz(c.tradeIn)
         };
       });
+
+      /* ライフイベント（入力額をそのまま計上・物価上昇は掛けない） */
+      const events = (sc.events || []).filter(ev => nz(ev.amount) !== 0 && ev.startY);
+      const eventCostOf = year => events.reduce((s, ev) => {
+        if (ev.mode === 'once') return s + (year === ev.startY ? nz(ev.amount) : 0);
+        const m = monthsOverlap(year, ev.startY, ev.startM, ev.endY, ev.endM);
+        return s + nz(ev.amount) * (ev.mode === 'yearly' ? m / 12 : m);
+      }, 0);
 
       /* 物価上昇 */
       const inflRate = nz(e.inflationRate) / 100;
@@ -2324,7 +2349,8 @@
         pStock *= pStockR;
 
         /* --- 年間収支 --- */
-        const expenseTotal = living + edu + housing + car;
+        const eventCost = eventCostOf(year);
+        const expenseTotal = living + edu + housing + car + eventCost;
         const balance = income - expenseTotal - nisaIn - idecoIn - insIn;
         cash += balance;
 
@@ -2363,6 +2389,7 @@
           year, age: curAge,
           income: Math.round(income), expense: Math.round(expenseTotal),
           edu: Math.round(edu), housing: Math.round(housing), car: Math.round(car),
+          event: Math.round(eventCost),
           allowance: Math.round(allowance), severance: Math.round(severance),
           withdraw: Math.round(withdraw), balance: Math.round(balance), total: Math.round(total)
         });
@@ -2390,7 +2417,8 @@
        ===================================================================== */
     const SECS = [
       ['you', 'あなた'], ['partner', 'パートナー'], ['children', '子供'],
-      ['housing', '住まい'], ['car', '車'], ['living', '生活費'], ['invest', '投資・貯蓄']
+      ['housing', '住まい'], ['car', '車'], ['event', 'ライフイベント'],
+      ['living', '生活費'], ['invest', '投資・貯蓄']
     ];
     const MONTH_OPTS = Array.from({ length: 12 }, (_, i) => [String(i + 1), (i + 1) + '月']);
 
@@ -2405,6 +2433,9 @@
     }
     function ymf(pathY, pathM, label) {
       return { t: 'ym', pathY, pathM, label };
+    }
+    function tf(path, label, ph) {
+      return { t: 'text', path, label, ph: ph || '' };
     }
 
     function incomeFields(prefix, mode) {
@@ -2572,6 +2603,37 @@
           { optional: true });
       }
 
+      /* --- ライフイベント --- */
+      q('ev_count', 'event', 'まとまった出費の予定はありますか？',
+        [cf('eventCount', '', [0, 1, 2, 3, 4, 5, 6, 7, 8].map(n => ({ v: n, l: n === 0 ? 'なし' : n + '件' })), { cols: 3 })],
+        {
+          autoNext: true,
+          hint: '留学・リフォーム・親の介護・独立資金・結婚・大きな旅行など、時期が決まっている出費を登録できます。登録するとシミュレーションと「ライフイベント期間別の収支」に反映されます',
+          onChip: v => { resizeEvents(v); }
+        });
+      const evN = nz(sc.eventCount);
+      for (let i = 0; i < evN; i++) {
+        const ev = sc.events[i]; if (!ev) break;
+        const unit = ev.mode === 'monthly' ? '万円/月' : ev.mode === 'yearly' ? '万円/年' : '万円';
+        const amountPh = ev.mode === 'monthly' ? '例：5' : ev.mode === 'yearly' ? '例：60' : '例：500';
+        q('ev_' + i, 'event', (i + 1) + '件目のライフイベント',
+          [tf('events.' + i + '.name', 'イベント名', '例：長女の留学'),
+          cf('events.' + i + '.mode', '計上のしかた',
+            [{ v: 'once', l: '一括（1回）' }, { v: 'monthly', l: '毎月' }, { v: 'yearly', l: '毎年' }],
+            { cols: 3, rerender: true }),
+          nf('events.' + i + '.amount', '金額', unit, amountPh),
+          ev.mode === 'once'
+            ? ymf('events.' + i + '.startY', 'events.' + i + '.startM', '時期（年・月）')
+            : [ymf('events.' + i + '.startY', 'events.' + i + '.startM', '開始（年・月）'),
+            ymf('events.' + i + '.endY', 'events.' + i + '.endM', '終了（年・月）')]],
+          {
+            hint: ev.mode === 'once'
+              ? '指定した年に一括で計上します。入力額をそのまま使い、物価上昇は掛けません'
+              : '期間中ずっと計上します。終了を空欄にすると試算の最後まで続きます。入力額をそのまま使い、物価上昇は掛けません',
+            optional: true
+          });
+      }
+
       /* --- 生活費 --- */
       q('l_food', 'living', '食費と日用品は月いくらですか？',
         [[nf('exp.food', '食費（外食含む）', '万円/月', '例：6'), nf('exp.varDaily', '日用品・消耗品', '万円/月', '例：1')]],
@@ -2642,6 +2704,12 @@
       sc.carCount = n;
       while (sc.cars.length < n) sc.cars.push(newCar());
       sc.cars.length = n;
+    }
+    function resizeEvents(n) {
+      const sc = S();
+      sc.eventCount = n;
+      while (sc.events.length < n) sc.events.push(newEvent());
+      sc.events.length = n;
     }
     function prefillChildcare(i) {
       const c = S().children[i];
@@ -2763,6 +2831,11 @@
         const opts = f.opts.map(o => `<option value="${o[0]}" ${String(cur) === String(o[0]) ? 'selected' : ''}>${o[1]}</option>`).join('');
         return `<div class="field"><label>${f.label}</label><select id="${fid(f.path)}" data-num="${f.num ? 1 : 0}">${opts}</select></div>`;
       }
+      if (f.t === 'text') {
+        const v = getPath(f.path);
+        return `<div class="field"><label>${f.label}</label>
+          <input type="text" id="${fid(f.path)}" placeholder="${f.ph}" value="${v == null ? '' : escapeHtml(v)}"></div>`;
+      }
       if (f.t === 'ym') {
         const y = getPath(f.pathY), m = getPath(f.pathM);
         const mopts = ['<option value="">-</option>'].concat(MONTH_OPTS.map(o =>
@@ -2802,6 +2875,9 @@
         if (f.t === 'num') {
           const el = document.getElementById(fid(f.path));
           if (el) { const v = parseFloat(el.value); setPath(f.path, isNaN(v) ? null : v); }
+        } else if (f.t === 'text') {
+          const el = document.getElementById(fid(f.path));
+          if (el) setPath(f.path, el.value.trim() || null);
         } else if (f.t === 'sel') {
           const el = document.getElementById(fid(f.path));
           if (el) setPath(f.path, f.num ? (parseFloat(el.value) || 0) : el.value);
@@ -2989,6 +3065,7 @@
         const v = getPath(f.path);
         return v == null ? null : v.toLocaleString() + (f.unit || '');
       }
+      if (f.t === 'text') return getPath(f.path) || null;
       if (f.t === 'sel') {
         const v = getPath(f.path);
         if (v == null) return null;
@@ -3162,7 +3239,7 @@
       /* 年次表 */
       const card = document.getElementById('simYearDetailCard'), tbl = document.getElementById('simYearTable');
       card.style.display = 'block';
-      let th = '<thead><tr><th>年</th><th>収入</th><th>支出</th><th>収支</th><th>教育・保育</th><th>住宅</th><th>車</th><th>取り崩し</th><th>期末資産</th></tr></thead><tbody>';
+      let th = '<thead><tr><th>年</th><th>収入</th><th>支出</th><th>収支</th><th>教育・保育</th><th>住宅</th><th>車</th><th>イベント</th><th>取り崩し</th><th>期末資産</th></tr></thead><tbody>';
       sim.rows.forEach(r => {
         th += `<tr><td>${r.year}<br>${r.age}歳</td>
           <td>${fmtManPlain(r.income)}${r.severance ? `<br><span class="pos" style="font-size:10px;">退職金 ${fmtManPlain(r.severance)}</span>` : ''}</td>
@@ -3170,6 +3247,7 @@
           <td class="${r.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(r.balance)}</td>
           <td>${r.edu ? fmtManPlain(r.edu) : '—'}</td><td>${r.housing ? fmtManPlain(r.housing) : '—'}</td>
           <td>${r.car ? fmtManPlain(r.car) : '—'}</td>
+          <td>${r.event ? fmtManPlain(r.event) : '—'}</td>
           <td class="${r.withdraw ? 'neg' : ''}">${r.withdraw ? fmtManPlain(r.withdraw) : '—'}</td>
           <td class="${r.total >= 0 ? '' : 'neg'}">${fmtManPlain(r.total)}</td></tr>`;
       });
@@ -3178,22 +3256,25 @@
 
     function renderPhases(sim) {
       const card = document.getElementById('phaseCard');
-      const groups = buildPhases(sim, S());
-      if (!groups.length) { card.style.display = 'none'; return; }
+      const phases = buildPhases(sim, S());
+      if (!phases.length) { card.style.display = 'none'; return; }
       card.style.display = 'block';
       /* 収支を左寄せにして、横スクロールなしでも要点が読めるようにする */
       let html = `<thead><tr><th>期間</th><th>年平均収支</th><th>累計収支</th><th>年平均収入</th><th>年平均支出</th><th>期末資産</th></tr></thead><tbody>`;
-      groups.forEach(g => {
-        html += `<tr class="ph-grp"><td colspan="6">${escapeHtml(g.title)}</td></tr>`;
-        g.phases.forEach(p => {
-          html += `<tr>
-            <td><span class="ph-name">${escapeHtml(p.label)}</span><br><span class="ph-span">${p.from}〜${p.to}年（${p.years}年）/ ${p.ageFrom}〜${p.ageTo}歳</span></td>
-            <td class="${p.avgBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.avgBalance)}</td>
-            <td class="${p.cumBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.cumBalance)}</td>
-            <td>${fmtManPlain(p.avgIncome)}</td>
-            <td>${fmtManPlain(p.avgExpense)}</td>
-            <td class="${p.endTotal >= 0 ? '' : 'neg'}">${fmtManPlain(p.endTotal)}</td></tr>`;
-        });
+      let lastFrom = null;
+      phases.forEach(p => {
+        /* 開始年が変わるたびに年の見出しを挟んで時系列を追いやすくする */
+        if (p.from !== lastFrom) {
+          html += `<tr class="ph-grp"><td colspan="6">${p.from}年 ・ ${p.ageFrom}歳</td></tr>`;
+          lastFrom = p.from;
+        }
+        html += `<tr>
+          <td><span class="ph-name">${p.icon} ${escapeHtml(p.ctx ? p.ctx + ' ' + p.label : p.label)}</span><br><span class="ph-span">${p.from}〜${p.to}年（${p.years}年）/ ${p.ageFrom}〜${p.ageTo}歳</span></td>
+          <td class="${p.avgBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.avgBalance)}</td>
+          <td class="${p.cumBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.cumBalance)}</td>
+          <td>${fmtManPlain(p.avgIncome)}</td>
+          <td>${fmtManPlain(p.avgExpense)}</td>
+          <td class="${p.endTotal >= 0 ? '' : 'neg'}">${fmtManPlain(p.endTotal)}</td></tr>`;
       });
       document.getElementById('phaseTable').innerHTML = html + '</tbody>';
     }
@@ -3347,6 +3428,15 @@
       Object.assign(sc.cars[0], {
         buyY: NOW_YEAR + 1, buyM: 4, endY: NOW_YEAR + 9, endM: 3, price: 300, tradeIn: 0, down: 100,
         loanYears: 5, loanRate: 2, insurance: 0.6, parking: 1.5, taxYear: 8, fuel: 1
+      });
+      sc.eventCount = 2;
+      sc.events = [newEvent(), newEvent()];
+      Object.assign(sc.events[0], {
+        name: '自宅のリフォーム', mode: 'once', amount: 300, startY: NOW_YEAR + 17, startM: 6
+      });
+      Object.assign(sc.events[1], {
+        name: '親の介護支援', mode: 'monthly', amount: 5,
+        startY: NOW_YEAR + 12, startM: 4, endY: NOW_YEAR + 22, endM: 3
       });
       Object.assign(sc.exp, {
         food: 6, utility: 3.5, telecom: 1.2, insurance: 2, subscription: 1, transport: 1.5,
