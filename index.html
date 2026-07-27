@@ -1718,14 +1718,14 @@
         name: name || 'プランA',
         basic: {
           age: null, retireAge: null, incomeMode: 'gross',
-          grossIncome: null, monthSalary: null, bonusSalary: null,
+          grossIncome: null, monthSalary: null, bonusSalary: null, netIncome: null,
           incomeGrowth: null, sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
           assetCash: null, assetStock: null, assetStockRate: null,
           spouseDeduct: 0, depCount: 0
         },
         partner: {
           has: null, age: null, retireAge: null, mode: 'gross',
-          grossIncome: null, monthSalary: null, bonusSalary: null,
+          grossIncome: null, monthSalary: null, bonusSalary: null, netIncome: null,
           workStartY: null, workStartM: null,
           sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
           assetCash: null, assetStock: null, assetStockRate: null
@@ -1871,9 +1871,31 @@
       };
     }
 
-    function grossOf(p) {
-      if (p.incomeMode === 'gross' || p.mode === 'gross') return p.grossIncome || 0;
+    /* 手取り→額面の逆算（calcNetは額面に対して単調増加なので二分探索） */
+    function grossFromNet(netMan, extraDeduct = 0) {
+      if (!netMan || netMan <= 0) return 0;
+      let lo = netMan, hi = netMan * 1.5 + 100;
+      while (calcNet(hi, extraDeduct).netMan < netMan && hi < 100000) hi *= 1.5;
+      for (let i = 0; i < 50; i++) {
+        const mid = (lo + hi) / 2;
+        if (calcNet(mid, extraDeduct).netMan < netMan) lo = mid; else hi = mid;
+      }
+      return Math.round((lo + hi) / 2);
+    }
+
+    function incomeModeOf(p) { return p.incomeMode || p.mode || 'gross'; }
+
+    function grossOf(p, extraDeduct = 0) {
+      const mode = incomeModeOf(p);
+      if (mode === 'net') return grossFromNet(p.netIncome || 0, extraDeduct);
+      if (mode === 'gross') return p.grossIncome || 0;
       return (p.monthSalary || 0) * 12 + (p.bonusSalary || 0);
+    }
+
+    /* 年間手取り（万円）。手取り入力モードなら入力値をそのまま使う */
+    function netOf(p, extraDeduct = 0) {
+      if (incomeModeOf(p) === 'net') return p.netIncome || 0;
+      return calcNet(grossOf(p), extraDeduct).netMan;
     }
     function depDeduct(b) { return (b.spouseDeduct || 0) + (b.depCount || 0) * 38; }
 
@@ -1950,12 +1972,12 @@
       const startYear = NOW_YEAR;
 
       const dep = depDeduct(b);
-      const selfNetAnnual = calcNet(grossOf(b), dep).netMan;
+      const selfNetAnnual = netOf(b, dep);
       const pHas = !!p.has;
-      const pNetAnnual = pHas ? calcNet(grossOf(p)).netMan : 0;
+      const pNetAnnual = pHas ? netOf(p) : 0;
       const ig = 1 + nz(b.incomeGrowth) / 100;
       const selfPensionAnnual = (b.pensionAnnual != null && b.pensionAnnual !== 0)
-        ? nz(b.pensionAnnual) : estimatePensionMonthly(grossOf(b), retireAge) * 12;
+        ? nz(b.pensionAnnual) : estimatePensionMonthly(grossOf(b, dep), retireAge) * 12;
       const pPensionAnnual = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
         ? nz(p.pensionAnnual) : estimatePensionMonthly(grossOf(p), p.retireAge) * 12) : 0;
       const pAge0 = pHas ? (nz(p.age) || age) : age;
@@ -2157,8 +2179,10 @@
 
     function incomeFields(prefix, mode) {
       const fs = [cf(prefix + '.' + (prefix === 'basic' ? 'incomeMode' : 'mode'), '入力方法', [
-        { v: 'gross', l: '額面年収から計算' }, { v: 'detail', l: '月給＋ボーナス' }], { rerender: true })];
-      if (mode === 'gross') fs.push(nf(prefix + '.grossIncome', '額面年収', '万円', '例：800'));
+        { v: 'gross', l: '額面年収' }, { v: 'detail', l: '月給＋ボーナス' }, { v: 'net', l: '手取り年収' }],
+        { rerender: true, cols: 3 })];
+      if (mode === 'net') fs.push(nf(prefix + '.netIncome', '手取り年収', '万円', '例：592'));
+      else if (mode === 'gross') fs.push(nf(prefix + '.grossIncome', '額面年収', '万円', '例：800'));
       else fs.push([nf(prefix + '.monthSalary', '月給（額面）', '万円', '例：45'), nf(prefix + '.bonusSalary', 'ボーナス（年間）', '万円', '例：150')]);
       fs.push({ t: 'html', html: '<div class="np" id="wizIncomePrev" style="margin-top:4px;"></div>' });
       return fs;
@@ -2174,7 +2198,7 @@
         { required: ['basic.age', 'basic.retireAge'] });
       q('y_income', 'you', '収入について教えてください',
         () => incomeFields('basic', sc.basic.incomeMode),
-        { hint: '額面で入力すると手取りを自動計算します', onInput: updateIncomePreview, afterRender: updateIncomePreview });
+        { hint: '額面で入力すると手取りを自動計算します。手取りがわかっていれば直接入力するのが確実です', onInput: updateIncomePreview, afterRender: updateIncomePreview });
       q('y_growth', 'you', '年収は毎年どのくらい上がりそうですか？',
         [nf('basic.incomeGrowth', '年収上昇率', '%/年', '例：1.5', { step: 0.5 })],
         { hint: '定期昇給＋ベアの目安。わからなければ空欄（0%扱い）でOK', optional: true });
@@ -2484,7 +2508,7 @@
         const cur = getPath(f.path);
         const chips = f.opts.map(o =>
           `<button type="button" class="chip ${JSON.stringify(cur) === JSON.stringify(o.v) ? 'on' : ''}" data-chip-path="${f.path}" data-chip-val='${JSON.stringify(o.v)}'>${o.l}</button>`).join('');
-        return `${f.label ? `<div class="chip-row-label">${f.label}</div>` : ''}<div class="chip-grid ${f.cols === 3 ? 'cols3' : ''} ${f.opts.length > 4 ? 'chip-sm' : ''}">${chips}</div>`;
+        return `${f.label ? `<div class="chip-row-label">${f.label}</div>` : ''}<div class="chip-grid ${f.cols === 3 ? 'cols3' : ''} ${f.opts.length > 4 || f.cols === 3 ? 'chip-sm' : ''}">${chips}</div>`;
       }
       if (f.t === 'sel') {
         const cur = getPath(f.path);
@@ -2620,17 +2644,29 @@
       const isPartner = q && q.id === 'p_income';
       const prefix = isPartner ? 'partner' : 'basic';
       const mode = isPartner ? S().partner.mode : S().basic.incomeMode;
-      let gross = 0;
-      if (mode === 'gross') {
-        const el = document.getElementById(fid(prefix + '.grossIncome'));
-        gross = el ? (parseFloat(el.value) || 0) : 0;
-      } else {
-        const m = document.getElementById(fid(prefix + '.monthSalary'));
-        const bn = document.getElementById(fid(prefix + '.bonusSalary'));
-        gross = (m ? (parseFloat(m.value) || 0) : 0) * 12 + (bn ? (parseFloat(bn.value) || 0) : 0);
+      const dep = isPartner ? 0 : depDeduct(S().basic);
+      const numOf = key => {
+        const el = document.getElementById(fid(prefix + '.' + key));
+        return el ? (parseFloat(el.value) || 0) : 0;
+      };
+
+      /* 手取り直接入力：額面を逆算して目安として見せる */
+      if (mode === 'net') {
+        const net = numOf('netIncome');
+        if (!net) { box.innerHTML = '<div class="fhint" style="margin:0;">手取り年収を入力すると内訳の目安を表示します</div>'; return; }
+        const g = grossFromNet(net, dep);
+        box.innerHTML = `
+          <div class="nrow"><span>額面年収の目安</span><span class="nval">${g}万円</span></div>
+          <div class="ndiv"></div>
+          <div class="nrow ntotal"><span>手取り</span><span class="nval">${net}万円/年（月${(net / 12).toFixed(1)}万円）</span></div>`;
+        return;
       }
+
+      let gross = 0;
+      if (mode === 'gross') gross = numOf('grossIncome');
+      else gross = numOf('monthSalary') * 12 + numOf('bonusSalary');
       if (!gross) { box.innerHTML = '<div class="fhint" style="margin:0;">金額を入力すると手取りを自動計算します</div>'; return; }
-      const r = calcNet(gross, isPartner ? 0 : depDeduct(S().basic));
+      const r = calcNet(gross, dep);
       box.innerHTML = `
         <div class="nrow"><span>社会保険料</span><span class="nval">${r.socialMan}万円</span></div>
         <div class="nrow"><span>所得税＋住民税</span><span class="nval">${r.incomeTaxMan + r.residentTaxMan}万円</span></div>
