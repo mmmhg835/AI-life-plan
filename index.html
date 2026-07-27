@@ -1045,6 +1045,37 @@
       font-weight: 700;
     }
 
+    /* 支出が動く年の表：できごとと内訳のバッジ */
+    .yc-mark,
+    .yc-diff {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+
+    .yc-mark {
+      color: var(--gray-600);
+    }
+
+    .yc-diff.pos {
+      color: var(--green);
+    }
+
+    .yc-diff.neg {
+      color: var(--red);
+    }
+
+    .yc-diffs {
+      font-family: 'DM Mono', monospace;
+    }
+
+    .yc-none {
+      color: var(--gray-400, #9ca3af);
+      font-weight: 400;
+    }
+
     .ph-span {
       font-size: 10px;
       font-weight: 400;
@@ -1662,10 +1693,10 @@
       </div>
       <div class="kgrid" id="kpiGrid"></div>
       <div class="card" id="phaseCard" style="display:none;">
-        <div class="ctitle">ライフイベント期間別の収支</div>
-        <p class="sim-detail-hint">保育園・進学・車の保有・住宅ローンなど、支出が大きく動く期間で区切った収支です。単位は万円。「年平均収支」は収入−支出−積立の1年あたり平均、「累計収支」はその期間の合計。「期末資産」は運用益と取り崩しを反映した期間終了時点の総資産なので、累計収支がマイナスでも資産が増えていることがあります。期間どうしは重なります（例：小学校と車の保有）。</p>
+        <div class="ctitle">支出が動く年とその理由</div>
+        <p class="sim-detail-hint">住宅購入・車の買い替え・入学・保育料の終了など、年間支出が前年から30万円以上動いた年と、できごとがあった年だけを抜き出しています。単位は万円。<b class="neg">赤＝支出が増える</b>（家計が苦しくなる方向）、<b class="pos">緑＝支出が減る</b>（楽になる方向）。「内訳」でどの費目が動いたかがわかります。</p>
         <div class="sim-table-wrap">
-          <table class="sim-table" id="phaseTable" aria-label="ライフイベント期間別の収支"></table>
+          <table class="sim-table" id="phaseTable" aria-label="支出が動く年とその理由"></table>
         </div>
       </div>
       <div class="ccard" id="cmpCard" style="display:none;">
@@ -1676,6 +1707,11 @@
       <div class="ccard">
         <div class="clbl">📈 資産推移（万円）</div>
         <div class="chart-canvas-wrap"><canvas id="assetChart"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="clbl">🧱 費目別の支出（万円）</div>
+        <p class="sim-detail-hint" style="margin:0 0 8px;">何の費用がいつ増えて、いつ無くなるかを積み上げで表示します。住宅を買った年に住宅の帯が立ち上がり、保育料や教育費の帯は時期が来ると消えます。</p>
+        <div class="chart-canvas-wrap"><canvas id="expenseChart"></canvas></div>
       </div>
       <div class="ccard">
         <div class="clbl">💹 年間キャッシュ増減（収入−支出−積立）（万円）</div>
@@ -2058,105 +2094,106 @@
     }
 
     /* =====================================================================
-       ライフイベント期間（保育園・進学・車・住宅・働き方）で区切った収支
+       支出が動く年の抽出（できごと・前年差・費目別の内訳）
        ===================================================================== */
-    /* [sIdx, eIdx]（年*12+月の通し番号）と暦年yearの重なり月数 */
-    function idxOverlap(year, sIdx, eIdx) {
-      return Math.max(0, Math.min(year * 12 + 12, eIdx) - Math.max(year * 12 + 1, sIdx) + 1);
-    }
-
-    function buildPhases(sim, sc) {
-      const rows = sim.rows;
-      if (!rows.length) return [];
-      /* 条件に当てはまる年の最初〜最後を1区間にまとめる */
-      const span = pred => {
-        let from = null, to = null;
-        rows.forEach(r => { if (pred(r.year, r.age)) { if (from == null) from = r.year; to = r.year; } });
-        return from == null ? null : { from, to };
+    /* 年ごとの「できごと」。支出が動いた理由を名前で示すための目印 */
+    function buildYearMarks(sim, sc) {
+      const marks = new Map();
+      const lo = sim.rows[0].year, hi = sim.rows[sim.rows.length - 1].year;
+      /* 開始年が試算の初年度なら「変化」ではないので目印を出さない */
+      const at = (y, icon, text) => {
+        if (y == null || y <= lo || y > hi) return;
+        if (!marks.has(y)) marks.set(y, []);
+        marks.get(y).push({ icon, text });
       };
-      const phases = [];
-      /* icon=種別アイコン、ctx=だれの/どれの（任意）、label=イベント名 */
-      const add = (icon, ctx, label, r) => { if (r) phases.push({ icon, ctx, label, from: r.from, to: r.to }); };
+      /* 終了の印は「支出が実際に大きく落ちる年」に置く。
+         12月終了なら翌年にまるごと消えるが、年途中の終了はその年に
+         残り月数ぶんしか計上されないので、落ち込みは終了年に出る。 */
+      const endAt = (endY, endM, icon, text) => at((endM || 12) === 12 ? endY + 1 : endY, icon, text);
+      /* 通し番号（年*12+月）で終わる場合 */
+      const endAtIdx = (idx, icon, text) => {
+        const y = Math.floor((idx - 1) / 12);
+        endAt(y, idx - y * 12, icon, text);
+      };
 
-      /* --- 子供：保育園・習い事・各学校段階 --- */
       sc.children
         .filter(c => c.enabled && c.birthYear)
         .slice()
         .sort((a, b) => (a.birthYear * 12 + (a.birthMonth || 1)) - (b.birthYear * 12 + (b.birthMonth || 1)))
         .forEach((c, i) => {
-          const sa = y => schoolAge(y, c.birthYear, c.birthMonth);
           const who = `第${i + 1}子`;
-          const stage = (label, lo, hi) => add('👶', who, label, span(y => sa(y) >= lo && sa(y) <= hi));
+          /* 学齢nに上がる暦年 */
+          const yearAt = n => c.birthYear + n + ((c.birthMonth || 4) >= 4 ? 1 : 0);
           if (nz(c.ccFee) > 0 && c.ccStartY) {
-            add('👶', who, '保育園', span(y => monthsOverlap(y, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0));
+            at(c.ccStartY, '👶', `${who} 保育園 入園`);
+            if (c.ccEndY) endAt(c.ccEndY, c.ccEndM, '👶', `${who} 保育料の終了`);
           }
           if (nz(c.lessonFee) > 0 && c.lsStartY) {
-            add('👶', who, '習い事・塾（追加分）', span(y => monthsOverlap(y, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM) > 0));
+            at(c.lsStartY, '👶', `${who} 習い事・塾 開始`);
+            if (c.lsEndY) endAt(c.lsEndY, c.lsEndM, '👶', `${who} 習い事・塾 終了`);
           }
-          stage(`幼稚園（${c.kg}）`, 3, 5);
-          stage(`小学校（${c.elem}）`, 6, 11);
-          stage(`中学校（${c.jhs}）`, 12, 14);
-          stage(`高校（${c.hs}）`, 15, 17);
-          stage(`大学（${c.univ}・${c.univHome}）`, 18, 21);
+          at(yearAt(3), '👶', `${who} 幼稚園（${c.kg}）入園`);
+          at(yearAt(6), '👶', `${who} 小学校（${c.elem}）入学`);
+          at(yearAt(12), '👶', `${who} 中学校（${c.jhs}）入学`);
+          at(yearAt(15), '👶', `${who} 高校（${c.hs}）入学`);
+          at(yearAt(18), '🎓', `${who} 大学（${c.univ}）入学`);
+          at(yearAt(22), '🎓', `${who} 大学 卒業（教育費の終了）`);
         });
 
-      /* --- 住まい --- */
       const h = sc.housing;
       const hBuy = !!h.buy && !!h.buyY;
-      const rentEndY = h.rentEndY || (hBuy ? h.buyY : null);
-      const rentEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
-      const hStartIdx = hBuy ? h.buyY * 12 + (h.buyM || 1) : 0;
-      const hLoanEndIdx = hBuy && nz(h.loanYears) > 0 ? hStartIdx + nz(h.loanYears) * 12 - 1 : hStartIdx - 1;
-      if (nz(h.rent) > 0) add('🏠', null, '賃貸', span(y => monthsOverlap(y, null, null, rentEndY, rentEndM) > 0));
-      if (hBuy && nz(h.loanYears) > 0) {
-        add('🏠', null, '住宅ローン返済中', span(y => idxOverlap(y, hStartIdx, hLoanEndIdx) > 0));
+      if (nz(h.rent) > 0) {
+        const rEndY = h.rentEndY || (hBuy ? h.buyY : null);
+        const rEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
+        if (rEndY) endAt(rEndY, rEndM, '🏠', '賃貸の終了');
       }
       if (hBuy) {
-        add('🏠', null, 'ローン完済後（維持費のみ）', span(y => y * 12 + 1 > hLoanEndIdx && y * 12 + 12 >= hStartIdx));
+        const sIdx = h.buyY * 12 + (h.buyM || 1);
+        at(h.buyY, '🏠', nz(h.loanYears) > 0 ? '住宅購入（ローン返済 開始）' : '住宅購入');
+        if (nz(h.loanYears) > 0) endAtIdx(sIdx + nz(h.loanYears) * 12 - 1, '🏠', '住宅ローン 完済');
       }
 
-      /* --- 車 --- */
-      sc.cars
-        .filter(c => c.use && c.buyY && nz(c.price) > 0)
-        .forEach((c, i) => add('🚗', null, `${i + 1}台目 保有`,
-          span(y => idxOverlap(y, c.buyY * 12 + (c.buyM || 1), c.endY ? c.endY * 12 + (c.endM || 12) : Infinity) > 0)));
+      sc.cars.filter(c => c.use && c.buyY && nz(c.price) > 0).forEach((c, i) => {
+        at(c.buyY, '🚗', `${i + 1}台目 購入`);
+        if (c.endY) endAt(c.endY, c.endM, '🚗', `${i + 1}台目 手放す`);
+      });
 
-      /* --- 登録したライフイベント --- */
-      (sc.events || [])
-        .filter(ev => nz(ev.amount) !== 0 && ev.startY)
-        .forEach((ev, i) => {
-          const name = ev.name || `ライフイベント${i + 1}`;
-          const unit = ev.mode === 'monthly' ? '万円/月' : ev.mode === 'yearly' ? '万円/年' : '万円';
-          add('⭐', null, `${name}（${nz(ev.amount).toLocaleString()}${unit}）`,
-            ev.mode === 'once'
-              ? span(y => y === ev.startY)
-              : span(y => monthsOverlap(y, ev.startY, ev.startM, ev.endY, ev.endM) > 0));
-        });
+      (sc.events || []).filter(ev => nz(ev.amount) !== 0 && ev.startY).forEach((ev, i) => {
+        const name = ev.name || `ライフイベント${i + 1}`;
+        if (ev.mode === 'once') { at(ev.startY, '⭐', name); return; }
+        at(ev.startY, '⭐', `${name} 開始`);
+        if (ev.endY) endAt(ev.endY, ev.endM, '⭐', `${name} 終了`);
+      });
 
-      /* --- 働き方 --- */
+      at(sim.startYear + (sim.retireAge - sim.age), '💼', '退職');
       const pensionAge = nz(sc.basic.pensionStartAge || 65);
-      add('💼', null, '現役（在職中）', span((y, a) => a < sim.retireAge));
-      add('💼', null, '退職後・年金受給前', span((y, a) => a >= sim.retireAge && a < pensionAge));
-      add('💼', null, '年金受給後', span((y, a) => a >= sim.retireAge && a >= pensionAge));
+      if (pensionAge > sim.retireAge) at(sim.startYear + (pensionAge - sim.age), '💼', '年金 受給開始');
+      return marks;
+    }
 
-      /* 各区間の収支を集計し、開始年で時系列に並べる */
-      const byYear = new Map(rows.map(r => [r.year, r]));
-      return phases.filter(p => {
-        const rs = [];
-        for (let y = p.from; y <= p.to; y++) if (byYear.has(y)) rs.push(byYear.get(y));
-        if (!rs.length) return false;
-        const n = rs.length;
-        const sum = k => rs.reduce((s, r) => s + r[k], 0);
-        p.years = n;
-        p.ageFrom = rs[0].age;
-        p.ageTo = rs[n - 1].age;
-        p.avgIncome = sum('income') / n;
-        p.avgExpense = sum('expense') / n;
-        p.avgBalance = sum('balance') / n;
-        p.cumBalance = sum('balance');
-        p.endTotal = rs[n - 1].total;
-        return true;
-      }).sort((a, b) => a.from - b.from || a.to - b.to || a.label.localeCompare(b.label, 'ja'));
+    /* 支出が動いた年だけを抜き出し、前年差と内訳を添える */
+    const CHANGE_MIN = 30;      /* これ未満の増減は誤差として省く（万円） */
+    const CHANGE_MIN_CAT = 5;   /* 内訳に出す最小の増減（万円） */
+    function buildYearChanges(sim, sc) {
+      const rows = sim.rows;
+      if (!rows.length) return [];
+      const marks = buildYearMarks(sim, sc);
+      const CATS = [['living', '生活費'], ['edu', '教育・保育'], ['housing', '住宅'], ['car', '車'], ['event', 'イベント']];
+      return rows.map((r, i) => {
+        const prev = i > 0 ? rows[i - 1] : null;
+        return {
+          year: r.year, age: r.age,
+          marks: marks.get(r.year) || [],
+          first: i === 0,
+          dExpense: prev ? r.expense - prev.expense : 0,
+          diffs: prev
+            ? CATS.map(([k, l]) => [l, r[k] - prev[k]])
+              .filter(([, v]) => Math.abs(v) >= CHANGE_MIN_CAT)
+              .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+            : [],
+          expense: r.expense, balance: r.balance, total: r.total
+        };
+      }).filter(c => c.first || c.marks.length || Math.abs(c.dExpense) >= CHANGE_MIN);
     }
 
     function simulate(sc) {
@@ -2388,7 +2425,8 @@
         rows.push({
           year, age: curAge,
           income: Math.round(income), expense: Math.round(expenseTotal),
-          edu: Math.round(edu), housing: Math.round(housing), car: Math.round(car),
+          living: Math.round(living), edu: Math.round(edu),
+          housing: Math.round(housing), car: Math.round(car),
           event: Math.round(eventCost),
           allowance: Math.round(allowance), severance: Math.round(severance),
           withdraw: Math.round(withdraw), balance: Math.round(balance), total: Math.round(total)
@@ -3134,15 +3172,15 @@
     /* =====================================================================
        グラフ・年次表・シナリオ比較
        ===================================================================== */
-    let chartAsset = null, chartBalance = null, simData = null;
+    let chartAsset = null, chartBalance = null, chartExpense = null, simData = null;
     let cmpChecked = {};
     const CMP_COLORS = ['#1a56db', '#f97316', '#16a34a', '#9333ea', '#dc2626'];
 
     function dismissChartTooltipsIfOutside(ev) {
-      if (!chartAsset && !chartBalance) return;
+      if (!chartAsset && !chartBalance && !chartExpense) return;
       const t = ev.target;
       if (t.closest && t.closest('.chart-canvas-wrap')) return;
-      [chartAsset, chartBalance].forEach(ch => {
+      [chartAsset, chartBalance, chartExpense].forEach(ch => {
         if (!ch) return;
         ch.setActiveElements([]);
         ch.update();
@@ -3161,8 +3199,10 @@
           <button class="btn btn-p" onclick="wizJumpTo('y_age')" style="margin-top:10px;">年齢を入力する →</button></div>`;
         document.getElementById('cmpCard').style.display = 'none';
         document.getElementById('simYearDetailCard').style.display = 'none';
+        document.getElementById('phaseCard').style.display = 'none';
         if (chartAsset) { chartAsset.destroy(); chartAsset = null; }
         if (chartBalance) { chartBalance.destroy(); chartBalance = null; }
+        if (chartExpense) { chartExpense.destroy(); chartExpense = null; }
         return;
       }
       document.getElementById('simTitle').textContent = `${sim.age}歳〜${sim.endAge}歳 シミュレーション`;
@@ -3189,6 +3229,7 @@
       /* グラフ */
       if (chartAsset) chartAsset.destroy();
       if (chartBalance) chartBalance.destroy();
+      if (chartExpense) chartExpense.destroy();
       const chartScales = { x: { ticks: { maxTicksLimit: Math.min(14, Math.max(5, sim.lbls.length)), font: { family: 'DM Mono', size: 9 }, maxRotation: 45, minRotation: 0 } }, y: { ticks: { callback: v => fmtM(v), font: { family: 'DM Mono', size: 10 } } } };
       const chartTooltipBase = {
         enabled: true, backgroundColor: 'rgba(30,41,59,0.95)', borderColor: 'rgba(148,163,184,0.35)', borderWidth: 1,
@@ -3225,6 +3266,36 @@
         data: { labels: sim.lbls, datasets },
         options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: datasets.length > 1, labels: { boxWidth: 18, font: { size: 10, family: "'Noto Sans JP',sans-serif" } } }, tooltip: chartTooltipBase }, scales: chartScales }
       });
+      /* 費目別の支出（積み上げ）：どの費用がいつ立ち上がり、いつ消えるか */
+      const EXPENSE_CATS = [
+        ['living', '生活費', '#94a3b8'], ['edu', '教育・保育', '#f97316'],
+        ['housing', '住宅', '#1a56db'], ['car', '車', '#16a34a'], ['event', 'イベント', '#9333ea']
+      ];
+      chartExpense = new Chart(document.getElementById('expenseChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: sim.lbls,
+          datasets: EXPENSE_CATS
+            .filter(([k]) => sim.rows.some(r => r[k] > 0))
+            .map(([k, label, color]) => ({
+              label, data: sim.rows.map(r => r[k]), backgroundColor: color, borderWidth: 0
+            }))
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, labels: { boxWidth: 14, font: { size: 10, family: "'Noto Sans JP',sans-serif" } } },
+            tooltip: Object.assign({}, chartTooltipBase, {
+              callbacks: Object.assign({}, chartTooltipBase.callbacks, {
+                footer: items => '合計: ' + fmtM(items.reduce((s, it) => s + (it.parsed.y || 0), 0))
+              }),
+              footerColor: '#f8fafc', footerFont: { size: 12, weight: '700', family: "'DM Mono',monospace" }
+            })
+          },
+          scales: { x: Object.assign({ stacked: true }, chartScales.x), y: Object.assign({ stacked: true }, chartScales.y) }
+        }
+      });
       chartBalance = new Chart(document.getElementById('balanceChart').getContext('2d'), {
         type: 'bar',
         data: {
@@ -3256,25 +3327,27 @@
 
     function renderPhases(sim) {
       const card = document.getElementById('phaseCard');
-      const phases = buildPhases(sim, S());
-      if (!phases.length) { card.style.display = 'none'; return; }
+      const changes = buildYearChanges(sim, S());
+      if (!changes.length) { card.style.display = 'none'; return; }
       card.style.display = 'block';
-      /* 収支を左寄せにして、横スクロールなしでも要点が読めるようにする */
-      let html = `<thead><tr><th>期間</th><th>年平均収支</th><th>累計収支</th><th>年平均収入</th><th>年平均支出</th><th>期末資産</th></tr></thead><tbody>`;
-      let lastFrom = null;
-      phases.forEach(p => {
-        /* 開始年が変わるたびに年の見出しを挟んで時系列を追いやすくする */
-        if (p.from !== lastFrom) {
-          html += `<tr class="ph-grp"><td colspan="6">${p.from}年 ・ ${p.ageFrom}歳</td></tr>`;
-          lastFrom = p.from;
-        }
+      /* 前年差を左に置いて、横スクロールなしでも増減が読めるようにする */
+      let html = `<thead><tr><th>年・できごと</th><th>支出の前年差</th><th>内訳</th><th>年間支出</th><th>年間収支</th><th>期末資産</th></tr></thead><tbody>`;
+      changes.forEach(c => {
+        const ev = c.marks.length
+          ? c.marks.map(m => `<span class="yc-mark">${m.icon} ${escapeHtml(m.text)}</span>`).join('')
+          : '<span class="yc-none">—</span>';
+        /* 支出が増える＝家計が苦しくなる方向なので赤、減る＝楽になるので緑 */
+        const dCls = c.first ? '' : c.dExpense > 0 ? 'neg' : c.dExpense < 0 ? 'pos' : '';
+        const diffs = c.diffs.length
+          ? c.diffs.map(([l, v]) => `<span class="yc-diff ${v > 0 ? 'neg' : 'pos'}">${l} ${fmtManSigned(v)}</span>`).join('')
+          : '<span class="yc-none">—</span>';
         html += `<tr>
-          <td><span class="ph-name">${p.icon} ${escapeHtml(p.ctx ? p.ctx + ' ' + p.label : p.label)}</span><br><span class="ph-span">${p.from}〜${p.to}年（${p.years}年）/ ${p.ageFrom}〜${p.ageTo}歳</span></td>
-          <td class="${p.avgBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.avgBalance)}</td>
-          <td class="${p.cumBalance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(p.cumBalance)}</td>
-          <td>${fmtManPlain(p.avgIncome)}</td>
-          <td>${fmtManPlain(p.avgExpense)}</td>
-          <td class="${p.endTotal >= 0 ? '' : 'neg'}">${fmtManPlain(p.endTotal)}</td></tr>`;
+          <td><span class="ph-name">${c.year}年 ・ ${c.age}歳</span><br>${ev}</td>
+          <td class="${dCls}">${c.first ? '—' : fmtManSigned(c.dExpense)}</td>
+          <td class="yc-diffs">${diffs}</td>
+          <td>${fmtManPlain(c.expense)}</td>
+          <td class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(c.balance)}</td>
+          <td class="${c.total >= 0 ? '' : 'neg'}">${fmtManPlain(c.total)}</td></tr>`;
       });
       document.getElementById('phaseTable').innerHTML = html + '</tbody>';
     }
