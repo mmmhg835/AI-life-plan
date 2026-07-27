@@ -1003,7 +1003,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 11px;
-      min-width: 420px;
+      min-width: 680px;
     }
 
     .sim-table th,
@@ -1050,7 +1050,7 @@
     @media (max-width: 480px) {
       .sim-table {
         font-size: 10px;
-        min-width: 340px;
+        min-width: 600px;
       }
 
       .sim-table th,
@@ -1649,7 +1649,7 @@
       </div>
       <div class="card" id="simYearDetailCard" style="display:none;">
         <div class="ctitle">年次の数値一覧</div>
-        <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支です。児童手当は収入に含まれています。</p>
+        <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支です。児童手当・年金・退職金は収入に含まれています（いずれも手取り換算）。取り崩し＝現金が不足した分を投資資産（課税口座→NISA→保険積立→iDeCo）の売却で補った額です。</p>
         <div class="sim-table-wrap">
           <table class="sim-table" id="simYearTable" aria-label="年次シミュレーション"></table>
         </div>
@@ -1684,6 +1684,9 @@
 
     const NOW_YEAR = new Date().getFullYear();
     const STORE_KEY = 'lifeplan_v2';
+    const DEFAULT_END_AGE = 95;       /* 試算の終了年齢（未指定時） */
+    const DEFAULT_WORK_START_AGE = 22; /* 勤続年数の起点（未指定時） */
+    const IDECO_UNLOCK_AGE = 60;      /* iDeCoの受給開始可能年齢 */
 
     /* 教育費マスタ（年額・万円）文科省 令和5年度 子供の学習費調査 / 日本政策金融公庫 令和3年度 */
     const EDU_MASTER = {
@@ -1720,14 +1723,16 @@
           age: null, retireAge: null, incomeMode: 'gross',
           grossIncome: null, monthSalary: null, bonusSalary: null, netIncome: null,
           incomeGrowth: null, sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
+          severance: null, severanceAge: null, workStartAge: null,
           assetCash: null, assetStock: null, assetStockRate: null,
-          spouseDeduct: 0, depCount: 0
+          spouseDeduct: 0, depCount: 0, endAge: DEFAULT_END_AGE
         },
         partner: {
           has: null, age: null, retireAge: null, mode: 'gross',
           grossIncome: null, monthSalary: null, bonusSalary: null, netIncome: null,
           workStartY: null, workStartM: null,
           sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
+          severance: null, severanceAge: null, workStartAge: null,
           assetCash: null, assetStock: null, assetStockRate: null
         },
         childCount: null,
@@ -1749,6 +1754,7 @@
           customFixed: [], varDaily: null, varHobby: null, varSocial: null, varFashion: null,
           annualTravel: null, annualAppliance: null, annualCeremony: null, annualOther: null,
           inflationRate: null,
+          retireLivingRate: null, retireMedical: null,
           inflFlags: {
             food: true, utility: false, telecom: false, insurance: false, subscription: false,
             transport: false, otherFixed: false, variable: true, special: true
@@ -1840,6 +1846,16 @@
     }
 
     /* ---------- 税・手取り計算（既存ロジック） ---------- */
+    /* 所得税（超過累進・復興特別所得税2.1%込み・円） */
+    const TAX_BRACKETS = [[1950000, .05, 0], [3300000, .10, 97500], [6950000, .20, 427500], [9000000, .23, 636000], [18000000, .33, 1536000], [40000000, .40, 2796000], [Infinity, .45, 4796000]];
+    function incomeTaxYen(taxableYen) {
+      const tx = Math.max(0, taxableYen);
+      for (const [lim, r, d] of TAX_BRACKETS) {
+        if (tx <= lim) return Math.max(0, tx * r - d) * 1.021;
+      }
+      return 0;
+    }
+
     function calcNet(grossMan, extraDeduct = 0) {
       const g = grossMan * 10000, m = g / 12;
       const kenpo = Math.min(m, 1390000) * 0.0499;
@@ -1855,10 +1871,7 @@
       else sd = 1950000;
       const tx = Math.max(0, g - sd - sA - 480000 - extraDeduct * 10000);
       const txR = Math.max(0, g - sd - sA - 430000 - extraDeduct * 10000);
-      const br = [[1950000, .05, 0], [3300000, .10, 97500], [6950000, .20, 427500], [9000000, .23, 636000], [18000000, .33, 1536000], [40000000, .40, 2796000], [Infinity, .45, 4796000]];
-      let it = 0;
-      for (const [lim, r, d] of br) { if (tx <= lim) { it = Math.max(0, tx * r - d); break; } }
-      it *= 1.021;
+      let it = incomeTaxYen(tx);
       const rt = Math.max(0, txR * .10 - 2500);
       return {
         netMan: Math.round((g - sA - it - rt) / 10000),
@@ -1907,6 +1920,46 @@
       const kosei = avgMonthlyGrossYen * (5.481 / 1000) * (workYears * 12) / 12;
       const kiso = 68000 * Math.min(1, workYears / 40);
       return Math.min(Math.max(Math.round((kosei + kiso) / 10000), 5), 30);
+    }
+
+    /* 公的年金等控除（万円）。65歳以上／未満で速算表が変わる */
+    function pensionDeduct(grossMan, age) {
+      const g = grossMan;
+      if (age >= 65) {
+        if (g <= 330) return Math.min(g, 110);
+        if (g <= 410) return g * .25 + 27.5;
+        if (g <= 770) return g * .15 + 68.5;
+        if (g <= 1000) return g * .05 + 145.5;
+        return 195.5;
+      }
+      if (g <= 130) return Math.min(g, 60);
+      if (g <= 410) return g * .25 + 27.5;
+      if (g <= 770) return g * .15 + 68.5;
+      if (g <= 1000) return g * .05 + 145.5;
+      return 195.5;
+    }
+
+    /* 年金の手取り（万円/年）。額面から社会保険料・所得税・住民税を控除 */
+    const PENSION_SOCIAL_RATE = 0.09; /* 国民健康保険＋介護保険料の概算 */
+    function pensionNetAnnual(grossMan, age) {
+      if (!grossMan || grossMan <= 0) return 0;
+      const social = grossMan * PENSION_SOCIAL_RATE;
+      const ded = pensionDeduct(grossMan, age);
+      const base = Math.max(0, grossMan - ded - social);
+      const it = incomeTaxYen((base - 48) * 10000) / 10000;
+      const rt = Math.max(0, base - 43) * .10;
+      return Math.max(0, grossMan - social - it - rt);
+    }
+
+    /* 退職金の手取り（万円）。退職所得控除→1/2→分離課税 */
+    function severanceNet(grossMan, workYears) {
+      if (!grossMan || grossMan <= 0) return 0;
+      const y = Math.max(1, Math.round(workYears || 0));
+      const ded = y <= 20 ? Math.max(80, 40 * y) : 800 + 70 * (y - 20);
+      const taxable = Math.max(0, (grossMan - ded) / 2);
+      const it = incomeTaxYen(taxable * 10000) / 10000;
+      const rt = taxable * .10;
+      return Math.max(0, grossMan - it - rt);
     }
 
     /* ---------- 共通ヘルパー ---------- */
@@ -1967,7 +2020,7 @@
       const b = sc.basic, p = sc.partner, h = sc.housing, e = sc.exp, inv = sc.inv;
       const age = nz(b.age), retireAge = nz(b.retireAge);
       if (!age || !retireAge || retireAge <= age) return null;
-      const endAge = retireAge + 25;
+      const endAge = Math.max(retireAge + 1, age + 1, nz(b.endAge) || DEFAULT_END_AGE);
       const years = endAge - age;
       const startYear = NOW_YEAR;
 
@@ -1976,12 +2029,21 @@
       const pHas = !!p.has;
       const pNetAnnual = pHas ? netOf(p) : 0;
       const ig = 1 + nz(b.incomeGrowth) / 100;
-      const selfPensionAnnual = (b.pensionAnnual != null && b.pensionAnnual !== 0)
+      /* 年金は額面で保持し、受給年ごとに手取りへ換算する */
+      const selfPensionGross = (b.pensionAnnual != null && b.pensionAnnual !== 0)
         ? nz(b.pensionAnnual) : estimatePensionMonthly(grossOf(b, dep), retireAge) * 12;
-      const pPensionAnnual = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
+      const pPensionGross = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
         ? nz(p.pensionAnnual) : estimatePensionMonthly(grossOf(p), p.retireAge) * 12) : 0;
       const pAge0 = pHas ? (nz(p.age) || age) : age;
       const pRetire = pHas ? (nz(p.retireAge) || retireAge) : 0;
+
+      /* 退職金（額面→退職所得課税を引いた手取りを、受取年に一括計上） */
+      const selfWorkYears = Math.max(1, retireAge - (nz(b.workStartAge) || DEFAULT_WORK_START_AGE));
+      const selfSevAge = nz(b.severanceAge) || retireAge;
+      const selfSevNet = severanceNet(nz(b.severance), selfWorkYears);
+      const pWorkYears = pHas ? Math.max(1, pRetire - (nz(p.workStartAge) || DEFAULT_WORK_START_AGE)) : 0;
+      const pSevAge = pHas ? (nz(p.severanceAge) || pRetire) : 0;
+      const pSevNet = pHas ? severanceNet(nz(p.severance), pWorkYears) : 0;
 
       /* 子供（出生順ソート・計算対象のみ） */
       const kids = sc.children
@@ -2025,6 +2087,11 @@
       const variableM = nz(e.varDaily) + nz(e.varHobby) + nz(e.varSocial) + nz(e.varFashion);
       const specialA = nz(e.annualTravel) + nz(e.annualAppliance) + nz(e.annualCeremony) + nz(e.annualOther);
 
+      /* 退職後の生活費：現役時代に対する比率＋医療・介護費の上乗せ */
+      const retireLivingRate = (e.retireLivingRate == null || e.retireLivingRate === '')
+        ? 1 : Math.max(0, nz(e.retireLivingRate) / 100);
+      const retireMedicalM = nz(e.retireMedical);
+
       const irNisa = 1 + nz(inv.nisaRate) / 100, irIdeco = 1 + nz(inv.idecoRate) / 100, irIns = 1 + nz(inv.insRate) / 100;
       const stockR = 1 + nz(b.assetStockRate) / 100, pStockR = 1 + nz(p.assetStockRate) / 100;
 
@@ -2035,6 +2102,7 @@
 
       const rows = [];
       const lbls = [], aD = [], bD = [], invEvalD = [], invPrincipalD = [], invGainD = [];
+      let depletionAge = null;
 
       for (let y = 0; y < years; y++) {
         const year = startYear + y, curAge = age + y;
@@ -2044,7 +2112,9 @@
         /* --- 収入 --- */
         let incSelf = wk ? selfNetAnnual * Math.pow(ig, y) : 0;
         if (wk) incSelf += nz(b.sideIncome);
-        if (!wk && curAge >= nz(b.pensionStartAge || 65)) incSelf += selfPensionAnnual;
+        if (!wk && curAge >= nz(b.pensionStartAge || 65)) incSelf += pensionNetAnnual(selfPensionGross, curAge);
+        let severance = 0;
+        if (curAge === selfSevAge) severance += selfSevNet;
         let incPartner = 0;
         if (pHas) {
           const pAgeY = pAge0 + y;
@@ -2053,19 +2123,22 @@
             ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
             : 1;
           if (pwk && wsFrac > 0) incPartner += pNetAnnual * wsFrac + nz(p.sideIncome);
-          if (!pwk && pAgeY >= nz(p.pensionStartAge || 65)) incPartner += pPensionAnnual;
+          if (!pwk && pAgeY >= nz(p.pensionStartAge || 65)) incPartner += pensionNetAnnual(pPensionGross, pAgeY);
+          if (pAgeY === pSevAge) severance += pSevNet;
         }
         let allowance = 0;
         kids.forEach((c, i) => { allowance += allowAnnualCY(c, year, i + 1); });
-        const income = incSelf + incPartner + allowance;
+        const income = incSelf + incPartner + allowance + severance;
 
-        /* --- 生活費 --- */
-        const living =
+        /* --- 生活費（退職後は比率を掛け、医療・介護費を上乗せ） --- */
+        const livingBase =
           (nz(e.food) * infl('food', y) + nz(e.utility) * infl('utility', y)
             + nz(e.telecom) * infl('telecom', y) + nz(e.insurance) * infl('insurance', y)
             + nz(e.subscription) * infl('subscription', y) + nz(e.transport) * infl('transport', y)
             + otherFixedM * infl('otherFixed', y) + variableM * infl('variable', y)) * 12
           + specialA * infl('special', y);
+        const living = wk ? livingBase
+          : livingBase * retireLivingRate + retireMedicalM * 12 * infl('otherFixed', y);
 
         /* --- 教育・保育・習い事 --- */
         let edu = 0;
@@ -2113,7 +2186,7 @@
           car += nz(cr.c.taxYear) * ownMonths / 12;
         });
 
-        /* --- 投資・積立 --- */
+        /* --- 投資・積立（運用は先に反映してから取り崩す） --- */
         const nisaIn = wk ? nz(inv.nisa) * 12 : 0;
         const idecoIn = wk ? nz(inv.ideco) * 12 : 0;
         const insIn = wk ? nz(inv.insReserve) * 12 : 0;
@@ -2121,15 +2194,39 @@
         invIdeco = invIdeco * irIdeco + idecoIn;
         invIns = invIns * irIns + insIn;
         cumInvIn += nisaIn + idecoIn + insIn;
-        const invEval = invNisa + invIdeco + invIns;
+        stock *= stockR;
+        pStock *= pStockR;
 
-        /* --- 年間収支・資産更新 --- */
+        /* --- 年間収支 --- */
         const expenseTotal = living + edu + housing + car;
         const balance = income - expenseTotal - nisaIn - idecoIn - insIn;
         cash += balance;
-        stock *= stockR;
-        pStock *= pStockR;
-        const total = Math.max(-5000, cash + stock + pStock + invEval);
+
+        /* --- 取り崩し：現金が尽きたら 課税口座 → NISA → 保険積立 → iDeCo の順で売却 --- */
+        const invEvalBefore = invNisa + invIdeco + invIns;
+        let withdraw = 0;
+        if (cash < 0) {
+          const pots = [
+            { avail: () => stock, take: v => { stock -= v; } },
+            { avail: () => pStock, take: v => { pStock -= v; } },
+            { avail: () => invNisa, take: v => { invNisa -= v; } },
+            { avail: () => invIns, take: v => { invIns -= v; } },
+            /* iDeCoは60歳まで引き出せない */
+            { avail: () => (curAge >= IDECO_UNLOCK_AGE ? invIdeco : 0), take: v => { invIdeco -= v; } }
+          ];
+          for (const pot of pots) {
+            if (cash >= 0) break;
+            const t = Math.min(pot.avail(), -cash);
+            if (t <= 0) continue;
+            pot.take(t); cash += t; withdraw += t;
+          }
+        }
+        const invEval = invNisa + invIdeco + invIns;
+        /* 積立を取り崩したら、元本（累計拠出額）も按分して減らす */
+        if (invEvalBefore > 0 && invEval < invEvalBefore) cumInvIn *= invEval / invEvalBefore;
+
+        const total = cash + stock + pStock + invEval;
+        if (depletionAge == null && total < 0) depletionAge = curAge;
 
         aD.push(Math.round(total));
         bD.push(Math.round(balance));
@@ -2140,7 +2237,8 @@
           year, age: curAge,
           income: Math.round(income), expense: Math.round(expenseTotal),
           edu: Math.round(edu), housing: Math.round(housing), car: Math.round(car),
-          allowance: Math.round(allowance), balance: Math.round(balance), total: Math.round(total)
+          allowance: Math.round(allowance), severance: Math.round(severance),
+          withdraw: Math.round(withdraw), balance: Math.round(balance), total: Math.round(total)
         });
       }
 
@@ -2148,10 +2246,16 @@
         name: sc.name, age, retireAge, endAge, startYear, lbls, aD, bD, rows,
         invEvalD, invPrincipalD, invGainD,
         initialExact, initialAssets: Math.round(initialExact),
-        totalAssets: aD[aD.length - 1], retireAssets: aD[retireAge - age] ?? 0,
+        totalAssets: aD[aD.length - 1],
+        /* 退職age時点＝その前年の期末残高（退職年の支出を引く前） */
+        retireAssets: aD[retireAge - age - 1] ?? Math.round(initialExact),
         peakAssets: Math.max(...aD),
+        depletionAge,
+        severanceNetTotal: Math.round(selfSevNet + pSevNet),
         netMonthly: selfNetAnnual / 12, kidCount: kids.length,
-        hBuy, hPrice: nz(h.price), pm: Math.round(selfPensionAnnual / 12), pHas
+        hBuy, hPrice: nz(h.price),
+        pm: Math.round(pensionNetAnnual(selfPensionGross, 65) / 12),
+        pmGross: Math.round(selfPensionGross / 12), pHas
       };
     }
 
@@ -2196,6 +2300,9 @@
       q('y_age', 'you', '現在の年齢と、何歳まで働く予定ですか？',
         [[nf('basic.age', '現在の年齢', '歳', '例：35'), nf('basic.retireAge', '退職予定年齢', '歳', '例：60')]],
         { required: ['basic.age', 'basic.retireAge'] });
+      q('y_endage', 'you', '何歳まで試算しますか？',
+        [sf('basic.endAge', '試算の終了年齢', [['85', '85歳まで'], ['90', '90歳まで'], ['95', '95歳まで（推奨）'], ['100', '100歳まで']], { num: true })],
+        { hint: '長生きするほど資産が必要になります。迷ったら95歳（女性の平均寿命＋α）が安全側の目安です', optional: true });
       q('y_income', 'you', '収入について教えてください',
         () => incomeFields('basic', sc.basic.incomeMode),
         { hint: '額面で入力すると手取りを自動計算します。手取りがわかっていれば直接入力するのが確実です', onInput: updateIncomePreview, afterRender: updateIncomePreview });
@@ -2206,8 +2313,12 @@
         [nf('basic.sideIncome', '副業収入（手取り目安）', '万円/年', '例：50')],
         { hint: '在職中のみ収入に加算します。なければ空欄でOK', optional: true });
       q('y_pension', 'you', '年金の見込み額はわかりますか？',
-        [[nf('basic.pensionAnnual', '年金（年額）', '万円/年', '空欄＝自動推計'), nf('basic.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
-        { hint: '空欄なら年収から厚生年金＋基礎年金を自動推計します（ねんきん定期便があれば正確です）', optional: true });
+        [[nf('basic.pensionAnnual', '年金（額面・年額）', '万円/年', '空欄＝自動推計'), nf('basic.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
+        { hint: 'ねんきん定期便の額面をそのまま入力してください。社会保険料・税を引いた手取りに自動換算します。空欄なら年収から厚生年金＋基礎年金を自動推計します', optional: true });
+      q('y_severance', 'you', '退職金の見込み額は？',
+        [[nf('basic.severance', '退職金（額面）', '万円', '例：1500'), nf('basic.severanceAge', '受取年齢', '歳', '空欄＝退職年齢')],
+        nf('basic.workStartAge', '就職した年齢', '歳', '例：22')],
+        { hint: '額面で入力すると、勤続年数に応じた退職所得控除を適用して手取りを自動計算します', optional: true });
       q('y_cash', 'you', '現金・預金はいくらありますか？',
         [nf('basic.assetCash', '現金・預金', '万円', '例：300')],
         { hint: '普通預金・定期・解約済み保険の受取金など', optional: true });
@@ -2234,7 +2345,11 @@
           { hint: 'すでに働いていれば空欄でOK。育休明けの復職・就職予定があれば年月を指定（開始年は月割り計算）', optional: true });
         q('p_side', 'partner', 'パートナーの副業・年金は？',
           [nf('partner.sideIncome', '副業収入', '万円/年', '例：0'),
-          [nf('partner.pensionAnnual', '年金（年額）', '万円/年', '空欄＝自動推計'), nf('partner.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
+          [nf('partner.pensionAnnual', '年金（額面・年額）', '万円/年', '空欄＝自動推計'), nf('partner.pensionStartAge', '受給開始年齢', '歳', '例：65')]],
+          { hint: '年金は額面で入力してください（手取りへ自動換算します）', optional: true });
+        q('p_severance', 'partner', 'パートナーの退職金は？',
+          [[nf('partner.severance', '退職金（額面）', '万円', '例：800'), nf('partner.severanceAge', '受取年齢', '歳', '空欄＝退職年齢')],
+          nf('partner.workStartAge', '就職した年齢', '歳', '例：22')],
           { optional: true });
         q('p_assets', 'partner', 'パートナーの資産は？',
           [[nf('partner.assetCash', '現金・預金', '万円', '例：200'), nf('partner.assetStock', '株・投信', '万円', '例：100')],
@@ -2363,6 +2478,13 @@
         [[nf('exp.annualTravel', '旅行', '万円/年', '例：30'), nf('exp.annualAppliance', '家電・家具', '万円/年', '例：15')],
         [nf('exp.annualCeremony', '冠婚葬祭・ギフト', '万円/年', '例：10'), nf('exp.annualOther', 'その他大型', '万円/年', '例：10')]],
         { optional: true });
+      q('l_retire', 'living', '退職後の生活費はどう変わりますか？',
+        [nf('exp.retireLivingRate', '退職後の生活費（現役比）', '%', '例：70'),
+        nf('exp.retireMedical', '医療・介護費の上乗せ', '万円/月', '例：2')],
+        {
+          hint: '一般に退職後の生活費は現役時代の70〜80%が目安です（空欄＝100%のまま）。教育費と住宅ローンは期間終了で自動的に消えるので、ここでは食費・娯楽・交際費などの変化だけを見込んでください。あなたの退職年齢を境に適用します',
+          optional: true
+        });
       q('l_inflation', 'living', '物価上昇をどう見込みますか？',
         [nf('exp.inflationRate', '物価上昇率', '%/年', '例：1.5', { step: 0.1 }),
         { t: 'inflflags' }],
@@ -2843,10 +2965,16 @@
       document.getElementById('simTitle').textContent = `${sim.age}歳〜${sim.endAge}歳 シミュレーション`;
       const kidSpendTotal = sim.rows.reduce((s, r) => s + r.edu, 0);
       const allowTotal = sim.rows.reduce((s, r) => s + r.allowance, 0);
+      const withdrawTotal = sim.rows.reduce((s, r) => s + r.withdraw, 0);
       kpi.innerHTML = `
-        <div class="kcard"><div class="klbl">退職時の資産（${sim.retireAge}歳）</div><div class="kval ${sim.retireAssets >= 0 ? 'pos' : 'neg'}">${fmtM(sim.retireAssets)}</div></div>
+        <div class="kcard"><div class="klbl">退職直前の資産（${sim.retireAge}歳時点）</div><div class="kval ${sim.retireAssets >= 0 ? 'pos' : 'neg'}">${fmtM(sim.retireAssets)}</div>
+          ${sim.severanceNetTotal ? `<div class="klbl-hint">退職金${fmtM(sim.severanceNetTotal)}（手取り）は受取年に加算</div>` : ''}</div>
         <div class="kcard"><div class="klbl">最終資産（${sim.endAge}歳）</div><div class="kval ${sim.totalAssets >= 0 ? 'pos' : 'neg'}">${fmtM(sim.totalAssets)}</div></div>
+        <div class="kcard"><div class="klbl">資産が尽きる年齢</div>
+          <div class="kval ${sim.depletionAge == null ? 'pos' : 'neg'}">${sim.depletionAge == null ? '枯渇なし' : sim.depletionAge + '歳'}</div>
+          <div class="klbl-hint">${sim.depletionAge == null ? `${sim.endAge}歳まで資産が持つ想定です` : `${sim.depletionAge}歳で資産がゼロになります`}</div></div>
         <div class="kcard"><div class="klbl">資産ピーク</div><div class="kval pos">${fmtM(sim.peakAssets)}</div></div>
+        <div class="kcard"><div class="klbl">老後の取り崩し総額</div><div class="kval">${fmtM(withdrawTotal)}</div><div class="klbl-hint">現金不足を投資資産の売却で補った累計</div></div>
         <div class="kcard"><div class="klbl">教育・保育の総支出</div><div class="kval">${fmtM(kidSpendTotal)}</div><div class="klbl-hint">児童手当 計${fmtM(allowTotal)}は収入に加算済み</div></div>`;
 
       /* シナリオ比較 */
@@ -2905,12 +3033,16 @@
       /* 年次表 */
       const card = document.getElementById('simYearDetailCard'), tbl = document.getElementById('simYearTable');
       card.style.display = 'block';
-      let th = '<thead><tr><th>年</th><th>収入</th><th>支出</th><th>収支</th><th>教育・保育</th><th>住宅</th><th>車</th><th>期末資産</th></tr></thead><tbody>';
+      let th = '<thead><tr><th>年</th><th>収入</th><th>支出</th><th>収支</th><th>教育・保育</th><th>住宅</th><th>車</th><th>取り崩し</th><th>期末資産</th></tr></thead><tbody>';
       sim.rows.forEach(r => {
-        th += `<tr><td>${r.year}<br>${r.age}歳</td><td>${fmtManPlain(r.income)}</td><td>${fmtManPlain(r.expense)}</td>
+        th += `<tr><td>${r.year}<br>${r.age}歳</td>
+          <td>${fmtManPlain(r.income)}${r.severance ? `<br><span class="pos" style="font-size:10px;">退職金 ${fmtManPlain(r.severance)}</span>` : ''}</td>
+          <td>${fmtManPlain(r.expense)}</td>
           <td class="${r.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(r.balance)}</td>
           <td>${r.edu ? fmtManPlain(r.edu) : '—'}</td><td>${r.housing ? fmtManPlain(r.housing) : '—'}</td>
-          <td>${r.car ? fmtManPlain(r.car) : '—'}</td><td>${fmtManPlain(r.total)}</td></tr>`;
+          <td>${r.car ? fmtManPlain(r.car) : '—'}</td>
+          <td class="${r.withdraw ? 'neg' : ''}">${r.withdraw ? fmtManPlain(r.withdraw) : '—'}</td>
+          <td class="${r.total >= 0 ? '' : 'neg'}">${fmtManPlain(r.total)}</td></tr>`;
       });
       tbl.innerHTML = th + '</tbody>';
     }
@@ -2936,11 +3068,12 @@
         const dFin = s2.totalAssets - sim.totalAssets;
         rows += `<tr><td>${escapeHtml(sc2.name)}${i === APP.active ? '（表示中）' : ''}</td>
           <td>${fmtManPlain(s2.retireAssets)}${i !== APP.active ? `<br><span class="${dRet >= 0 ? 'pos' : 'neg'}" style="font-size:10px;">${fmtManSigned(dRet)}</span>` : ''}</td>
-          <td>${fmtManPlain(s2.totalAssets)}${i !== APP.active ? `<br><span class="${dFin >= 0 ? 'pos' : 'neg'}" style="font-size:10px;">${fmtManSigned(dFin)}</span>` : ''}</td></tr>`;
+          <td>${fmtManPlain(s2.totalAssets)}${i !== APP.active ? `<br><span class="${dFin >= 0 ? 'pos' : 'neg'}" style="font-size:10px;">${fmtManSigned(dFin)}</span>` : ''}</td>
+          <td class="${s2.depletionAge == null ? 'pos' : 'neg'}">${s2.depletionAge == null ? 'なし' : s2.depletionAge + '歳'}</td></tr>`;
       });
       document.getElementById('cmpTable').innerHTML = `
-        <div class="sim-table-wrap" style="margin-top:10px;"><table class="sim-table" style="min-width:300px;">
-        <thead><tr><th>シナリオ</th><th>退職時資産</th><th>最終資産</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        <div class="sim-table-wrap" style="margin-top:10px;"><table class="sim-table" style="min-width:400px;">
+        <thead><tr><th>シナリオ</th><th>退職直前資産</th><th>最終資産</th><th>資産枯渇</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
     function toggleCmp(i, on) { cmpChecked[i] = on; runSimulation(false); }
 
@@ -2962,8 +3095,9 @@
       }
       const sc = S();
       const eduTotal = d.rows.reduce((s, r) => s + r.edu, 0);
+      const withdrawTotal = d.rows.reduce((s, r) => s + r.withdraw, 0);
       const prompt = `FPとして診断。出力は有効なJSON1つのみ（前後に説明・\`\`\`禁止）。
-データ: ${d.age}歳/退職${d.retireAge}歳/月手取${Math.round(d.netMonthly)}万/配偶${d.pHas ? '有' : '無'}/子${d.kidCount}人/教育費総額${Math.round(eduTotal)}万/住宅${d.hBuy ? d.hPrice + '万購入予定' : '賃貸'}/車${(sc.cars || []).filter(c => c.use && c.buyY).length}台計画/退職時資産${d.retireAssets}万/最終${d.totalAssets}万/年金月${d.pm}万/シナリオ名${sc.name}
+データ: ${d.age}歳/退職${d.retireAge}歳/${d.endAge}歳まで試算/月手取${Math.round(d.netMonthly)}万/配偶${d.pHas ? '有' : '無'}/子${d.kidCount}人/教育費総額${Math.round(eduTotal)}万/住宅${d.hBuy ? d.hPrice + '万購入予定' : '賃貸'}/車${(sc.cars || []).filter(c => c.use && c.buyY).length}台計画/退職時資産${d.retireAssets}万/最終${d.totalAssets}万/年金手取月${d.pm}万/退職金手取${d.severanceNetTotal}万/老後取り崩し総額${Math.round(withdrawTotal)}万/資産枯渇${d.depletionAge == null ? 'なし' : d.depletionAge + '歳'}/シナリオ名${sc.name}
 必須キーと制限: score 0-100整数, scoreComment 12字以内, overview 1文45字以内, strengths 文字列3つ各22字以内, risks 2つ各28字以内, actions 3つ各22字以内, fireStatus 1文40字以内
 例: {"score":65,"scoreComment":"バランス型","overview":"...","strengths":["","",""],"risks":["",""],"actions":["","",""],"fireStatus":"..."}`;
       const ac = new AbortController();
@@ -2998,14 +3132,28 @@
     <div class="rblk"><div class="rttl">→ 今すぐやるべきアクション</div>${r.actions.map((a2, i) => `<div class="ritem"><span style="color:var(--orange);font-weight:700;flex-shrink:0">${i + 1}</span><span>${a2}</span></div>`).join('')}</div>
     <div class="rblk fire"><div class="rttl">🔥 FIRE達成シナリオ</div><div class="ritem"><span>${r.fireStatus}</span></div></div>
     <div class="card" style="margin-top:4px;"><div class="ctitle">数値サマリー</div>
-      ${[[`退職時資産（${d.retireAge}歳）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（月額）', d.pm + '万円', true], [`最終資産（${d.endAge}歳）`, fmtM(d.totalAssets), d.totalAssets >= 0]].map(([l, v, p]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);"><span style="font-size:13px;color:var(--gray-600)">${l}</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${p ? 'var(--green)' : 'var(--red)'}">${v}</span></div>`).join('')}
+      ${[[`退職直前の資産（${d.retireAge}歳時点）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（手取り月額）', d.pm + '万円', true], ['退職金（手取り）', fmtM(d.severanceNetTotal), true], ['資産が尽きる年齢', d.depletionAge == null ? '枯渇なし' : d.depletionAge + '歳', d.depletionAge == null], [`最終資産（${d.endAge}歳）`, fmtM(d.totalAssets), d.totalAssets >= 0]].map(([l, v, p]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);"><span style="font-size:13px;color:var(--gray-600)">${l}</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${p ? 'var(--green)' : 'var(--red)'}">${v}</span></div>`).join('')}
     </div>`;
       document.getElementById('reportActions').style.display = 'block';
     }
 
     function renderFallback() {
-      const d = simData, sc = d.retireAssets > 5000 ? 78 : d.retireAssets > 2000 ? 58 : 38;
-      renderReport({ score: sc, scoreComment: sc >= 70 ? '安定した計画です' : sc >= 50 ? '改善の余地あり' : '要見直し', overview: `退職時の資産は${fmtM(d.retireAssets)}、最終資産は${fmtM(d.totalAssets)}の見込みです。`, strengths: ['収支の全体像が把握できています', '長期視点での資産形成ができています', 'ライフイベントを織り込んだ計画です'], risks: [d.kidCount > 0 ? `子供${d.kidCount}人の教育費ピーク期のキャッシュフローに注意` : '医療費・介護費リスクへの備えが必要です', '退職後の収入減少期に資産が急減するリスクがあります'], actions: ['投資額を収入の15〜20%に引き上げる', 'iDeCo・NISAを最大限活用する', '半年に一度シミュレーションを更新する'], fireStatus: `現在のペースで${d.retireAge}歳退職を目指すプランです。投資利回りと支出コントロール次第で前倒しも可能です。` });
+      const d = simData;
+      const sc = d.depletionAge != null ? 32 : d.retireAssets > 5000 ? 78 : d.retireAssets > 2000 ? 58 : 38;
+      renderReport({
+        score: sc,
+        scoreComment: sc >= 70 ? '安定した計画です' : sc >= 50 ? '改善の余地あり' : '要見直し',
+        overview: d.depletionAge != null
+          ? `${d.depletionAge}歳で資産が尽きる見込みです。老後の支出か資産形成の見直しが必要です。`
+          : `退職時の資産は${fmtM(d.retireAssets)}、${d.endAge}歳時点で${fmtM(d.totalAssets)}が残る見込みです。`,
+        strengths: ['収支の全体像が把握できています', '長期視点での資産形成ができています', 'ライフイベントを織り込んだ計画です'],
+        risks: [
+          d.kidCount > 0 ? `子供${d.kidCount}人の教育費ピーク期のキャッシュフローに注意` : '医療費・介護費リスクへの備えが必要です',
+          d.depletionAge != null ? `${d.depletionAge}歳で資産が枯渇する試算です` : '退職後は毎年の取り崩しで資産が減り続けます'
+        ],
+        actions: ['投資額を収入の15〜20%に引き上げる', 'iDeCo・NISAを最大限活用する', '半年に一度シミュレーションを更新する'],
+        fireStatus: `現在のペースで${d.retireAge}歳退職を目指すプランです。投資利回りと支出コントロール次第で前倒しも可能です。`
+      });
     }
 
     /* =====================================================================
@@ -3016,9 +3164,16 @@
       Object.assign(sc.basic, {
         age: 35, retireAge: 60, incomeMode: 'gross', grossIncome: 800, incomeGrowth: 1.5,
         sideIncome: null, pensionAnnual: null, pensionStartAge: 65,
+        severance: 1500, severanceAge: null, workStartAge: 22, endAge: 95,
         assetCash: 120, assetStock: 250, assetStockRate: 4, spouseDeduct: 0, depCount: 0
       });
-      Object.assign(sc.partner, { has: false });
+      Object.assign(sc.partner, {
+        has: true, age: 33, retireAge: 60, mode: 'gross', grossIncome: 300,
+        workStartY: null, workStartM: null, sideIncome: null,
+        pensionAnnual: null, pensionStartAge: 65,
+        severance: 400, severanceAge: null, workStartAge: 22,
+        assetCash: 100, assetStock: 50, assetStockRate: 4
+      });
       sc.childCount = 2;
       sc.children = [newChild(), newChild()];
       Object.assign(sc.children[0], {
@@ -3047,9 +3202,9 @@
         parking: null, gym: null, learning: 0.5, smoking: null, pet: null, support: null, golf: null, salon: 0.5,
         varDaily: 1.5, varHobby: 2, varSocial: 1, varFashion: 1,
         annualTravel: 48, annualAppliance: 20, annualCeremony: 15, annualOther: 10,
-        inflationRate: 1.5
+        inflationRate: 1.5, retireLivingRate: 75, retireMedical: 2
       });
-      Object.assign(sc.inv, { nisa: 12, nisaRate: 5, ideco: 3, idecoRate: 3, insReserve: 1, insRate: 2, saving: 5 });
+      Object.assign(sc.inv, { nisa: 5, nisaRate: 5, ideco: 2, idecoRate: 3, insReserve: 1, insRate: 2, saving: 3 });
       sc._started = true;
       sc._answered = {};
       buildQuestions().forEach(x => { sc._answered[x.id] = true; });
