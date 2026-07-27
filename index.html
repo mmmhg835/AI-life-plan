@@ -2097,6 +2097,7 @@
         housing: {
           rent: null, buy: null, buyY: null, buyM: null, price: null, misc: null,
           down: null, loanYears: null, loanRate: null,
+          loanDeduct: true, loanDeductLimit: null, loanDeductYears: null,
           mgmtFee: null, repairFee: null, propTax: null,
           rentEndY: null, rentEndM: null
         },
@@ -2358,6 +2359,14 @@
       const rt = Math.max(0, txR * .10 - 2500) + kintou;
       return {
         netMan: Math.round((g - sA - it - rt) / 10000),
+        /* 万円に丸める前の値。控除の効果は「2つの計算結果の差」で出すので、
+           丸めた値どうしを引くと1万円単位の誤差が乗ってしまう */
+        netExact: (g - sA - it - rt) / 10000,
+        incomeTaxExact: it / 10000,
+        residentTaxExact: rt / 10000,
+        /* 給与所得（＝額面－給与所得控除）。住宅ローン控除の所得制限判定に使う */
+        salaryIncomeExact: (g - sd) / 10000,
+        salaryIncomeMan: Math.round((g - sd) / 10000),
         kenpoMan: Math.round(kenpo * 12 / 10000),
         koseiMan: Math.round(kosei * 12 / 10000),
         koyoMan: Math.round(koyo * 12 / 10000),
@@ -2489,6 +2498,37 @@
       if (r <= 0) return principal / n;
       return principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
     }
+    /* 元利均等ローンの、k回返済した時点の残高 */
+    function loanBalanceAt(principal, years, ratePct, monthsPaid) {
+      if (!principal || principal <= 0 || !years || years <= 0) return 0;
+      const n = years * 12, k = Math.max(0, Math.min(n, monthsPaid));
+      const r = (ratePct || 0) / 100 / 12;
+      if (r <= 0) return principal * (1 - k / n);
+      const g = Math.pow(1 + r, n), gk = Math.pow(1 + r, k);
+      return principal * (g - gk) / (g - 1);
+    }
+
+    /* 特定口座（源泉徴収あり）の売却。
+       含み益に20.315%（所得税15.315%＋住民税5%）がかかるため、
+       手取りで needCash を確保するには税のぶんだけ多く売る必要がある。
+       value＝評価額、basis＝取得費、単位はすべて万円。 */
+    const CAPITAL_GAIN_TAX = 0.20315;
+    function sellTaxable(value, basis, needCash) {
+      if (value <= 0 || needCash <= 0) return { sell: 0, proceeds: 0, tax: 0 };
+      const gainRate = Math.max(0, Math.min(1, (value - basis) / value));
+      const netRate = 1 - gainRate * CAPITAL_GAIN_TAX;
+      const sell = Math.min(value, needCash / netRate);
+      const tax = sell * gainRate * CAPITAL_GAIN_TAX;
+      return { sell, proceeds: sell - tax, tax };
+    }
+
+    /* 住宅ローン控除：年末残高×0.7%を所得税から、引ききれない分を住民税から控除する。
+       住民税からの控除は年9.75万円が上限。 */
+    const LOAN_CREDIT_RATE = 0.007;
+    const LOAN_CREDIT_RESIDENT_CAP = 9.75;   /* 万円 */
+    const LOAN_CREDIT_INCOME_CAP = 2000;     /* 合計所得がこれを超える年は適用外（万円） */
+    const LOAN_CREDIT_DEFAULT_LIMIT = 3000;  /* 借入限度額の既定（省エネ基準適合住宅） */
+    const LOAN_CREDIT_DEFAULT_YEARS = 13;
 
     /* =====================================================================
        シミュレーションエンジン（暦年ベース・月割り按分）
@@ -2630,6 +2670,12 @@
           endAtIdx(sIdx + nz(h.loanYears) * 12 - 1, '🏠', '住宅ローン 完済');
           why(dropY(ey, em), 'housing', '住宅ローンを完済した', hPmtYr);
           why(dropY(ey, em) + 1, 'housing', 'ローン返済の残りがなくなった', hPmtYr * .25);
+        }
+        /* 控除は収入側に効くので費目の理由には出ないが、終了年は手取りが目に見えて落ちる */
+        if (h.loanDeduct !== false && nz(h.loanYears) > 0) {
+          const dy = nz(h.loanDeductYears) || LOAN_CREDIT_DEFAULT_YEARS;
+          at(h.buyY, '🏠', '住宅ローン控除 開始');
+          at(h.buyY + dy, '🏠', `住宅ローン控除 終了（${dy}年）`);
         }
       }
 
@@ -2795,6 +2841,10 @@
       const hPmt = hBuy ? pmtMonthly(hPrincipal, nz(h.loanYears), nz(h.loanRate)) : 0;
       const hStartIdx = hBuy ? h.buyY * 12 + (h.buyM || 1) : 0;
       const hLoanEndIdx = hBuy && nz(h.loanYears) > 0 ? hStartIdx + nz(h.loanYears) * 12 - 1 : hStartIdx - 1;
+      /* 住宅ローン控除（既定で適用。ローンを組む場合のみ） */
+      const hCredit = hBuy && h.loanDeduct !== false && nz(h.loanYears) > 0 && hPrincipal > 0;
+      const hCreditYears = nz(h.loanDeductYears) || LOAN_CREDIT_DEFAULT_YEARS;
+      const hCreditLimit = nz(h.loanDeductLimit) || LOAN_CREDIT_DEFAULT_LIMIT;
       /* 家賃終了：購入ありで未指定なら購入月まで。購入なしなら無期限 */
       const rentEndY = h.rentEndY || (hBuy ? h.buyY : null);
       const rentEndM = h.rentEndY ? h.rentEndM : (hBuy ? (h.buyM || 1) : null);
@@ -2846,20 +2896,50 @@
 
       let cash = nz(b.assetCash) + (pHas ? nz(p.assetCash) : 0);
       let stock = nz(b.assetStock), pStock = pHas ? nz(p.assetStock) : 0;
+      /* 課税口座の取得費。今ある残高の取得費は分からないので、
+         含み益ゼロ（＝いま買ったばかり）とみなす。以後の値上がり分が課税対象になる。
+         実際には既に含み益があることが多いので、税額はやや小さめに出る。 */
+      let stockBasis = stock, pStockBasis = pStock;
       let invNisa = 0, invIdeco = 0, invIns = 0, cumInvIn = 0;
       const initialExact = cash + stock + pStock;
 
       const rows = [];
       const lbls = [], aD = [], bD = [], invEvalD = [], invPrincipalD = [], invGainD = [];
       let depletionAge = null;
+      let cgTaxTotal = 0, loanCreditTotal = 0, idecoSavingTotal = 0;
 
       for (let y = 0; y < years; y++) {
         const year = startYear + y, curAge = age + y;
         lbls.push(`${curAge}歳`);
         const wk = curAge < retireAge;
 
+        /* --- 積立額（所得控除・取り崩しの両方で使うので先に決めておく） --- */
+        const nisaIn = wk ? nz(inv.nisa) * 12 : 0;
+        const idecoIn = wk ? nz(inv.ideco) * 12 : 0;
+        const insIn = wk ? nz(inv.insReserve) * 12 : 0;
+
         /* --- 収入 --- */
         const depY = depDeductAt(b, kids, year);
+        /* その年の額面と税額。iDeCoの掛金は全額が所得控除（小規模企業共済等掛金控除）になる */
+        const selfGrossY = selfGross0 * Math.pow(ig, y);
+        const taxPlain = (wk && selfGross0) ? calcNet(selfGrossY, depY) : null;
+        const taxAfterIdeco = (taxPlain && idecoIn > 0) ? calcNet(selfGrossY, depY + idecoIn) : taxPlain;
+        /* 控除を額面側に入れず「軽くなった税額」として足すことで、
+           手取り入力モードでも同じように効かせる */
+        const idecoSaving = (taxPlain && idecoIn > 0)
+          ? Math.max(0, taxAfterIdeco.netExact - taxPlain.netExact) : 0;
+
+        /* 住宅ローン控除：年末残高×0.7%。所得税＋住民税（9.75万まで）の範囲内でしか戻らない */
+        let loanCredit = 0;
+        if (hCredit && taxAfterIdeco && year >= h.buyY && year < h.buyY + hCreditYears
+          && taxAfterIdeco.salaryIncomeExact <= LOAN_CREDIT_INCOME_CAP) {
+          const bal = loanBalanceAt(hPrincipal, nz(h.loanYears), nz(h.loanRate),
+            year * 12 + 12 - hStartIdx + 1);
+          const room = taxAfterIdeco.incomeTaxExact
+            + Math.min(LOAN_CREDIT_RESIDENT_CAP, taxAfterIdeco.residentTaxExact);
+          loanCredit = Math.max(0, Math.min(Math.min(bal, hCreditLimit) * LOAN_CREDIT_RATE, room));
+        }
+
         let incSelf = wk ? netAtYear(b, selfGross0, ig, depY, y) : 0;
         if (wk) incSelf += nz(b.sideIncome);
         if (!wk && curAge >= selfPenStart) incSelf += pensionNetAnnual(selfPensionGross, curAge);
@@ -2878,7 +2958,7 @@
         }
         let allowance = 0;
         kids.forEach((c, i) => { allowance += allowAnnualCY(c, year, i + 1); });
-        const income = incSelf + incPartner + allowance + severance;
+        const income = incSelf + incPartner + allowance + severance + idecoSaving + loanCredit;
 
         /* --- 生活費（退職後は比率を掛け、医療・介護費を上乗せ） --- */
         const livingBase =
@@ -2937,9 +3017,6 @@
         });
 
         /* --- 投資・積立（運用は先に反映してから取り崩す） --- */
-        const nisaIn = wk ? nz(inv.nisa) * 12 : 0;
-        const idecoIn = wk ? nz(inv.ideco) * 12 : 0;
-        const insIn = wk ? nz(inv.insReserve) * 12 : 0;
         invNisa = invNisa * irNisa + nisaIn;
         invIdeco = invIdeco * irIdeco + idecoIn;
         invIns = invIns * irIns + insIn;
@@ -2953,23 +3030,51 @@
         const balance = income - expenseTotal - nisaIn - idecoIn - insIn;
         cash += balance;
 
-        /* --- 取り崩し：現金が尽きたら 課税口座 → NISA → 保険積立 → iDeCo の順で売却 --- */
+        /* --- 取り崩し：現金が尽きたら 課税口座 → NISA → 保険積立 → iDeCo の順で売却 ---
+           課税口座は含み益に20.315%かかるので、税引後で不足額に届くまで売る。
+           NISAは売却益が非課税。iDeCoの受給時課税は退職所得控除でほぼ消えることが多いため未反映。 */
         const invEvalBefore = invNisa + invIdeco + invIns;
-        let withdraw = 0;
+        let withdraw = 0, cgTax = 0;
         if (cash < 0) {
+          /* sell(need) は「取り崩した評価額」と「手元に残る現金」を返す */
+          const plain = (get, set) => need => {
+            const t = Math.min(get(), need);
+            set(get() - t);
+            return { gross: t, cash: t };
+          };
           const pots = [
-            { avail: () => stock, take: v => { stock -= v; } },
-            { avail: () => pStock, take: v => { pStock -= v; } },
-            { avail: () => invNisa, take: v => { invNisa -= v; } },
-            { avail: () => invIns, take: v => { invIns -= v; } },
+            {
+              avail: () => stock,
+              sell: need => {
+                const s = sellTaxable(stock, stockBasis, need);
+                stockBasis -= stockBasis * (s.sell / stock);
+                stock -= s.sell; cgTax += s.tax;
+                return { gross: s.sell, cash: s.proceeds };
+              }
+            },
+            {
+              avail: () => pStock,
+              sell: need => {
+                const s = sellTaxable(pStock, pStockBasis, need);
+                pStockBasis -= pStockBasis * (s.sell / pStock);
+                pStock -= s.sell; cgTax += s.tax;
+                return { gross: s.sell, cash: s.proceeds };
+              }
+            },
+            { avail: () => invNisa, sell: plain(() => invNisa, v => { invNisa = v; }) },
+            { avail: () => invIns, sell: plain(() => invIns, v => { invIns = v; }) },
             /* iDeCoは60歳まで引き出せない */
-            { avail: () => (curAge >= IDECO_UNLOCK_AGE ? invIdeco : 0), take: v => { invIdeco -= v; } }
+            {
+              avail: () => (curAge >= IDECO_UNLOCK_AGE ? invIdeco : 0),
+              sell: plain(() => invIdeco, v => { invIdeco = v; })
+            }
           ];
           for (const pot of pots) {
             if (cash >= 0) break;
-            const t = Math.min(pot.avail(), -cash);
-            if (t <= 0) continue;
-            pot.take(t); cash += t; withdraw += t;
+            if (pot.avail() <= 0) continue;
+            const r = pot.sell(-cash);
+            if (r.gross <= 0) continue;
+            cash += r.cash; withdraw += r.gross;
           }
         }
         const invEval = invNisa + invIdeco + invIns;
@@ -2991,8 +3096,13 @@
           housing: Math.round(housing), car: Math.round(car),
           event: Math.round(eventCost),
           allowance: Math.round(allowance), severance: Math.round(severance),
+          idecoSaving: Math.round(idecoSaving), loanCredit: Math.round(loanCredit),
+          cgTax: Math.round(cgTax),
           withdraw: Math.round(withdraw), balance: Math.round(balance), total: Math.round(total)
         });
+        cgTaxTotal += cgTax;
+        loanCreditTotal += loanCredit;
+        idecoSavingTotal += idecoSaving;
       }
 
       return {
@@ -3005,6 +3115,9 @@
         peakAssets: Math.max(...aD),
         depletionAge,
         severanceNetTotal: Math.round(selfSevNet + pSevNet),
+        cgTaxTotal: Math.round(cgTaxTotal),
+        loanCreditTotal: Math.round(loanCreditTotal),
+        idecoSavingTotal: Math.round(idecoSavingTotal),
         netMonthly: netAtYear(b, selfGross0, ig, depDeductAt(b, kids, startYear), 0) / 12,
         kidCount: kids.length,
         hBuy, hPrice: nz(h.price),
@@ -3189,6 +3302,14 @@
           { hint: '諸費用は全額ローンに上乗せする前提で計算します（借入額＝価格＋諸費用−頭金）' });
         q('h_loan', 'housing', 'ローンの条件は？',
           [[nf('housing.loanYears', 'ローン年数', '年', '例：35'), nf('housing.loanRate', '金利', '%/年', '例：0.8', { step: 0.1 })]]);
+        q('h_taxcredit', 'housing', '住宅ローン控除は使えますか？',
+          [cf('housing.loanDeduct', '', [{ v: true, l: '使う' }, { v: false, l: '使わない' }], { cols: 2 }),
+          [nf('housing.loanDeductLimit', '借入限度額', '万円', '例：3000'),
+          nf('housing.loanDeductYears', '控除期間', '年', '例：13')]],
+          {
+            hint: '年末のローン残高×0.7%が所得税・住民税から戻ります。借入限度額は住宅の性能で決まり、省エネ基準適合3,000万／ZEH水準4,500万／認定長期優良5,000万が目安（未入力なら3,000万・13年）。合計所得2,000万円を超える年は自動で対象外になります',
+            optional: true, when: () => nz(sc.housing.loanYears) > 0
+          });
         q('h_maint', 'housing', '購入後の維持費は？',
           [[nf('housing.mgmtFee', '管理費', '万円/月', '例：1.5'), nf('housing.repairFee', '修繕積立金', '万円/月', '例：1')],
           nf('housing.propTax', '固定資産税', '万円/年', '例：15')],
@@ -3303,7 +3424,10 @@
         { optional: true });
       q('i_ideco', 'invest', 'iDeCoは？',
         [[nf('inv.ideco', '積立額', '万円/月', '例：2'), nf('inv.idecoRate', '想定年利', '%', '例：3', { step: 0.5 })]],
-        { optional: true });
+        {
+          hint: '掛金は全額が所得控除になるので、その分だけ税金が軽くなる効果も反映します。手取り年収で入力していて、その額がすでに控除後のものなら、軽減分が二重に乗ります',
+          optional: true
+        });
       q('i_save', 'invest', '貯金と保険積立は？',
         [[nf('inv.saving', '貯金', '万円/月', '例：3'), nf('inv.insReserve', '保険積立', '万円/月', '例：1')],
         nf('inv.insRate', '保険積立の想定年利', '%', '例：1', { step: 0.5 })],
@@ -4090,7 +4214,11 @@
     <div class="rblk"><div class="rttl">→ 今すぐやるべきアクション</div>${r.actions.map((a2, i) => `<div class="ritem"><span style="color:var(--orange);font-weight:700;flex-shrink:0">${i + 1}</span><span>${a2}</span></div>`).join('')}</div>
     <div class="rblk fire"><div class="rttl">🔥 FIRE達成シナリオ</div><div class="ritem"><span>${r.fireStatus}</span></div></div>
     <div class="card" style="margin-top:4px;"><div class="ctitle">数値サマリー</div>
-      ${[[`退職直前の資産（${d.retireAge}歳時点）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（手取り月額）', d.pm + '万円', true], ['退職金（手取り）', fmtM(d.severanceNetTotal), true], ['資産が尽きる年齢', d.depletionAge == null ? '枯渇なし' : d.depletionAge + '歳', d.depletionAge == null], [`最終資産（${d.endAge}歳）`, fmtM(d.totalAssets), d.totalAssets >= 0]].map(([l, v, p]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);"><span style="font-size:13px;color:var(--gray-600)">${l}</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${p ? 'var(--green)' : 'var(--red)'}">${v}</span></div>`).join('')}
+      ${[[`退職直前の資産（${d.retireAge}歳時点）`, fmtM(d.retireAssets), d.retireAssets >= 0], ['想定年金（手取り月額）', d.pm + '万円', true], ['退職金（手取り）', fmtM(d.severanceNetTotal), true],
+      ...(d.loanCreditTotal > 0 ? [['住宅ローン控除の総額', fmtM(d.loanCreditTotal), true]] : []),
+      ...(d.idecoSavingTotal > 0 ? [['iDeCo所得控除の節税総額', fmtM(d.idecoSavingTotal), true]] : []),
+      ...(d.cgTaxTotal > 0 ? [['取り崩し時の譲渡益税', fmtM(d.cgTaxTotal), false]] : []),
+      ['資産が尽きる年齢', d.depletionAge == null ? '枯渇なし' : d.depletionAge + '歳', d.depletionAge == null], [`最終資産（${d.endAge}歳）`, fmtM(d.totalAssets), d.totalAssets >= 0]].map(([l, v, p]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);"><span style="font-size:13px;color:var(--gray-600)">${l}</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${p ? 'var(--green)' : 'var(--red)'}">${v}</span></div>`).join('')}
     </div>`;
       document.getElementById('reportActions').style.display = 'block';
     }
