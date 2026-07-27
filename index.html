@@ -2394,7 +2394,8 @@
     /* 年金の自動推計（厚生年金＋基礎年金・万円/月） */
     function estimatePensionMonthly(grossMan, retireAge) {
       if (!grossMan) return 0;
-      const avgMonthlyGrossYen = (grossMan / 12) * 10000;
+      /* 厚生年金は標準報酬月額の上限（65万円）までしか反映されない */
+      const avgMonthlyGrossYen = Math.min((grossMan / 12) * 10000, 650000);
       const workYears = Math.max(10, (retireAge || 60) - 22);
       const kosei = avgMonthlyGrossYen * (5.481 / 1000) * (workYears * 12) / 12;
       const kiso = 68000 * Math.min(1, workYears / 40);
@@ -2707,7 +2708,7 @@
           dExpense: prev ? r.expense - prev.expense : 0,
           diffs,
           reason: prev ? reasonOf(r.year, diffs) : '',
-          expense: r.expense, balance: r.balance, total: r.total
+          income: r.income, expense: r.expense, balance: r.balance, total: r.total
         };
       }).filter(c => c.first || c.marks.length || Math.abs(c.dExpense) >= CHANGE_MIN);
     }
@@ -2762,15 +2763,19 @@
       const cars = sc.cars.filter(c => c.use && c.buyY && nz(c.price) > 0).map(c => {
         const sIdx = c.buyY * 12 + (c.buyM || 1);
         const eIdx = c.endY ? c.endY * 12 + (c.endM || 12) : Infinity;
-        const principal = Math.max(0, nz(c.price) - nz(c.tradeIn) - nz(c.down));
-        const useLoan = nz(c.loanYears) > 0;
+        /* 下取りは支払総額を減らすものなので、まず価格から引く。
+           頭金はその残りに対して現金で払う分（下取りを二重に引かない）。 */
+        const netPrice = Math.max(0, nz(c.price) - nz(c.tradeIn));
+        const cashAtBuy = Math.min(nz(c.down), netPrice);
+        const principal = netPrice - cashAtBuy;
+        const useLoan = nz(c.loanYears) > 0 && principal > 0;
         return {
           c, sIdx, eIdx, principal,
           pmt: useLoan ? pmtMonthly(principal, nz(c.loanYears), nz(c.loanRate)) : 0,
           loanEndIdx: useLoan ? sIdx + nz(c.loanYears) * 12 - 1 : sIdx - 1,
           lump: useLoan ? 0 : principal,
           maintMonthly: nz(c.insurance) + nz(c.parking) + nz(c.fuel),
-          cashAtBuy: nz(c.down) - nz(c.tradeIn)
+          cashAtBuy
         };
       });
 
@@ -3916,9 +3921,10 @@
           <div class="yc-when"><b>${c.year}年</b><span>${c.age}歳</span>${headline}</div>
           ${marks}${diffs}${why}
           <div class="yc-foot">
-            <span class="yc-kv">年間支出<b>${fmtM(c.expense)}</b></span>
-            <span class="yc-kv">収支<b class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtM(c.balance)}</b><i>${c.balance >= 0 ? '黒字' : '赤字'}</i></span>
-            <span class="yc-kv">年末の資産<b class="${c.total >= 0 ? '' : 'neg'}">${fmtM(c.total)}</b></span>
+            <span class="yc-kv">年間収入<b>${fmtManPlain(c.income)}</b></span>
+            <span class="yc-kv">年間支出<b>${fmtManPlain(c.expense)}</b></span>
+            <span class="yc-kv">年間収支<b class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(c.balance)}</b><i>${c.balance >= 0 ? '黒字' : '赤字'}</i></span>
+            <span class="yc-kv">年末資産<b class="${c.total >= 0 ? '' : 'neg'}">${fmtManPlain(c.total)}</b></span>
           </div>
         </div>`;
       }).join('');
