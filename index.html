@@ -490,6 +490,81 @@
       color: var(--gray-800);
     }
 
+    /* グラフの表示範囲 */
+    .rngbar {
+      background: white;
+      border-radius: 12px;
+      padding: 11px 12px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+    }
+
+    .rngbar label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-600);
+      white-space: nowrap;
+    }
+
+    .rngbar>select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .rngbar select {
+      padding: 8px 9px;
+      border: 2px solid var(--blue-bdr);
+      border-radius: 9px;
+      background: white;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    /* 期間の表示は長くなるので独立した行にする（省略されると読めない） */
+    .rngnav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+      border-top: 1px solid var(--gray-100);
+      padding-top: 9px;
+    }
+
+    .rngbtn {
+      width: 34px;
+      height: 34px;
+      flex-shrink: 0;
+      border: 2px solid var(--blue-bdr);
+      border-radius: 9px;
+      background: white;
+      color: var(--blue);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .rngbtn:disabled {
+      color: var(--gray-200);
+      border-color: var(--gray-100);
+      cursor: default;
+    }
+
+    .rnglbl {
+      font-family: 'DM Mono', monospace;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--gray-800);
+      text-align: center;
+      min-width: 0;
+      flex: 1;
+    }
+
     .pdf-hint {
       font-size: 11px;
       line-height: 1.7;
@@ -745,6 +820,46 @@
     }
 
     /* 読みどころ */
+    /* 期間別グラフの見出し */
+    .pr-ph {
+      display: flex;
+      align-items: baseline;
+      gap: 4mm;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 2.5mm;
+      margin-bottom: 3mm;
+    }
+
+    .pr-ph b {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 11.5pt;
+      color: var(--ink);
+      letter-spacing: .04em;
+    }
+
+    .pr-ph span {
+      font-size: 8.5pt;
+      color: var(--gray);
+      letter-spacing: .06em;
+    }
+
+    .pr-ph em {
+      flex: 1;
+      text-align: right;
+      font-style: normal;
+      font-size: 8.5pt;
+      color: var(--mid);
+      white-space: nowrap;
+    }
+
+    .pr-ph em u {
+      text-decoration: none;
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+    }
+
     .pr-hl > div {
       display: flex;
       gap: 5mm;
@@ -3001,6 +3116,20 @@
         <div id="cmpChecks"></div>
         <div id="cmpTable"></div>
       </div>
+      <div class="rngbar">
+        <label for="rngSel">グラフの表示範囲</label>
+        <select id="rngSel" onchange="setRangeLen(this.value)">
+          <option value="0">全期間</option>
+          <option value="5">5年ずつ</option>
+          <option value="10">10年ずつ</option>
+          <option value="20">20年ずつ</option>
+        </select>
+        <div class="rngnav">
+          <button type="button" class="rngbtn" id="rngPrev" onclick="moveRange(-1)" aria-label="前の期間">◀</button>
+          <span class="rnglbl" id="rngLbl">全期間</span>
+          <button type="button" class="rngbtn" id="rngNext" onclick="moveRange(1)" aria-label="次の期間">▶</button>
+        </div>
+      </div>
       <div class="ccard">
         <div class="clbl">📈 資産推移（万円）</div>
         <div class="chart-canvas-wrap"><canvas id="assetChart"></canvas></div>
@@ -5227,6 +5356,44 @@
        グラフ・年次表・シナリオ比較
        ===================================================================== */
     let chartAsset = null, chartBalance = null, chartExpense = null, chartFlow = null, simData = null;
+
+    /* グラフの表示範囲。0なら全期間。60年を1枚に詰めると1年ずつ読めないので、
+       窓を絞って前後に動かせるようにする */
+    let rangeLen = 0, rangeStart = 0;
+
+    /* いま表示する区間（インデックス）。範囲外にはみ出さないよう丸める */
+    function rangeWindow(n) {
+      if (!rangeLen || rangeLen >= n) return { from: 0, to: n - 1, all: true, len: n };
+      const start = Math.max(0, Math.min(rangeStart, n - rangeLen));
+      rangeStart = start;
+      return { from: start, to: start + rangeLen - 1, all: false, len: rangeLen };
+    }
+    function setRangeLen(v) {
+      const n = Number(v) || 0;
+      /* 窓を変えるときは、いま見ている先頭をなるべく保つ */
+      rangeLen = n;
+      if (n) rangeStart = Math.floor(rangeStart / n) * n;
+      runSimulation(false);
+    }
+    function moveRange(dir) {
+      if (!rangeLen) return;
+      rangeStart += dir * rangeLen;
+      runSimulation(false);
+    }
+    function renderRangeBar(sim) {
+      const w = rangeWindow(sim.rows.length);
+      const lbl = document.getElementById('rngLbl');
+      const prev = document.getElementById('rngPrev'), next = document.getElementById('rngNext');
+      const a = sim.rows[w.from], b = sim.rows[w.to];
+      if (lbl) lbl.textContent = w.all
+        ? `全期間 ${a.year}〜${b.year}年（${a.age}〜${b.age}歳）`
+        : `${a.year}〜${b.year}年（${a.age}〜${b.age}歳）`;
+      if (prev) prev.disabled = w.all || w.from <= 0;
+      if (next) next.disabled = w.all || w.to >= sim.rows.length - 1;
+      const sel = document.getElementById('rngSel');
+      if (sel && String(rangeLen) !== sel.value) sel.value = String(rangeLen);
+      return w;
+    }
     let cmpChecked = {};
     const CMP_COLORS = ['#1a56db', '#f97316', '#16a34a', '#9333ea', '#dc2626'];
 
@@ -5306,7 +5473,19 @@
       if (chartBalance) chartBalance.destroy();
       if (chartExpense) chartExpense.destroy();
       if (chartFlow) chartFlow.destroy();
-      const chartScales = { x: { ticks: { maxTicksLimit: Math.min(14, Math.max(5, sim.lbls.length)), font: { family: 'DM Mono', size: 9 }, maxRotation: 45, minRotation: 0 } }, y: { ticks: { callback: v => fmtM(v), font: { family: 'DM Mono', size: 10 } } } };
+      /* 表示範囲。窓が狭いときは1年ずつ目盛を出す */
+      const win = renderRangeBar(sim);
+      const chartScales = {
+        x: {
+          min: win.from, max: win.to,
+          ticks: {
+            maxTicksLimit: win.len <= 14 ? win.len : Math.min(14, Math.max(5, win.len)),
+            autoSkip: win.len > 14,
+            font: { family: 'DM Mono', size: 9 }, maxRotation: 45, minRotation: 0
+          }
+        },
+        y: { ticks: { callback: v => fmtM(v), font: { family: 'DM Mono', size: 10 } } }
+      };
       const chartTooltipBase = {
         enabled: true, backgroundColor: 'rgba(30,41,59,0.95)', borderColor: 'rgba(148,163,184,0.35)', borderWidth: 1,
         padding: 12, displayColors: true, boxPadding: 6,
@@ -5779,13 +5958,20 @@
       }
     };
 
+    /* 画面で選んでいる表示範囲を、レポートのグラフにも同じように効かせる */
+    let PR_WIN = null;
     function prAxis(stacked) {
+      const w = PR_WIN;
+      const many = !w || w.len > 16;
       return {
-        x: {
+        x: Object.assign({
           stacked: !!stacked, grid: { display: false },
           border: { color: PR_GRID, width: 2 },
-          ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 12 }
-        },
+          ticks: {
+            color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: many ? 26 : 23 },
+            maxRotation: many ? 0 : 60, autoSkip: many, maxTicksLimit: many ? 9 : w.len, padding: 12
+          }
+        }, w && !w.all ? { min: w.from, max: w.to } : {}),
         y: {
           stacked: !!stacked,
           grid: { color: PR_GRID, lineWidth: 2, drawTicks: false },
@@ -5805,11 +5991,12 @@
     }
 
     /* 2系列以上には必ず凡例を出す（色だけで見分けさせない） */
-    function prLegend(size) {
+    function prLegend(size, box) {
       return {
         display: true, position: 'top', align: 'end',
         labels: {
-          boxWidth: 26, boxHeight: 4, padding: 22, color: PR_TXT, usePointStyle: false,
+          boxWidth: box ? 22 : 26, boxHeight: box ? 16 : 4, padding: 22,
+          color: PR_TXT, usePointStyle: false,
           font: { family: "'Noto Sans JP',sans-serif", size: size || 28, weight: '700' }
         }
       };
@@ -5844,6 +6031,9 @@
       if (typeof Chart !== 'function') return {};
       const sim = simulate(S());
       if (!sim) return {};
+      /* レポートは資料なので常に全期間。1年ずつ読みたい場合は
+         「期間別の収入と支出」の章で見る */
+      PR_WIN = { from: 0, to: sim.rows.length - 1, all: true, len: sim.rows.length };
       const lbls = sim.lbls, rows = sim.rows;
       const line = (data, color, fill) => ({
         data, borderColor: color, borderWidth: 6, tension: .3,
@@ -5864,13 +6054,15 @@
       }
       assetSets.push(line(sim.aD, PR_C.deep, !(lo && hi)));
       const mainDi = assetSets.length - 1;
+      const W = PR_WIN;
+      const inWin = i => i >= W.from && i <= W.to;
       const peakIdx = sim.aD.indexOf(sim.peakAssets);
-      const marks = [{ di: mainDi, idx: sim.aD.length - 1, text: fmtM(sim.totalAssets), color: PR_C.deep, dy: -20 }];
-      if (peakIdx >= 0 && peakIdx < sim.aD.length - 2)
+      const marks = [{ di: mainDi, idx: W.to, text: fmtM(sim.aD[W.to]), color: PR_C.deep, dy: -20 }];
+      if (peakIdx >= 0 && peakIdx < W.to - 1 && inWin(peakIdx))
         marks.push({ di: mainDi, idx: peakIdx, text: `ピーク ${fmtM(sim.peakAssets)}`, color: PR_C.deep, dy: -20 });
       if (sim.depletionAge != null) {
         const di2 = sim.depletionAge - sim.age;
-        if (di2 >= 0) marks.push({ di: mainDi, idx: di2, text: `${sim.depletionAge}歳で枯渇`, color: PR_C.red, dy: -20 });
+        if (di2 >= 0 && inWin(di2)) marks.push({ di: mainDi, idx: di2, text: `${sim.depletionAge}歳で枯渇`, color: PR_C.red, dy: -20 });
       }
       const asset = await prRender({
         type: 'line', data: { labels: lbls, datasets: assetSets },
@@ -5894,7 +6086,7 @@
             /* 最終年でどちらの線が上かを見て、ラベルが重ならないように振り分ける */
             prLabel: {
               items: (() => {
-                const last = rows.length - 1;
+                const last = PR_WIN.to;
                 const up = rows[last].income >= rows[last].expense;
                 return [
                   { di: 0, idx: last, text: '収入', color: PR_C.blue, dy: up ? -20 : 34, size: 26 },
@@ -5920,7 +6112,7 @@
           }))
         },
         options: prChartOpts({
-          plugins: { legend: prLegend(26), tooltip: { enabled: false } },
+          plugins: { legend: prLegend(26, true), tooltip: { enabled: false } },
           scales: prAxis(true)
         })
       });
@@ -5973,6 +6165,47 @@
           `収入 年${fmtM(ai)}に対し支出 年${fmtM(ae)}。差は資産から補うことになります。`]);
       }
       return out.slice(0, 3);
+    }
+
+    /* 全期間を1枚に詰めると1年ずつ読めないので、10年ごとに区切って描き直す。
+       年ごとの棒を並べ、すべての年に目盛を出す */
+    const PR_BLOCK = 10;
+    async function periodCharts(sim) {
+      const rows = sim.rows, out = [];
+      for (let i = 0; i < rows.length; i += PR_BLOCK) {
+        const ck = rows.slice(i, i + PR_BLOCK);
+        const img = await prRender({
+          type: 'bar',
+          data: {
+            labels: ck.map(r => [String(r.year), `${r.age}歳`]),
+            datasets: [
+              { label: '収入', data: ck.map(r => r.income), backgroundColor: PR_C.blue, borderWidth: 0, borderRadius: 5, borderSkipped: false },
+              { label: '支出（積立含む）', data: ck.map(r => r.expense + r.nisaIn + r.idecoIn + r.insIn), backgroundColor: PR_C.orange, borderWidth: 0, borderRadius: 5, borderSkipped: false }
+            ]
+          },
+          options: {
+            responsive: false, animation: false, devicePixelRatio: 1,
+            layout: { padding: { top: 30, right: 24, bottom: 4, left: 4 } },
+            plugins: { legend: prLegend(27, true), tooltip: { enabled: false } },
+            scales: {
+              x: {
+                grid: { display: false }, border: { color: PR_GRID, width: 2 },
+                ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 24 }, autoSkip: false, maxRotation: 0, padding: 10 }
+              },
+              y: {
+                grid: { color: PR_GRID, lineWidth: 2, drawTicks: false }, border: { display: false },
+                ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 24 }, padding: 14, maxTicksLimit: 5, callback: v => fmtM(v) }
+              }
+            }
+          }
+        });
+        out.push({
+          img, from: ck[0], to: ck[ck.length - 1],
+          inc: ck.reduce((a, r) => a + r.income, 0),
+          exp: ck.reduce((a, r) => a + r.expense + r.nisaIn + r.idecoIn + r.insIn, 0)
+        });
+      }
+      return out;
     }
 
     /* 表紙の背景に置く、資産推移のシルエット（SVGなので印刷で潰れない） */
@@ -6063,6 +6296,7 @@
       const sc = S(), sim = simulate(sc);
       if (!sim) { alert('先に年齢などを入力して、シミュレーションを実行してください。'); return false; }
       const imgs = await chartImages();
+      const periods = await periodCharts(sim);
       const rows = sim.rows;
       const r = rows.find(x => x.year === (expYear == null ? rows[0].year : expYear)) || rows[0];
       const m = v => v / 12;
@@ -6074,6 +6308,8 @@
       const eduTotal = rows.reduce((a, x) => a + x.edu, 0);
       const houseTotal = rows.reduce((a, x) => a + x.housing, 0);
       const vd = reportVerdict(sim);
+      /* グラフが一部の期間だけを映しているときは、どこを映しているか書き添える */
+      const gRange = '';
       const now = new Date();
       const stamp = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
       const family = [`${sim.age}歳`, sim.pHas ? 'パートナーあり' : '単身',
@@ -6138,7 +6374,7 @@
         <div class="pr-h2">資産の推移</div>
         <div class="pr-blk">
           ${imgs.asset ? `<img class="pr-img" src="${imgs.asset}" alt="資産推移">` : ''}
-          <p class="pr-cap">現金・課税口座・NISA・iDeCo・保険積立を合計した各年末の残高です。${sim.depletionAge == null
+          <p class="pr-cap">${gRange}現金・課税口座・NISA・iDeCo・保険積立を合計した各年末の残高です。${sim.depletionAge == null
           ? `${sim.endAge}歳まで資産が持つ想定です。` : `${sim.depletionAge}歳で資産がゼロになります。`}</p>
         </div>
         <div class="pr-h2">この試算の読みどころ</div>
@@ -6151,7 +6387,7 @@
         <div class="pr-h2">費目別の支出の移り変わり</div>
         <div class="pr-blk">
           ${imgs.expense ? `<img class="pr-img" src="${imgs.expense}" alt="費目別の支出">` : ''}
-          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。帯の厚みがその費目の金額です。
+          <p class="pr-cap">${gRange}何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。帯の厚みがその費目の金額です。
             住宅を買った年に住まいの帯が立ち上がり、保育料や学費の帯は時期が来ると消えます。</p>
         </div>`);
 
@@ -6159,7 +6395,7 @@
         ${prHead(3, '収入と支出の推移', '毎年いくら入って、いくら出ていくのか。2本の線の開きがその年の余裕です。')}
         <div class="pr-blk">
           ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
-          <p class="pr-cap"><b>青が収入、オレンジが支出</b>です。青が上にあるあいだは貯まり、下回ると取り崩しに入ります。
+          <p class="pr-cap">${gRange}<b>青が収入、オレンジが支出</b>です。青が上にあるあいだは貯まり、下回ると取り崩しに入ります。
             収入には児童手当・年金・退職一時金を含みます（積立は含みません）。退職一時金が入る年だけ青が跳ね上がります。</p>
         </div>
         <div class="pr-h2">年間キャッシュの増減</div>
@@ -6212,7 +6448,7 @@
         if (t) markByYear.set(c.year, t);
       });
       const pagesYear = prChunk(rows, 32).map((ck, i) => prPage('年次一覧', `
-        ${i === 0 ? prHead(6, '年次一覧', '1年ごとの収入・支出・積立・年末資産です。金額は万円、収入と支出は手取りベースです。')
+        ${i === 0 ? prHead(7, '年次一覧', '1年ごとの収入・支出・積立・年末資産です。金額は万円、収入と支出は手取りベースです。')
           : '<div class="pr-h2">年次一覧（続き）</div>'}
         <div class="pr-blk"><table class="pr-tbl pr-yr">
           <thead><tr><th>年</th><th>年齢</th><th class="r">収入</th><th class="r">支出</th><th class="r">積立</th><th class="r">収支</th><th class="r">年末資産</th><th>できごと</th></tr></thead>
@@ -6230,8 +6466,24 @@
           }).join('')}</tbody>
         </table></div>`));
 
+      /* --- 期間別の収入と支出（10年ごと・1年ずつ読める） --- */
+      const pagesPeriod = prChunk(periods, 2).map((pair, pi) => prPage('期間別の収入と支出', `
+        ${pi === 0 ? prHead(6, '期間別の収入と支出',
+        `全期間を1枚にすると1年ずつ読めないので、${PR_BLOCK}年ごとに区切って並べています。青が収入、オレンジが支出（積立を含む）です。`)
+          : '<div class="pr-h2">期間別の収入と支出（続き）</div>'}
+        ${pair.map(p => {
+          const d = p.inc - p.exp;
+          return `<div class="pr-blk">
+            <div class="pr-ph">
+              <b>${p.from.year}〜${p.to.year}年</b><span>${p.from.age}〜${p.to.age}歳</span>
+              <em>この期間の合計　収入 ${fmtManPlain(p.inc)}／支出 ${fmtManPlain(p.exp)}／収支 <u class="${d >= 0 ? 'pos-n' : 'neg-n'}">${fmtManSigned(d)}</u></em>
+            </div>
+            ${p.img ? `<img class="pr-img" src="${p.img}" alt="${p.from.year}〜${p.to.year}年の収入と支出">` : ''}
+          </div>`;
+        }).join('')}`));
+
       const pageNote = prPage('この試算について', `
-        ${prHead(7, 'この試算について', '数字の読み方と、この試算がカバーしていないことをまとめています。')}
+        ${prHead(8, 'この試算について', '数字の読み方と、この試算がカバーしていないことをまとめています。')}
         <div class="pr-note">
           <b>金額の見方</b>
           金額はすべて物価上昇を織り込んだ「その年の金額」です。今の物価に直した額ではありません。
@@ -6254,7 +6506,8 @@
           個別の判断にあたっては、必要に応じて専門家にご相談ください。
         </div>`);
 
-      const html = [cover, pageSummary, pageAssume, pageFlow, pageMonth, ...pagesChange, ...pagesYear, pageNote].join('');
+      const html = [cover, pageSummary, pageAssume, pageFlow, pageMonth,
+        ...pagesChange, ...pagesPeriod, ...pagesYear, pageNote].join('');
       const pa = document.getElementById('printArea');
       pa.innerHTML = html;
       /* フッターにページ番号と資料名を入れる（表紙は数えない） */
