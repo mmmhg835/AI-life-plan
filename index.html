@@ -3507,9 +3507,15 @@
       return 0;
     }
 
-    function calcNet(grossMan, extraDeduct = 0) {
+    /* 介護保険は40歳から64歳までが第2号被保険者。協会けんぽ 令和6年度の料率1.60%の
+       労使折半で本人負担0.80%。標準報酬の上限は健康保険と同じ139万円。 */
+    const KAIGO_RATE = 0.008, KAIGO_FROM = 40, KAIGO_TO = 64;
+    function kaigoRate(age) {
+      return (age >= KAIGO_FROM && age <= KAIGO_TO) ? KAIGO_RATE : 0;
+    }
+    function calcNet(grossMan, extraDeduct = 0, age = null) {
       const g = grossMan * 10000, m = g / 12;
-      const kenpo = Math.min(m, 1390000) * 0.0499;
+      const kenpo = Math.min(m, 1390000) * (0.0499 + (age == null ? 0 : kaigoRate(age)));
       const kosei = Math.min(m, 650000) * 0.0915;
       const koyo = m * 0.006;
       const sA = (kenpo + kosei + koyo) * 12;
@@ -3551,30 +3557,30 @@
     }
 
     /* 手取り→額面の逆算（calcNetは額面に対して単調増加なので二分探索） */
-    function grossFromNet(netMan, extraDeduct = 0) {
+    function grossFromNet(netMan, extraDeduct = 0, age = null) {
       if (!netMan || netMan <= 0) return 0;
       let lo = netMan, hi = netMan * 1.5 + 100;
-      while (calcNet(hi, extraDeduct).netMan < netMan && hi < 100000) hi *= 1.5;
+      while (calcNet(hi, extraDeduct, age).netMan < netMan && hi < 100000) hi *= 1.5;
       for (let i = 0; i < 50; i++) {
         const mid = (lo + hi) / 2;
-        if (calcNet(mid, extraDeduct).netMan < netMan) lo = mid; else hi = mid;
+        if (calcNet(mid, extraDeduct, age).netMan < netMan) lo = mid; else hi = mid;
       }
       return Math.round((lo + hi) / 2);
     }
 
     function incomeModeOf(p) { return p.incomeMode || p.mode || 'gross'; }
 
-    function grossOf(p, extraDeduct = 0) {
+    function grossOf(p, extraDeduct = 0, age = null) {
       const mode = incomeModeOf(p);
-      if (mode === 'net') return grossFromNet(p.netIncome || 0, extraDeduct);
+      if (mode === 'net') return grossFromNet(p.netIncome || 0, extraDeduct, age);
       if (mode === 'gross') return p.grossIncome || 0;
       return (p.monthSalary || 0) * 12 + (p.bonusSalary || 0);
     }
 
     /* 年間手取り（万円）。手取り入力モードなら入力値をそのまま使う */
-    function netOf(p, extraDeduct = 0) {
+    function netOf(p, extraDeduct = 0, age = null) {
       if (incomeModeOf(p) === 'net') return p.netIncome || 0;
-      return calcNet(grossOf(p), extraDeduct).netMan;
+      return calcNet(grossOf(p, extraDeduct, age), extraDeduct, age).netMan;
     }
     /* 扶養控除（万円）。年齢は12月31日時点。
        16歳未満は児童手当があるため対象外、19〜22歳は特定扶養親族で63万 */
@@ -3670,7 +3676,7 @@
        所得税・住民税は給与所得と雑所得（公的年金等）を合算した累進で計算する。
        年金が0なら calcNet と同じ結果になる。 */
     function taxOfYear(salaryGrossMan, pensionGrossMan, age, extraDeduct = 0) {
-      const c = calcNet(salaryGrossMan, extraDeduct);
+      const c = calcNet(salaryGrossMan, extraDeduct, age);
       const pg = Math.max(0, nz(pensionGrossMan));
       if (pg <= 0) return c;
       const zatsu = Math.max(0, pg - pensionDeduct(pg, age));   /* 雑所得（公的年金等） */
@@ -4075,19 +4081,19 @@
          手取り入力モードでも grossOf() が額面を逆算するので同じ扱いにでき、
          累進課税で手取りの伸びが額面より鈍る点が反映される。
          手取り入力の初年度は入力値そのものを使いたいので、伸び率だけを借りる */
-      const netAtYear = (per, gross0, growth, dep, y, dep0, frac = 1) => {
+      const netAtYear = (per, gross0, growth, dep, y, dep0, frac = 1, ageY = null, age0 = null) => {
         if (!gross0) return incomeModeOf(per) === 'net' ? nz(per.netIncome) * frac : 0;
-        const netY = calcNet(gross0 * Math.pow(growth, y) * frac, dep).netExact;
+        const netY = calcNet(gross0 * Math.pow(growth, y) * frac, dep, ageY).netExact;
         if (incomeModeOf(per) !== 'net') return netY;
-        /* 基準は初年度の扶養控除で固定する。毎年の控除で割ってしまうと
+        /* 基準は初年度の扶養控除・年齢で固定する。毎年の控除で割ってしまうと
            扶養控除の増減が打ち消し合って手取りに出てこない */
-        const net0 = calcNet(gross0, dep0 == null ? dep : dep0).netExact;
+        const net0 = calcNet(gross0, dep0 == null ? dep : dep0, age0).netExact;
         return net0 > 0 ? nz(per.netIncome) * (netY / net0) : netY;
       };
       /* 年金は額面で保持し、受給年ごとに手取りへ換算する。
          繰上げ・繰下げの増減率は「実際に受け取り始める年齢」で決まる */
-      const selfGross0 = grossOf(b, depDeduct(b));
-      const pGross0 = pHas ? grossOf(p) : 0;
+      const selfGross0 = grossOf(b, depDeduct(b), age);
+      const pGross0 = pHas ? grossOf(p, 0, pHas ? nz(p.age) : null) : 0;
       const selfPensionBase = (b.pensionAnnual != null && b.pensionAnnual !== 0)
         ? nz(b.pensionAnnual) : estimatePensionMonthly(selfGross0, retireAge) * 12;
       const pPensionBase = pHas ? ((p.pensionAnnual != null && p.pensionAnnual !== 0)
@@ -4309,14 +4315,14 @@
         }
 
         /* 給与と年金は分けて持つ（支出内訳ページで収入の内訳を出すため） */
-        let wageSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0, lvSelf.workFrac) : 0;
+        let wageSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0, lvSelf.workFrac, curAge, age) : 0;
         if (wk) wageSelf += nz(b.sideIncome);
         let pensionSelf = 0;
         if (pensionGrossY > 0) {
           if (wk && selfGross0) {
             /* 年金を足したことによる手取りの増分だけを乗せる */
             pensionSelf = Math.max(0, taxOfYear(selfGrossY, pensionGrossY, curAge, depY).netExact
-              - calcNet(selfGrossY, depY).netExact);
+              - calcNet(selfGrossY, depY, curAge).netExact);
           } else {
             pensionSelf = pensionNetAnnual(pensionGrossY, curAge);
           }
@@ -4339,14 +4345,14 @@
         if (pHas) {
           const pwk = pAgeY < pRetire;
           /* 就労開始と育休は lvPt.workFrac にまとめて入っている */
-          if (pwk && pStartM <= 12) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0, lvPt.workFrac) + nz(p.sideIncome);
+          if (pwk && pStartM <= 12) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0, lvPt.workFrac, pAgeY, pAge0) + nz(p.sideIncome);
           if (pAgeY >= pPenStart) {
             const cut = pwk ? zaishokuStopAnnual(pKoseiPart, pGrossY) : 0;
             const pg = Math.max(0, pPensionGross - cut);
             pensionCut += cut;
             if (pwk && pGross0 && pGrossY > 0) {
               pensionPartner = Math.max(0, netSalaryPlusPension(pGrossY, pg, pAgeY, 0)
-                - calcNet(pGrossY, 0).netExact);
+                - calcNet(pGrossY, 0, pAgeY).netExact);
             } else {
               pensionPartner = pensionNetAnnual(pg, pAgeY);
             }
@@ -4544,7 +4550,7 @@
         pensionCutTotal: Math.round(pensionCutTotal),
         idecoLumpTotal: Math.round(idecoLumpTotal),
         idecoTakeAge, selfPenStart,
-        netMonthly: netAtYear(b, selfGross0, ig, dep0, 0, dep0) / 12,
+        netMonthly: netAtYear(b, selfGross0, ig, dep0, 0, dep0, 1, age, age) / 12,
         kidCount: kids.length, carCount: cars.length,
         hBuy, hPrice: nz(h.price),
         pm: Math.round(pensionNetAnnual(selfPensionGross, Math.max(65, selfPenStart)) / 12),
@@ -5196,6 +5202,8 @@
       const prefix = isPartner ? 'partner' : 'basic';
       const mode = isPartner ? S().partner.mode : S().basic.incomeMode;
       const dep = isPartner ? 0 : depDeduct(S().basic);
+      /* 介護保険料は40〜64歳だけかかるので、プレビューにも今の年齢を反映させる */
+      const pvAge = nz(isPartner ? S().partner.age : S().basic.age) || null;
       const numOf = key => {
         const el = document.getElementById(fid(prefix + '.' + key));
         return el ? (parseFloat(el.value) || 0) : 0;
@@ -5205,7 +5213,7 @@
       if (mode === 'net') {
         const net = numOf('netIncome');
         if (!net) { box.innerHTML = '<div class="fhint" style="margin:0;">手取り年収を入力すると内訳の目安を表示します</div>'; return; }
-        const g = grossFromNet(net, dep);
+        const g = grossFromNet(net, dep, pvAge);
         box.innerHTML = `
           <div class="nrow"><span>額面年収の目安</span><span class="nval">${g}万円</span></div>
           <div class="ndiv"></div>
@@ -5217,7 +5225,7 @@
       if (mode === 'gross') gross = numOf('grossIncome');
       else gross = numOf('monthSalary') * 12 + numOf('bonusSalary');
       if (!gross) { box.innerHTML = '<div class="fhint" style="margin:0;">金額を入力すると手取りを自動計算します</div>'; return; }
-      const r = calcNet(gross, dep);
+      const r = calcNet(gross, dep, pvAge);
       box.innerHTML = `
         <div class="nrow"><span>社会保険料</span><span class="nval">${r.socialMan}万円</span></div>
         <div class="nrow"><span>所得税＋住民税</span><span class="nval">${r.incomeTaxMan + r.residentTaxMan}万円</span></div>
@@ -6283,12 +6291,12 @@
       const rows = [
         ['本人', `${sim.age}歳／${sim.retireAge}歳で退職／${sim.endAge}歳まで試算`],
         ['本人の収入', incomeModeOf(b) === 'net' ? `手取り ${money(b.netIncome)}／年`
-          : `額面 ${money(grossOf(b))}／年（手取り ${fmtManPlain(Math.round(sim.netMonthly * 12))}）`],
+          : `額面 ${money(grossOf(b, depDeduct(b), nz(b.age)))}／年（手取り ${fmtManPlain(Math.round(sim.netMonthly * 12))}）`],
         ['昇給率', pct(b.incomeGrowth)]
       ];
       if (sim.pHas) {
         rows.push(['パートナー', `${nz(p.age)}歳／${nz(p.retireAge)}歳で退職`]);
-        rows.push(['パートナーの収入', incomeModeOf(p) === 'net' ? `手取り ${money(p.netIncome)}／年` : `額面 ${money(grossOf(p))}／年`]);
+        rows.push(['パートナーの収入', incomeModeOf(p) === 'net' ? `手取り ${money(p.netIncome)}／年` : `額面 ${money(grossOf(p, 0, nz(p.age)))}／年`]);
       }
       rows.push(['子ども', sim.kidCount ? `${sim.kidCount}人` : 'なし']);
       rows.push(['住まい', sim.hBuy ? `${fmtManPlain(nz(h.price))}で購入（${h.buyY}年）／ローン${nz(h.loanYears)}年・金利${pct(h.loanRate)}` : `賃貸 ${money(h.rent)}／月`]);
@@ -6505,7 +6513,9 @@
           旅行や家電などの特別支出は年に一度の出費なので、年額を12で割って月あたりにならしています。
           <b>収入の計算</b>
           収入は税金と社会保険料を引いた手取りで計算しています。年金・退職金・iDeCoの一時金も手取り換算です。
-          給与所得控除、社会保険料、所得税（復興特別所得税込み）、住民税（所得割・均等割）、扶養控除を反映しています。
+          給与所得控除、社会保険料（健康保険・厚生年金・雇用保険・40〜64歳の介護保険）、
+          所得税（復興特別所得税込み）、住民税（所得割・均等割）、扶養控除を反映しています。
+          健康保険・介護保険の料率は協会けんぽの全国平均で、都道府県ごとの差は見ていません。
           <b>運用について</b>
           運用の利回りは毎年一定と仮定した単純な試算です。実際の相場は上下するため、この通りになるわけではありません。
           アプリの「想定年利のブレ幅」を設定すると、利回りが上下した場合の幅も確認できます。
