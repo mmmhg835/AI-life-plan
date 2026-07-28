@@ -3136,16 +3136,16 @@
       </div>
       <div class="ccard">
         <div class="clbl">⚖️ 収入と支出の推移（万円）</div>
-        <p class="sim-detail-hint" style="margin:0 0 8px;">2本の線の開きが、その年の余裕です。<b class="pos">緑＝収入が上回る</b>、<b class="neg">赤＝支出が上回る</b>。収入には児童手当・年金・退職金を、支出には生活費・教育・住宅・車・イベントを含みます（積立は含みません）。</p>
+        <p class="sim-detail-hint" style="margin:0 0 8px;">2本の線の開きが、その年の余裕です。<b class="pos">緑＝収入が上回る</b>、<b class="neg">赤＝支出が上回る</b>。収入には児童手当・年金・退職金を、支出には生活費・教育・住宅・車・イベントに加えて<b>積立（NISA・iDeCo・保険積立）</b>を含みます。口座から出ていく額でそろえているので、<b>収入 − 支出 ＝ 収支</b>になります。</p>
         <div class="chart-canvas-wrap"><canvas id="flowChart"></canvas></div>
       </div>
       <div class="ccard">
         <div class="clbl">🧱 費目別の支出（万円）</div>
-        <p class="sim-detail-hint" style="margin:0 0 8px;">何の費用がいつ増えて、いつ無くなるかを積み上げで表示します。住宅を買った年に住宅の帯が立ち上がり、保育料や教育費の帯は時期が来ると消えます。</p>
+        <p class="sim-detail-hint" style="margin:0 0 8px;">何の費用がいつ増えて、いつ無くなるかを積み上げで表示します。住宅を買った年に住宅の帯が立ち上がり、保育料や教育費の帯は時期が来ると消えます。いちばん上の<b>積立</b>だけは使ってなくなるのではなく資産に残るぶんです。</p>
         <div class="chart-canvas-wrap"><canvas id="expenseChart"></canvas></div>
       </div>
       <div class="ccard">
-        <div class="clbl">💹 年間キャッシュ増減（収入−支出−積立）（万円）</div>
+        <div class="clbl">💹 年間キャッシュ増減（収入−支出）（万円）</div>
         <div class="chart-canvas-wrap"><canvas id="balanceChart"></canvas></div>
       </div>
       <div class="ccard">
@@ -3740,29 +3740,32 @@
     const LEAVE_FIRST_MONTHS = 6;
     const LEAVE_CAP_FIRST = 31.01, LEAVE_CAP_AFTER = 23.15;   /* 万円/月 */
 
-    /* 育休の期間と暦年の重なりを、開始から6ヶ月以内とそれ以降に分けて数える */
-    function leaveMonthsInYear(sy, sm, ey, em, year) {
-      if (!sy || !ey) return { first: 0, after: 0 };
-      const s = sy * 12 + (sm || 1), e = ey * 12 + (em || 12);
-      const lo = Math.max(s, year * 12 + 1), hi = Math.min(e, year * 12 + 12);
+    /* その年の育休。給付金は休業前の額面月額から計算する。
+       子が複数いて期間が重なっても「1ヶ月は1ヶ月」なので、期間を足し合わせるのではなく
+       その年の1月〜12月を1ヶ月ずつ見て、休んでいるか・67%期か50%期かを決める。
+       fromMonth はその年に働き始める月（年の途中就労）。1月から働くなら 1、その年は働かないなら 13。
+       workFrac は「その年に実際に給与が出る月数 ÷ 12」なので、
+       年の途中就労と育休の両方がここで一度に効く（掛け合わせて二重に減らさない）。 */
+    function leaveOfYear(spans, year, wageMonthlyMan, fromMonth) {
+      const start = Math.max(1, Math.min(13, fromMonth || 1));
+      const avail = Math.max(0, 13 - start);   /* その年に働きうる月数 */
       let first = 0, after = 0;
-      for (let idx = lo; idx <= hi; idx++) {
-        if (idx - s < LEAVE_FIRST_MONTHS) first++; else after++;
+      for (let mo = start; mo <= 12; mo++) {
+        const idx = year * 12 + mo;
+        let state = 0;   /* 0=働いている 1=育休（50%期）2=育休（67%期） */
+        for (const sp of spans) {
+          if (!sp || !sp.sY || !sp.eY) continue;
+          const s = sp.sY * 12 + (sp.sM || 1), e = sp.eY * 12 + (sp.eM || 12);
+          if (idx < s || idx > e) continue;
+          state = Math.max(state, idx - s < LEAVE_FIRST_MONTHS ? 2 : 1);
+        }
+        if (state === 2) first++; else if (state === 1) after++;
       }
-      return { first, after };
-    }
-    /* その年の育休（複数の子ぶんを合算）。給付金は休業前の額面月額から計算する */
-    function leaveOfYear(spans, year, wageMonthlyMan) {
-      let first = 0, after = 0;
-      spans.forEach(sp => {
-        const r = leaveMonthsInYear(sp.sY, sp.sM, sp.eY, sp.eM, year);
-        first += r.first; after += r.after;
-      });
-      const months = Math.min(12, first + after);
+      const months = first + after;
       const w = Math.max(0, nz(wageMonthlyMan));
       const benefit = Math.min(w * LEAVE_RATE_FIRST, LEAVE_CAP_FIRST) * first
         + Math.min(w * LEAVE_RATE_AFTER, LEAVE_CAP_AFTER) * after;
-      return { months, benefit, workFrac: Math.max(0, (12 - months) / 12) };
+      return { months, first, after, benefit, workFrac: Math.max(0, (avail - months) / 12) };
     }
 
     /* 元利均等の月額返済 */
@@ -4051,7 +4054,8 @@
           dExpense: prev ? r.expense - prev.expense : 0,
           diffs,
           reason: prev ? reasonOf(r.year, diffs) : '',
-          income: r.income, expense: r.expense, balance: r.balance, total: r.total
+          income: r.income, expense: r.outflow, saving: r.saving,
+          balance: r.income - r.outflow, total: r.total
         };
       }).filter(c => c.first || c.marks.length || Math.abs(c.dExpense) >= CHANGE_MIN);
     }
@@ -4262,7 +4266,11 @@
         const selfGrossY = selfGross0 * Math.pow(ig, y) * lvSelf.workFrac;
         const pAgeY = pHas ? pAge0 + y : curAge;
         const pwkY = pHas && pAgeY < pRetire;
-        const lvPt = pwkY ? leaveOfYear(lvPtSpans, year, pGross0 * Math.pow(pIg, y) / 12)
+        /* パートナーが年の途中から働き始める場合の、就労開始月（1〜13。13＝その年は働かない） */
+        const pStartM = p.workStartY
+          ? (year < p.workStartY ? 13 : (year === p.workStartY ? Math.min(12, Math.max(1, p.workStartM || 1)) : 1))
+          : 1;
+        const lvPt = pwkY ? leaveOfYear(lvPtSpans, year, pGross0 * Math.pow(pIg, y) / 12, pStartM)
           : { months: 0, benefit: 0, workFrac: 1 };
         const pGrossY = pwkY ? pGross0 * Math.pow(pIg, y) * lvPt.workFrac : 0;
         const leaveBenefit = lvSelf.benefit + lvPt.benefit;
@@ -4330,10 +4338,8 @@
         let wagePartner = 0, pensionPartner = 0;
         if (pHas) {
           const pwk = pAgeY < pRetire;
-          const wsFrac = p.workStartY
-            ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
-            : 1;
-          if (pwk && wsFrac > 0) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0, lvPt.workFrac) * wsFrac + nz(p.sideIncome);
+          /* 就労開始と育休は lvPt.workFrac にまとめて入っている */
+          if (pwk && pStartM <= 12) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0, lvPt.workFrac) + nz(p.sideIncome);
           if (pAgeY >= pPenStart) {
             const cut = pwk ? zaishokuStopAnnual(pKoseiPart, pGrossY) : 0;
             const pg = Math.max(0, pPensionGross - cut);
@@ -4432,7 +4438,11 @@
         const evSub = eventSubOf(year);
         const eventCost = Object.keys(evSub).reduce((a, k) => a + evSub[k], 0);
         const expenseTotal = living + edu + housing + car + eventCost;
-        const balance = income - expenseTotal - nisaIn - idecoIn - insIn;
+        /* 積立も口座からは出ていくお金なので、画面・レポートでは「支出（積立含む）」として
+           outflow を使う。expenseTotal は「使ってなくなるぶん」だけ。 */
+        const savingY = nisaIn + idecoIn + insIn;
+        const outflowTotal = expenseTotal + savingY;
+        const balance = income - outflowTotal;
         cash += balance;
 
         /* --- 取り崩し：現金が尽きたら 課税口座 → NISA → 保険積立 → iDeCo の順で売却 ---
@@ -4491,6 +4501,7 @@
         rows.push({
           year, age: curAge,
           income: Math.round(income), expense: Math.round(expenseTotal),
+          saving: Math.round(savingY), outflow: Math.round(outflowTotal),
           living: Math.round(living), edu: Math.round(edu),
           housing: Math.round(housing), car: Math.round(car),
           event: Math.round(eventCost),
@@ -5545,7 +5556,7 @@
               tension: .25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5
             },
             {
-              label: '支出', data: sim.rows.map(r => r.expense),
+              label: '支出（積立含む）', data: sim.rows.map(r => r.outflow),
               borderColor: '#dc2626', backgroundColor: '#dc2626',
               tension: .25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
               /* 収入（1つ前のデータセット）との間を塗る。支出が上＝赤字なので赤 */
@@ -5562,7 +5573,7 @@
               callbacks: Object.assign({}, chartTooltipBase.callbacks, {
                 footer: items => {
                   const inc = items.find(it => it.dataset.label === '収入');
-                  const exp = items.find(it => it.dataset.label === '支出');
+                  const exp = items.find(it => it.dataset.label === '支出（積立含む）');
                   if (!inc || !exp) return '';
                   const d = inc.parsed.y - exp.parsed.y;
                   return `差引: ${d >= 0 ? '+' : ''}${fmtM(d)}（${d >= 0 ? '収入が上回る' : '支出が上回る'}）`;
@@ -5578,7 +5589,8 @@
       /* 費目別の支出（積み上げ）：どの費用がいつ立ち上がり、いつ消えるか */
       const EXPENSE_CATS = [
         ['living', '生活費', '#94a3b8'], ['edu', '教育・保育', '#f97316'],
-        ['housing', '住宅', '#1a56db'], ['car', '車', '#16a34a'], ['event', 'イベント', '#9333ea']
+        ['housing', '住宅', '#1a56db'], ['car', '車', '#16a34a'], ['event', 'イベント', '#9333ea'],
+        ['saving', '積立（資産に残る）', '#0891b2']
       ];
       chartExpense = new Chart(document.getElementById('expenseChart').getContext('2d'), {
         type: 'bar',
@@ -5623,8 +5635,8 @@
       sim.rows.forEach(r => {
         th += `<tr><td>${r.year}<br>${r.age}歳</td>
           <td>${fmtManPlain(r.income)}${r.severance ? `<br><span class="pos" style="font-size:10px;">退職金 ${fmtManPlain(r.severance)}</span>` : ''}</td>
-          <td>${fmtManPlain(r.expense)}</td>
-          <td class="${r.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(r.balance)}</td>
+          <td>${fmtManPlain(r.outflow)}${r.saving ? `<br><span style="font-size:10px;color:#64748b;">うち積立 ${fmtManPlain(r.saving)}</span>` : ''}</td>
+          <td class="${r.income - r.outflow >= 0 ? 'pos' : 'neg'}">${fmtManSigned(r.income - r.outflow)}</td>
           <td>${r.edu ? fmtManPlain(r.edu) : '—'}</td><td>${r.housing ? fmtManPlain(r.housing) : '—'}</td>
           <td>${r.car ? fmtManPlain(r.car) : '—'}</td>
           <td>${r.event ? fmtManPlain(r.event) : '—'}</td>
@@ -5665,7 +5677,7 @@
           ${marks}${diffs}${why}
           <div class="yc-foot">
             <span class="yc-kv">年間収入<b>${fmtManPlain(c.income)}</b></span>
-            <span class="yc-kv">年間支出<b>${fmtManPlain(c.expense)}</b></span>
+            <span class="yc-kv">年間支出<b>${fmtManPlain(c.expense)}</b><i>積立含む</i></span>
             <span class="yc-kv">年間収支<b class="${c.balance >= 0 ? 'pos' : 'neg'}">${fmtManSigned(c.balance)}</b><i>${c.balance >= 0 ? '黒字' : '赤字'}</i></span>
             <span class="yc-kv">年末資産<b class="${c.total >= 0 ? '' : 'neg'}">${fmtManPlain(c.total)}</b></span>
           </div>
@@ -6076,7 +6088,7 @@
         data: {
           labels: lbls, datasets: [
             Object.assign(line(rows.map(r => r.income), PR_C.blue, false), { label: '収入' }),
-            Object.assign(line(rows.map(r => r.expense), PR_C.orange, false), { label: '支出' })
+            Object.assign(line(rows.map(r => r.outflow), PR_C.orange, false), { label: '支出（積立含む）' })
           ]
         },
         plugins: [prLabelPlugin],
@@ -6087,7 +6099,7 @@
             prLabel: {
               items: (() => {
                 const last = PR_WIN.to;
-                const up = rows[last].income >= rows[last].expense;
+                const up = rows[last].income >= rows[last].outflow;
                 return [
                   { di: 0, idx: last, text: '収入', color: PR_C.blue, dy: up ? -20 : 34, size: 26 },
                   { di: 1, idx: last, text: '支出', color: PR_C.orange, dy: up ? 34 : -20, size: 26 }
@@ -6100,7 +6112,8 @@
 
       /* --- 費目別の積み上げ。帯のあいだに白を2px入れて境目を作る --- */
       const CATS = [['生活費', 'living', PR_C.blue], ['住まい', 'housing', PR_C.orange],
-      ['教育・保育', 'edu', PR_C.aqua], ['車', 'car', PR_C.yellow], ['イベント', 'event', PR_C.magenta]];
+      ['教育・保育', 'edu', PR_C.aqua], ['車', 'car', PR_C.yellow], ['イベント', 'event', PR_C.magenta],
+      ['積立', 'saving', PR_C.deep]];
       const expense = await prRender({
         type: 'line',
         data: {
@@ -6150,7 +6163,7 @@
       const peak = rows.find(r => r.total === sim.peakAssets);
       if (peak) out.push(['資産のピークは' + peak.age + '歳',
         `${fmtM(sim.peakAssets)}まで増えたあと、取り崩しに入ります。ここが家計の折り返し地点です。`]);
-      const heavy = rows.reduce((a, r) => r.expense > a.expense ? r : a, rows[0]);
+      const heavy = rows.reduce((a, r) => r.outflow > a.outflow ? r : a, rows[0]);
       const ch = buildYearChanges(sim, sc).find(c => c.year === heavy.year);
       /* 理由は多いと読みにくいので、目立つものを2つまでに絞る */
       const why2 = ch ? [...ch.marks.map(x => x.text), ch.reason].filter(Boolean).slice(0, 2) : [];
@@ -6160,7 +6173,7 @@
       const after = rows.filter(r => r.age >= sim.retireAge);
       if (after.length) {
         const ai = after.reduce((a, r) => a + r.income, 0) / after.length;
-        const ae = after.reduce((a, r) => a + r.expense, 0) / after.length;
+        const ae = after.reduce((a, r) => a + r.outflow, 0) / after.length;
         out.push([`退職後は年平均${fmtM(ae - ai)}が不足`,
           `収入 年${fmtM(ai)}に対し支出 年${fmtM(ae)}。差は資産から補うことになります。`]);
       }
@@ -6180,7 +6193,7 @@
             labels: ck.map(r => [String(r.year), `${r.age}歳`]),
             datasets: [
               { label: '収入', data: ck.map(r => r.income), backgroundColor: PR_C.blue, borderWidth: 0, borderRadius: 5, borderSkipped: false },
-              { label: '支出（積立含む）', data: ck.map(r => r.expense + r.nisaIn + r.idecoIn + r.insIn), backgroundColor: PR_C.orange, borderWidth: 0, borderRadius: 5, borderSkipped: false }
+              { label: '支出（積立含む）', data: ck.map(r => r.outflow), backgroundColor: PR_C.orange, borderWidth: 0, borderRadius: 5, borderSkipped: false }
             ]
           },
           options: {
@@ -6202,7 +6215,7 @@
         out.push({
           img, from: ck[0], to: ck[ck.length - 1],
           inc: ck.reduce((a, r) => a + r.income, 0),
-          exp: ck.reduce((a, r) => a + r.expense + r.nisaIn + r.idecoIn + r.insIn, 0)
+          exp: ck.reduce((a, r) => a + r.outflow, 0)
         });
       }
       return out;
@@ -6301,7 +6314,7 @@
       const r = rows.find(x => x.year === (expYear == null ? rows[0].year : expYear)) || rows[0];
       const m = v => v / 12;
       const saveY = r.nisaIn + r.idecoIn + r.insIn;
-      const outM = m(r.expense + saveY), incomeM = m(r.income);
+      const outM = m(r.outflow), incomeM = m(r.income);
       const r1 = v => Math.round(v * 10) / 10;
       const leftDisp = r1(incomeM) - r1(outM);
       const withdrawTotal = rows.reduce((a, x) => a + x.withdraw, 0);
@@ -6388,20 +6401,22 @@
         <div class="pr-blk">
           ${imgs.expense ? `<img class="pr-img" src="${imgs.expense}" alt="費目別の支出">` : ''}
           <p class="pr-cap">${gRange}何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。帯の厚みがその費目の金額です。
-            住宅を買った年に住まいの帯が立ち上がり、保育料や学費の帯は時期が来ると消えます。</p>
+            住宅を買った年に住まいの帯が立ち上がり、保育料や学費の帯は時期が来ると消えます。
+            いちばん上の「積立」だけは使ってなくなるのではなく、資産として残るぶんです。</p>
         </div>`);
 
       const pageFlow = prPage('収入と支出の推移', `
         ${prHead(3, '収入と支出の推移', '毎年いくら入って、いくら出ていくのか。2本の線の開きがその年の余裕です。')}
         <div class="pr-blk">
           ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
-          <p class="pr-cap">${gRange}<b>青が収入、オレンジが支出</b>です。青が上にあるあいだは貯まり、下回ると取り崩しに入ります。
-            収入には児童手当・年金・退職一時金を含みます（積立は含みません）。退職一時金が入る年だけ青が跳ね上がります。</p>
+          <p class="pr-cap">${gRange}<b>青が収入、オレンジが支出（積立を含む）</b>です。青が上にあるあいだは貯まり、下回ると取り崩しに入ります。
+            収入には児童手当・年金・退職一時金を、支出には生活費・教育・住まい・車・イベントに加えて積立（NISA・iDeCo・保険積立）を含みます。
+            口座から出ていく額でそろえているので、2本の差がそのままその年の収支です。退職一時金が入る年だけ青が跳ね上がります。</p>
         </div>
         <div class="pr-h2">年間キャッシュの増減</div>
         <div class="pr-blk">
           ${imgs.balance ? `<img class="pr-img" src="${imgs.balance}" alt="年間キャッシュ増減">` : ''}
-          <p class="pr-cap">収入から支出と積立を引いた、その年に手元の現金がいくら増えた（減った）かです。
+          <p class="pr-cap">収入から支出（積立を含む）を引いた、その年に手元の現金がいくら増えた（減った）かです。
             <b>青が増えた年、赤が減った年</b>。マイナスの年は貯金や投資を取り崩して埋めます。
             退職一時金が入る年だけ突出するので、そこは例外として見てください。</p>
         </div>`);
@@ -6413,13 +6428,13 @@
           <div class="i"><span>収入（手取り）</span><b>${incomeM.toFixed(1)}万</b></div>
           <div class="o"><span>支出（積立含む）</span><b>${outM.toFixed(1)}万</b></div>
         </div>
-        <p class="pr-cap">年間では 収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense + saveY)} ＝ <b>${fmtManSigned(r.income - r.expense - saveY)}</b>。
+        <p class="pr-cap">年間では 収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.outflow)} ＝ <b>${fmtManSigned(r.income - r.outflow)}</b>。
           積立は使ってなくなるのではなく資産として残ります。</p>
         <div class="pr-h2">支出の内訳</div>
         <div class="pr-blk"><table class="pr-tbl">
           <thead><tr><th>費目</th><th style="text-align:right">月あたり</th><th style="text-align:right">年間</th><th style="text-align:right">割合</th></tr></thead>
-          <tbody>${exp.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / (r.expense + saveY) * 100)}%</td></tr>`).join('')}
-          <tr class="tot"><th>合計</th><td class="n">${outM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.expense + saveY)}</td><td class="n">100%</td></tr></tbody>
+          <tbody>${exp.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / Math.max(1e-9, r.outflow) * 100)}%</td></tr>`).join('')}
+          <tr class="tot"><th>合計</th><td class="n">${outM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.outflow)}</td><td class="n">100%</td></tr></tbody>
         </table></div>
         <div class="pr-h2">収入の内訳</div>
         <div class="pr-blk"><table class="pr-tbl">
@@ -6433,7 +6448,7 @@
         ${i === 0 ? prHead(5, 'お金が動く年とその理由', '支出が大きく動いた年だけを抜き出しています。「なぜその年に増えたのか・減ったのか」まで書いてあります。')
           : '<div class="pr-h2">お金が動く年とその理由（続き）</div>'}
         <div class="pr-blk"><table class="pr-tbl">
-          <thead><tr><th>年（年齢）</th><th>できごと・理由</th><th style="text-align:right">年間支出</th><th style="text-align:right">年末資産</th></tr></thead>
+          <thead><tr><th>年（年齢）</th><th>できごと・理由</th><th style="text-align:right">年間支出<br><small>積立含む</small></th><th style="text-align:right">年末資産</th></tr></thead>
           <tbody>${ck.map(c => `<tr>
             <th>${c.year}（${c.age}歳）</th>
             <td>${escapeHtml([...c.marks.map(x => x.text), c.reason].filter(Boolean).join(' ／ ')) || '—'}</td>
@@ -6448,17 +6463,17 @@
         if (t) markByYear.set(c.year, t);
       });
       const pagesYear = prChunk(rows, 32).map((ck, i) => prPage('年次一覧', `
-        ${i === 0 ? prHead(7, '年次一覧', '1年ごとの収入・支出・積立・年末資産です。金額は万円、収入と支出は手取りベースです。')
+        ${i === 0 ? prHead(7, '年次一覧', '1年ごとの収入・支出・年末資産です。金額は万円、収入と支出は手取りベースです。支出には積立を含み、そのうち積立ぶんを「うち積立」に再掲しています。')
           : '<div class="pr-h2">年次一覧（続き）</div>'}
         <div class="pr-blk"><table class="pr-tbl pr-yr">
-          <thead><tr><th>年</th><th>年齢</th><th class="r">収入</th><th class="r">支出</th><th class="r">積立</th><th class="r">収支</th><th class="r">年末資産</th><th>できごと</th></tr></thead>
+          <thead><tr><th>年</th><th>年齢</th><th class="r">収入</th><th class="r">支出</th><th class="r">うち積立</th><th class="r">収支</th><th class="r">年末資産</th><th>できごと</th></tr></thead>
           <tbody>${ck.map(x => {
-            const sv = x.nisaIn + x.idecoIn + x.insIn;
-            const bal = x.income - x.expense - sv;
+            const sv = x.saving;
+            const bal = x.income - x.outflow;
             return `<tr${x.age === sim.retireAge ? ' class="hi"' : ''}>
               <th>${x.year}</th><td>${x.age}</td>
               <td class="n">${x.income.toLocaleString()}</td>
-              <td class="n">${x.expense.toLocaleString()}</td>
+              <td class="n">${x.outflow.toLocaleString()}</td>
               <td class="n">${sv ? sv.toLocaleString() : '—'}</td>
               <td class="n ${bal >= 0 ? '' : 'neg-n'}">${bal >= 0 ? '' : '−'}${Math.abs(bal).toLocaleString()}</td>
               <td class="n ${x.total >= 0 ? '' : 'neg-n'}">${x.total.toLocaleString()}</td>
