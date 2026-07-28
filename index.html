@@ -140,63 +140,86 @@
     }
 
     /* 支出内訳 */
-    .exp-total {
-      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-mid) 100%);
-      color: white;
-      border-radius: 14px;
-      padding: 18px 16px;
+    .exp-hd {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-600);
+      margin: 0 2px 6px;
+    }
+
+    .exp-tri {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
       margin-bottom: 12px;
     }
 
-    .exp-total-lbl {
-      font-size: 11px;
-      font-weight: 700;
-      opacity: .85;
-      letter-spacing: .04em;
+    .exp-box {
+      border-radius: 13px;
+      padding: 12px 8px 10px;
+      color: white;
+      text-align: center;
+      min-width: 0;
     }
 
-    .exp-total.neg {
+    .exp-box.bal {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-mid) 100%);
+    }
+
+    .exp-box.bal.neg {
       background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
     }
 
-    .exp-total-val {
-      font-family: 'DM Mono', monospace;
-      font-size: 32px;
-      font-weight: 500;
-      line-height: 1.15;
-      margin: 4px 0 2px;
+    .exp-box.inc {
+      background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
     }
 
-    .exp-total-val em {
-      font-style: normal;
-      font-family: 'Noto Sans JP', sans-serif;
+    .exp-box.out {
+      background: linear-gradient(135deg, #c2410c 0%, #ea580c 100%);
+    }
+
+    .exp-box-lbl {
       font-size: 11px;
       font-weight: 700;
-      background: rgba(255, 255, 255, .22);
-      border-radius: 999px;
-      padding: 3px 9px;
-      margin-left: 8px;
-      vertical-align: middle;
+      opacity: .9;
+      letter-spacing: .04em;
     }
 
-    .exp-total-brk {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 14px;
-      margin: 8px 0 6px;
-      font-size: 12px;
-      opacity: .95;
-    }
-
-    .exp-total-brk b {
+    .exp-box-val {
       font-family: 'DM Mono', monospace;
+      font-size: 23px;
       font-weight: 500;
-      margin-left: 5px;
+      line-height: 1.2;
+      margin-top: 3px;
+      white-space: nowrap;
     }
 
-    .exp-total-sub {
-      font-size: 12px;
-      opacity: .85;
+    .exp-box-val i {
+      font-style: normal;
+      font-size: 11px;
+      margin-left: 1px;
+    }
+
+    .exp-box-bdg {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, .24);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-top: 4px;
+    }
+
+    .exp-box-yr {
+      font-size: 10px;
+      opacity: .9;
+      margin-top: 5px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 359px) {
+      .exp-box-val { font-size: 19px; }
+      .exp-box-yr { font-size: 9px; }
     }
 
     .exp-row {
@@ -208,7 +231,8 @@
       border-bottom: 1px solid var(--gray-100);
     }
 
-    .exp-row:last-child {
+    .exp-row:last-child,
+    .exp-det:last-child .exp-row {
       border-bottom: none;
     }
 
@@ -216,6 +240,14 @@
       font-size: 13px;
       font-weight: 700;
       color: var(--gray-800);
+    }
+
+    .exp-cr {
+      font-size: 10px;
+      color: var(--blue-mid);
+      margin-left: 5px;
+      display: inline-block;
+      transition: transform .15s;
     }
 
     .exp-amt {
@@ -253,11 +285,65 @@
       background: var(--green);
     }
 
-    .exp-sub {
+    .exp-note {
       grid-column: 1 / -1;
       font-size: 11px;
       color: var(--gray-400);
       line-height: 1.5;
+    }
+
+    /* 小項目（タップで開く） */
+    .exp-det>summary {
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .exp-det>summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .exp-det[open]>summary {
+      border-bottom: none;
+    }
+
+    .exp-det[open] .exp-cr {
+      transform: rotate(180deg);
+    }
+
+    .exp-sub {
+      background: var(--gray-50);
+      border-radius: 9px;
+      padding: 4px 11px;
+      margin: 2px 0 9px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .exp-subrow {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: var(--gray-600);
+    }
+
+    .exp-subrow+.exp-subrow {
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .exp-subrow i {
+      font-style: normal;
+      font-size: 10px;
+      color: var(--gray-400);
+      margin-left: 6px;
+    }
+
+    .exp-subrow b {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      color: var(--gray-800);
+      white-space: nowrap;
     }
 
     .exp-yr {
@@ -285,27 +371,6 @@
       font-size: 13px;
       font-weight: 700;
       color: var(--gray-800);
-    }
-
-    .exp-bs {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 7px 10px;
-      align-items: baseline;
-      font-size: 13px;
-    }
-
-    .exp-bs b {
-      font-family: 'DM Mono', monospace;
-      font-weight: 500;
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .exp-bs .ttl {
-      border-top: 1px solid var(--gray-200);
-      padding-top: 8px;
-      font-weight: 700;
     }
 
     /* MAIN */
@@ -3157,11 +3222,22 @@
 
       /* ライフイベント（入力額をそのまま計上・物価上昇は掛けない） */
       const events = (sc.events || []).filter(ev => nz(ev.amount) !== 0 && ev.startY);
-      const eventCostOf = year => events.reduce((s, ev) => {
-        if (ev.mode === 'once') return s + (year === ev.startY ? nz(ev.amount) : 0);
+      const eventOneOf = (ev, year) => {
+        if (ev.mode === 'once') return year === ev.startY ? nz(ev.amount) : 0;
         const m = monthsOverlap(year, ev.startY, ev.startM, ev.endY, ev.endM);
-        return s + nz(ev.amount) * (ev.mode === 'yearly' ? m / 12 : m);
-      }, 0);
+        return nz(ev.amount) * (ev.mode === 'yearly' ? m / 12 : m);
+      };
+      /* イベント名ごとの内訳。同名があれば足し合わせる */
+      const eventSubOf = year => {
+        const sub = {};
+        events.forEach((ev, i) => {
+          const v = eventOneOf(ev, year);
+          if (v === 0) return;
+          const k = ev.name || `ライフイベント${i + 1}`;
+          sub[k] = (sub[k] || 0) + v;
+        });
+        return sub;
+      };
 
       /* 物価上昇 */
       const inflRate = nz(e.inflationRate) / 100;
@@ -3326,10 +3402,18 @@
           medical: wk ? 0 : retireMedicalM * 12 * infl('otherFixed', y)
         };
         const living = Object.keys(bd).reduce((a, k) => a + bd[k], 0);
+        /* グループ内の小項目は同じ倍率で按分できる（同じ物価上昇フラグを共有するため）。
+           入力値×この倍率＝その年の額。合計は bd と一致する */
+        const mul = {
+          variable: infl('variable', y) * 12 * lr,
+          otherFixed: infl('otherFixed', y) * 12 * lr,
+          special: infl('special', y) * lr
+        };
 
-        /* --- 教育・保育・習い事 --- */
+        /* --- 教育・保育・習い事（小項目に分けて合計する） --- */
+        const eSub = { tuition: 0, daycare: 0, lesson: 0 };
         let edu = 0;
-        kids.forEach(c => { edu += eduAnnualCY(c, year); });
+        kids.forEach(c => { eSub.tuition += eduAnnualCY(c, year); });
         /* 保育料（きょうだい割引：同時在園順位） */
         const enrolled = kids.map(c => (nz(c.ccFee) > 0 && monthsOverlap(year, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0));
         kids.forEach((c, i) => {
@@ -3341,40 +3425,44 @@
             for (let j = 0; j < i; j++) if (enrolled[j]) rank++;
             coef = rank === 1 ? 1 : rank === 2 ? nz(sib.second) : nz(sib.third);
           }
-          edu += nz(c.ccFee) * coef * m;
+          eSub.daycare += nz(c.ccFee) * coef * m;
         });
         /* 習い事（教育費マスタへの上乗せ分） */
         kids.forEach(c => {
-          if (nz(c.lessonFee) > 0) edu += nz(c.lessonFee) * monthsOverlap(year, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM);
+          if (nz(c.lessonFee) > 0) eSub.lesson += nz(c.lessonFee) * monthsOverlap(year, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM);
         });
+        edu = eSub.tuition + eSub.daycare + eSub.lesson;
 
-        /* --- 住宅 --- */
-        let housing = 0;
-        if (nz(h.rent) > 0) housing += nz(h.rent) * monthsOverlap(year, null, null, rentEndY, rentEndM);
+        /* --- 住宅（小項目に分けて合計する） --- */
+        const hSub = { rent: 0, loan: 0, mgmt: 0, tax: 0, down: 0 };
+        if (nz(h.rent) > 0) hSub.rent = nz(h.rent) * monthsOverlap(year, null, null, rentEndY, rentEndM);
         if (hBuy) {
           const yLo = year * 12 + 1, yHi = year * 12 + 12;
           const loanMonths = Math.max(0, Math.min(yHi, hLoanEndIdx) - Math.max(yLo, hStartIdx) + 1);
-          housing += hPmt * loanMonths;
+          hSub.loan = hPmt * loanMonths;
           const ownMonths = Math.max(0, yHi - Math.max(yLo, hStartIdx) + 1);
-          housing += (nz(h.mgmtFee) + nz(h.repairFee)) * ownMonths;
-          housing += nz(h.propTax) * ownMonths / 12;
-          if (year === h.buyY) housing += nz(h.down);
+          hSub.mgmt = (nz(h.mgmtFee) + nz(h.repairFee)) * ownMonths;
+          hSub.tax = nz(h.propTax) * ownMonths / 12;
+          if (year === h.buyY) hSub.down = nz(h.down);
         }
+        const housing = hSub.rent + hSub.loan + hSub.mgmt + hSub.tax + hSub.down;
 
-        /* --- 車 --- */
-        let car = 0;
+        /* --- 車（小項目に分けて合計する） --- */
+        const cSub = { buy: 0, loan: 0, maint: 0, tax: 0 };
         cars.forEach(cr => {
           const yLo = year * 12 + 1, yHi = year * 12 + 12;
-          if (year === cr.c.buyY) car += cr.cashAtBuy + cr.lump;
+          if (year === cr.c.buyY) cSub.buy += cr.cashAtBuy + cr.lump;
           const loanMonths = Math.max(0, Math.min(yHi, cr.loanEndIdx) - Math.max(yLo, cr.sIdx) + 1);
-          car += cr.pmt * loanMonths;
+          cSub.loan += cr.pmt * loanMonths;
           const ownMonths = Math.max(0, Math.min(yHi, cr.eIdx) - Math.max(yLo, cr.sIdx) + 1);
-          car += cr.maintMonthly * ownMonths;
-          car += nz(cr.c.taxYear) * ownMonths / 12;
+          cSub.maint += cr.maintMonthly * ownMonths;
+          cSub.tax += nz(cr.c.taxYear) * ownMonths / 12;
         });
+        const car = cSub.buy + cSub.loan + cSub.maint + cSub.tax;
 
         /* --- 年間収支 --- */
-        const eventCost = eventCostOf(year);
+        const evSub = eventSubOf(year);
+        const eventCost = Object.keys(evSub).reduce((a, k) => a + evSub[k], 0);
         const expenseTotal = living + edu + housing + car + eventCost;
         const balance = income - expenseTotal - nisaIn - idecoIn - insIn;
         cash += balance;
@@ -3443,7 +3531,7 @@
           wageSelf: Math.round(wageSelf), wagePartner: Math.round(wagePartner),
           pensionSelf: Math.round(pensionSelf), pensionPartner: Math.round(pensionPartner),
           nisaIn: Math.round(nisaIn), idecoIn: Math.round(idecoIn), insIn: Math.round(insIn),
-          bd,
+          bd, mul, hSub, cSub, eSub, evSub,
           idecoSaving: Math.round(idecoSaving), loanCredit: Math.round(loanCredit),
           cgTax: Math.round(cgTax), kakyu: Math.round(kakyu),
           pensionCut: Math.round(pensionCut), idecoLump: Math.round(idecoLump),
@@ -4585,13 +4673,43 @@
       insurance: ['保険料', ''],
       subscription: ['サブスク', ''],
       transport: ['交通費', ''],
-      variable: ['趣味・交際・被服', '日用の変動費を含む'],
-      otherFixed: ['その他の固定費', 'ジム・習い事・ペットなど'],
-      special: ['特別支出', '旅行・家電・冠婚葬祭（年額を12で割った額）'],
+      variable: ['趣味・交際・被服', ''],
+      otherFixed: ['その他の固定費', ''],
+      special: ['特別支出', '年に一度の出費を12で割った額'],
       medical: ['医療・介護費', '退職後の上乗せ']
     };
+    /* グループ内の小項目：[入力のキー, 表示名]。倍率は row.mul で共通 */
+    const EXP_VARIABLE_SUB = [['varDaily', '日用の生活費'], ['varHobby', '娯楽・趣味'],
+    ['varSocial', '交際費'], ['varFashion', '被服・美容']];
+    const EXP_OTHERFIXED_SUB = [['parking', '駐車場'], ['gym', 'ジム'], ['learning', '習い事'],
+    ['smoking', 'タバコ'], ['pet', 'ペット'], ['support', '仕送り・親の援助'],
+    ['golf', 'ゴルフ'], ['salon', '美容・サロン'], ['educationManual', '教育費（手入力）']];
+    const EXP_SPECIAL_SUB = [['annualTravel', '旅行'], ['annualAppliance', '家電・家具'],
+    ['annualCeremony', '冠婚葬祭・ギフト'], ['annualOther', 'その他大型']];
 
     function setExpYear(v) { expYear = v === '' ? null : Number(v); renderExpense(); }
+
+    /* 費目1行。sub があればタップで小項目を開く */
+    function expRow(name, v, note, sub, total, max, cls) {
+      const pct = total > 0 ? Math.round(v / total * 100) : 0;
+      const w = max > 0 ? (v / max * 100).toFixed(1) : 0;
+      /* 小項目が1つだけなら親と同じ数字になるので開けるようにしない */
+      const parts = (sub || []).filter(x => Math.abs(x[1]) >= 0.05);
+      if (parts.length < 2) return `<div class="exp-row">${
+        `<span class="exp-name">${name}</span>
+        <span class="exp-amt">${v.toFixed(1)}万<i>${total > 0 ? Math.round(v / total * 100) : 0}%</i></span>
+        <span class="exp-bar ${cls || ''}"><span style="width:${max > 0 ? (v / max * 100).toFixed(1) : 0}%"></span></span>
+        ${note ? `<span class="exp-note">${note}</span>` : ''}`}</div>`;
+      const head = `<span class="exp-name">${name}${parts.length ? '<b class="exp-cr">▾</b>' : ''}</span>
+        <span class="exp-amt">${v.toFixed(1)}万<i>${pct}%</i></span>
+        <span class="exp-bar ${cls || ''}"><span style="width:${w}%"></span></span>
+        ${note ? `<span class="exp-note">${note}</span>` : ''}`;
+      if (!parts.length) return `<div class="exp-row">${head}</div>`;
+      return `<details class="exp-det"><summary class="exp-row">${head}</summary>
+        <div class="exp-sub">${parts.map(([n, val, hint]) =>
+        `<div class="exp-subrow"><span>${n}${hint ? `<i>${hint}</i>` : ''}</span><b>${val.toFixed(1)}万</b></div>`).join('')}</div>
+      </details>`;
+    }
 
     function renderExpense() {
       const body = document.getElementById('expBody');
@@ -4602,43 +4720,38 @@
           <button class="btn btn-p" onclick="wizJumpTo('y_age')" style="margin-top:10px;">年齢を入力する →</button></div>`;
         return;
       }
-      const rows = sim.rows;
+      const rows = sim.rows, e = S().exp;
       const target = expYear == null ? rows[0].year : expYear;
       const r = rows.find(x => x.year === target) || rows[0];
       const m = v => v / 12;   /* 年額→月額 */
+      const gsub = (list, k) => list.map(([key, label]) => [label, m(nz(e[key]) * r.mul[k])]);
 
-      /* 費目（月額）。生活費は内訳を開き、住宅・車・教育などはまとめて1行 */
+      /* --- 支出の費目（小項目つき） --- */
       const items = [
-        ['住まい', m(r.housing), sim.hBuy ? 'ローン・管理費・固定資産税・家賃' : '家賃'],
-        ['教育・保育', m(r.edu), '学費・保育料・習い事'],
-        ['車', m(r.car), '購入費・ローン・維持費'],
-        ...Object.keys(EXP_LIVING_LABELS).map(k => [EXP_LIVING_LABELS[k][0], m(r.bd[k]), EXP_LIVING_LABELS[k][1]]),
-        ['ライフイベント', m(r.event), 'まとまった出費']
-      ].filter(x => x[1] >= 0.05).sort((a, b) => b[1] - a[1]);
+        ['住まい', m(r.housing), sim.hBuy ? 'ローン・維持費・家賃' : '家賃', [
+          ['家賃', m(r.hSub.rent)], ['住宅ローン返済', m(r.hSub.loan)],
+          ['管理費・修繕積立金', m(r.hSub.mgmt)], ['固定資産税', m(r.hSub.tax)],
+          ['頭金', m(r.hSub.down), 'この年かぎり']]],
+        ['教育・保育', m(r.edu), '', [
+          ['学費', m(r.eSub.tuition)], ['保育料', m(r.eSub.daycare)], ['習い事・塾', m(r.eSub.lesson)]]],
+        ['車', m(r.car), '', [
+          ['購入時の支払い', m(r.cSub.buy), 'この年かぎり'], ['ローン返済', m(r.cSub.loan)],
+          ['維持費（保険・駐車場・燃料）', m(r.cSub.maint)], ['税金・車検', m(r.cSub.tax)]]],
+        ...Object.keys(EXP_LIVING_LABELS).map(k => [
+          EXP_LIVING_LABELS[k][0], m(r.bd[k]), EXP_LIVING_LABELS[k][1],
+          k === 'variable' ? gsub(EXP_VARIABLE_SUB, 'variable')
+            : k === 'otherFixed' ? gsub(EXP_OTHERFIXED_SUB, 'otherFixed')
+              .concat((e.customFixed || []).map((c, i) => [c.name || `その他${i + 1}`, m(nz(c.amount) * r.mul.otherFixed)]))
+              : k === 'special' ? gsub(EXP_SPECIAL_SUB, 'special') : null]),
+        ['ライフイベント', m(r.event), '', Object.keys(r.evSub).map(k => [k, m(r.evSub[k])])]
+      ].filter(x => x[1] >= 0.05).sort((a2, b2) => b2[1] - a2[1]);
 
       const totalM = m(r.expense);
       const maxM = items.length ? items[0][1] : 1;
-      const list = items.map(([name, v, sub]) => `
-        <div class="exp-row">
-          <span class="exp-name">${name}</span>
-          <span class="exp-amt">${v.toFixed(1)}万<i>${totalM > 0 ? Math.round(v / totalM * 100) : 0}%</i></span>
-          <span class="exp-bar"><span style="width:${maxM > 0 ? (v / maxM * 100).toFixed(1) : 0}%"></span></span>
-          ${sub ? `<span class="exp-sub">${sub}</span>` : ''}
-        </div>`).join('');
+      const list = items.map(([n, v, note, sub]) => expRow(n, v, note, sub, totalM, maxM)).join('');
 
-      /* 積立は「支出」ではなく資産に移るお金なので分けて出す */
-      const saves = [['NISA・投資信託', m(r.nisaIn)], ['iDeCo', m(r.idecoIn)], ['保険積立', m(r.insIn)]]
-        .filter(x => x[1] >= 0.05);
-      const saveM = saves.reduce((a, x) => a + x[1], 0);
+      /* --- 収入の費目 --- */
       const incomeM = m(r.income);
-      const leftM = incomeM - totalM - saveM;
-
-      const opts = rows.map(x => {
-        const tag = x.age === sim.retireAge ? '・退職' : (x.year === rows[0].year ? '・今年' : '');
-        return `<option value="${x.year}" ${x.year === r.year ? 'selected' : ''}>${x.year}年（${x.age}歳${tag}）</option>`;
-      }).join('');
-
-      /* 収入の内訳（月額） */
       const incItems = [
         ['本人の給与', m(r.wageSelf), '手取り。副業を含む'],
         ['パートナーの給与', m(r.wagePartner), '手取り'],
@@ -4650,13 +4763,26 @@
         ['住宅ローン控除', m(r.loanCredit), '年末残高×0.7%の還付']
       ].filter(x => x[1] >= 0.05).sort((a2, b2) => b2[1] - a2[1]);
       const incMax = incItems.length ? incItems[0][1] : 1;
-      const incList = incItems.map(([name, v, sub]) => `
-        <div class="exp-row">
-          <span class="exp-name">${name}</span>
-          <span class="exp-amt">${v.toFixed(1)}万<i>${incomeM > 0 ? Math.round(v / incomeM * 100) : 0}%</i></span>
-          <span class="exp-bar in"><span style="width:${incMax > 0 ? (v / incMax * 100).toFixed(1) : 0}%"></span></span>
-          ${sub ? `<span class="exp-sub">${sub}</span>` : ''}
-        </div>`).join('');
+      const incList = incItems.map(([n, v, note]) => expRow(n, v, note, null, incomeM, incMax, 'in')).join('');
+
+      /* --- 積立と収支 --- */
+      const saves = [['NISA・投資信託', m(r.nisaIn)], ['iDeCo', m(r.idecoIn)], ['保険積立', m(r.insIn)]]
+        .filter(x => x[1] >= 0.05);
+      const saveM = saves.reduce((a2, x) => a2 + x[1], 0);
+      const leftM = incomeM - totalM - saveM;
+      const leftY = r.income - r.expense - r.nisaIn - r.idecoIn - r.insIn;
+
+      const opts = rows.map(x => {
+        const tag = x.age === sim.retireAge ? '・退職' : (x.year === rows[0].year ? '・今年' : '');
+        return `<option value="${x.year}" ${x.year === r.year ? 'selected' : ''}>${x.year}年（${x.age}歳${tag}）</option>`;
+      }).join('');
+
+      const box = (cls, lbl, val, badge, yr) => `<div class="exp-box ${cls}">
+        <div class="exp-box-lbl">${lbl}</div>
+        <div class="exp-box-val">${val}<i>万</i></div>
+        ${badge ? `<div class="exp-box-bdg">${badge}</div>` : ''}
+        <div class="exp-box-yr">${yr}</div>
+      </div>`;
 
       body.innerHTML = `
         <div class="exp-yr">
@@ -4664,33 +4790,30 @@
           <select id="expYearSel" onchange="setExpYear(this.value)">${opts}</select>
         </div>
 
-        <div class="exp-total ${leftM >= 0 ? '' : 'neg'}">
-          <div class="exp-total-lbl">${r.year}年（${r.age}歳）の 月あたりの収支</div>
-          <div class="exp-total-val">${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}<span style="font-size:16px;"> 万円 / 月</span>
-            <em>${leftM >= 0 ? '黒字' : '赤字'}</em></div>
-          <div class="exp-total-brk">
-            <span>収入<b>${incomeM.toFixed(1)}万</b></span>
-            <span>支出<b>−${totalM.toFixed(1)}万</b></span>
-            ${saveM > 0 ? `<span>積立<b>−${saveM.toFixed(1)}万</b></span>` : ''}
-          </div>
-          <div class="exp-total-sub">年間 ${fmtManSigned(r.income - r.expense - r.nisaIn - r.idecoIn - r.insIn)}
-            （収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense)}${saveM > 0 ? ` − 積立 ${fmtManPlain(r.nisaIn + r.idecoIn + r.insIn)}` : ''}）</div>
+        <div class="exp-hd">${r.year}年（${r.age}歳）の 月あたり</div>
+        <div class="exp-tri">
+          ${box(leftM >= 0 ? 'bal' : 'bal neg', '収支',
+        `${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}`,
+        leftM >= 0 ? '黒字' : '赤字', `年 ${fmtManSigned(leftY)}`)}
+          ${box('inc', '収入', incomeM.toFixed(1), '手取り', `年 ${fmtManPlain(r.income)}`)}
+          ${box('out', '支出', totalM.toFixed(1), saveM > 0 ? `積立 ${saveM.toFixed(1)}万は別` : '', `年 ${fmtManPlain(r.expense)}`)}
         </div>
 
         <div class="card">
-          <div class="ctitle">支出の内訳（月あたり 計 ${totalM.toFixed(1)}万）</div>
+          <div class="ctitle">支出の内訳（計 ${totalM.toFixed(1)}万/月）</div>
+          <p class="sim-detail-hint" style="margin:-2px 0 6px;">▾ が付いた費目はタップすると内訳が開きます。</p>
           ${list || '<p class="sim-detail-hint">この年の支出はありません。</p>'}
         </div>
 
         <div class="card">
-          <div class="ctitle">収入の内訳（月あたり 計 ${incomeM.toFixed(1)}万）</div>
+          <div class="ctitle">収入の内訳（計 ${incomeM.toFixed(1)}万/月）</div>
           ${incList || '<p class="sim-detail-hint">この年の収入はありません。</p>'}
           ${r.severance > 0 ? `<p class="sim-detail-hint">この年は退職一時金 ${fmtManPlain(r.severance)} が入るため、収入が一時的に大きくなっています。</p>` : ''}
           ${r.pensionCut > 0 ? `<p class="sim-detail-hint">働きながら年金を受け取るため、在職老齢年金で年 ${fmtManPlain(r.pensionCut)} が支給停止になっています。</p>` : ''}
         </div>
 
         ${saves.length ? `<div class="card">
-          <div class="ctitle">積立（支出ではなく資産に移る分 計 ${saveM.toFixed(1)}万）</div>
+          <div class="ctitle">積立（支出ではなく資産に移る分 計 ${saveM.toFixed(1)}万/月）</div>
           ${saves.map(([n, v]) => `<div class="exp-row"><span class="exp-name">${n}</span>
             <span class="exp-amt">${v.toFixed(1)}万</span></div>`).join('')}
           <p class="sim-detail-hint">出ていくお金ですが、使ってなくなるのではなく資産として残ります。</p>
