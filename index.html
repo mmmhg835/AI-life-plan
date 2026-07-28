@@ -398,6 +398,10 @@
       background: var(--green);
     }
 
+    .exp-bar.sav span {
+      background: var(--blue-mid);
+    }
+
     .exp-note {
       grid-column: 1 / -1;
       font-size: 11px;
@@ -4928,6 +4932,13 @@
           [`${carPre(i)}税金・車検`, m(x.tax)]);
       });
 
+      /* --- 積立（支出に含めて出すが、資産に残るものとして注記する） --- */
+      const saves = [['NISA・投資信託', m(r.nisaIn)], ['iDeCo', m(r.idecoIn)], ['保険積立', m(r.insIn)]]
+        .filter(x => x[1] >= 0.05);
+      const saveM = saves.reduce((a2, x) => a2 + x[1], 0);
+      const spendM = m(r.expense);          /* 使ってなくなる支出 */
+      const outM = spendM + saveM;          /* 口座から出ていく合計 */
+
       /* --- 支出の費目（小項目つき） --- */
       const items = [
         ['住まい', m(r.housing), sim.hBuy ? 'ローン・維持費・家賃' : '家賃', [
@@ -4942,12 +4953,13 @@
             : k === 'otherFixed' ? gsub(EXP_OTHERFIXED_SUB, 'otherFixed')
               .concat((e.customFixed || []).map((c, i) => [c.name || `その他${i + 1}`, m(nz(c.amount) * r.mul.otherFixed)]))
               : k === 'special' ? gsub(EXP_SPECIAL_SUB, 'special') : null]),
-        ['ライフイベント', m(r.event), '', Object.keys(r.evSub).map(k => [k, m(r.evSub[k])])]
+        ['ライフイベント', m(r.event), '', Object.keys(r.evSub).map(k => [k, m(r.evSub[k])])],
+        ['積立', saveM, '使ってなくなるのではなく資産に残る', saves]
       ].filter(x => x[1] >= 0.05).sort((a2, b2) => b2[1] - a2[1]);
 
-      const totalM = m(r.expense);
       const maxM = items.length ? items[0][1] : 1;
-      const list = items.map(([n, v, note, sub]) => expRow(n, v, note, sub, totalM, maxM)).join('');
+      const list = items.map(([n, v, note, sub]) =>
+        expRow(n, v, note, sub, outM, maxM, n === '積立' ? 'sav' : '')).join('');
       const canOpen = items.filter(x => (x[3] || []).filter(z => Math.abs(z[1]) >= 0.05).length >= 2).length;
 
       /* --- 収入の費目 --- */
@@ -4966,30 +4978,31 @@
       const incMax = incItems.length ? incItems[0][1] : 1;
       const incList = incItems.map(([n, v, note]) => expRow(n, v, note, null, incomeM, incMax, 'in')).join('');
 
-      /* --- 積立と収支 --- */
-      const saves = [['NISA・投資信託', m(r.nisaIn)], ['iDeCo', m(r.idecoIn)], ['保険積立', m(r.insIn)]]
-        .filter(x => x[1] >= 0.05);
-      const saveM = saves.reduce((a2, x) => a2 + x[1], 0);
-      const leftM = incomeM - totalM - saveM;
+      /* --- 収支 --- */
+      const leftM = incomeM - outM;
+      /* 3枚の数字は小数第1位まで出すので、収支もその丸めた値どうしの差にする。
+         そうしないと「収入 − 支出」が画面上で0.1合わないことがある */
+      const r1 = v => Math.round(v * 10) / 10;
+      const leftDisp = r1(incomeM) - r1(outM);
       const leftY = r.income - r.expense - r.nisaIn - r.idecoIn - r.insIn;
 
       /* 収入がどこへ行くかを1本の帯で示す。積立が「支出と別」なのはここで分かる。
          赤字の年は 支出＋積立 が収入を超えるので、帯の幅をそちらに合わせ、
          収入がどこまで届くかに印を置く */
-      const base = Math.max(incomeM, totalM + saveM) || 1;
+      const base = Math.max(incomeM, outM) || 1;
       const seg = (v, cls, label) => v < 0.05 ? '' :
         `<span class="fl-seg ${cls}" style="width:${(v / base * 100).toFixed(2)}%" title="${label}"></span>`;
       const flow = `
         <div class="exp-flow">
           <div class="fl-ttl">収入 ${incomeM.toFixed(1)}万 の使いみち</div>
           <div class="fl-bar">
-            ${seg(totalM, 'out', '支出')}${seg(saveM, 'sav', '積立')}${leftM > 0 ? seg(leftM, 'left', '残り') : ''}
+            ${seg(spendM, 'out', '使う支出')}${seg(saveM, 'sav', '積立')}${leftM > 0 ? seg(leftM, 'left', '残り') : ''}
             ${leftM < 0 ? `<span class="fl-mark" style="left:${(incomeM / base * 100).toFixed(2)}%"></span>` : ''}
           </div>
           ${leftM < 0 ? `<div class="fl-mklbl">
             <span style="left:${(incomeM / base * 100).toFixed(2)}%">↑ 収入で足りるのはここまで</span></div>` : ''}
           <div class="fl-lgd">
-            <span><i class="out"></i>支出 ${totalM.toFixed(1)}万</span>
+            <span><i class="out"></i>使う支出 ${spendM.toFixed(1)}万</span>
             ${saveM > 0 ? `<span><i class="sav"></i>積立 ${saveM.toFixed(1)}万<em>資産に残る</em></span>` : ''}
             ${leftM >= 0
           ? `<span><i class="left"></i>残り ${leftM.toFixed(1)}万<em>現金が増える</em></span>`
@@ -5016,18 +5029,19 @@
         </div>
 
         <div class="exp-hd">${r.year}年（${r.age}歳）の 月あたり
-          <span class="exp-hd-note">収支 ＝ 収入 − 支出 − 積立</span></div>
+          <span class="exp-hd-note">収支 ＝ 収入 − 支出</span></div>
         <div class="exp-tri">
           ${box(leftM >= 0 ? 'bal' : 'bal neg', '収支',
-        `${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}`,
+        `${leftDisp >= 0 ? '+' : '−'}${Math.abs(leftDisp).toFixed(1)}`,
         leftM >= 0 ? '黒字' : '赤字', `年 ${fmtManSigned(leftY)}`)}
           ${box('inc', '収入', incomeM.toFixed(1), '手取り', `年 ${fmtManPlain(r.income)}`)}
-          ${box('out', '支出', totalM.toFixed(1), '積立を除く', `年 ${fmtManPlain(r.expense)}`)}
+          ${box('out', '支出', outM.toFixed(1), saveM > 0 ? '積立含む' : '',
+        `年 ${fmtManPlain(r.expense + r.nisaIn + r.idecoIn + r.insIn)}`)}
         </div>
         ${flow}
 
         <div class="card">
-          <div class="ctitle">支出の内訳（計 ${totalM.toFixed(1)}万/月）</div>
+          <div class="ctitle">支出の内訳（計 ${outM.toFixed(1)}万/月${saveM > 0 ? '・積立含む' : ''}）</div>
           ${canOpen ? `<button class="exp-toggle" onclick="toggleExpOpen()">${expOpen ? '▴ 小項目を閉じる' : '▾ 小項目をすべて開く'}</button>` : ''}
           ${list || '<p class="sim-detail-hint">この年の支出はありません。</p>'}
         </div>
@@ -5040,19 +5054,13 @@
           ${r.leaveMonths > 0 ? `<p class="sim-detail-hint">この年は育休が計 ${r.leaveMonths}ヶ月あるため、そのぶん給与が減り、代わりに育児休業給付金が入っています。</p>` : ''}
         </div>
 
-        ${saves.length ? `<div class="card">
-          <div class="ctitle">積立の内訳（計 ${saveM.toFixed(1)}万/月）</div>
-          ${saves.map(([n, v]) => `<div class="exp-row"><span class="exp-name">${n}</span>
-            <span class="exp-amt">${v.toFixed(1)}万</span></div>`).join('')}
-          <p class="sim-detail-hint">毎月の口座からは出ていきますが、使ってなくなるわけではなく資産として貯まります。
-            上の「支出」には含めていないのはそのためです。</p>
-        </div>` : ''}
-
         <div class="card">
           <div class="ctitle">読み方</div>
           <p class="sim-detail-hint">
             金額は物価上昇を織り込んだその年の金額です（今の物価に直した額ではありません）。
             旅行や家電などの「特別支出」は年に一度の出費なので、年額を12で割って月あたりにならしています。
+            「支出」には積立（NISA・iDeCo・保険積立）も含めています。口座から出ていく額を収入と直接くらべられるようにするためで、
+            積立は使ってなくなるのではなく資産として残ります。その内訳は上の帯と「積立」の行で分かります。
             収支が赤字の年は、貯金や投資の取り崩しで埋めます。
             住まい・車・教育・年金は年によって大きく変わるので、上の年を切り替えて比べてみてください。
           </p>
