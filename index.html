@@ -147,6 +147,14 @@
       margin: 0 2px 6px;
     }
 
+    .exp-hd-note {
+      font-weight: 400;
+      font-size: 11px;
+      color: var(--gray-400);
+      margin-left: 6px;
+      white-space: nowrap;
+    }
+
     .exp-tri {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -2410,7 +2418,9 @@
         enabled: true, birthYear: null, birthMonth: null,
         kg: '公立', elem: '公立', jhs: '公立', hs: '公立', univ: '私立文系', univHome: '自宅',
         ccFee: null, ccStartY: null, ccStartM: null, ccEndY: null, ccEndM: null,
-        lessonFee: null, lsStartY: null, lsStartM: null, lsEndY: null, lsEndM: null
+        lessonFee: null, lsStartY: null, lsStartM: null, lsEndY: null, lsEndM: null,
+        lvSelfStartY: null, lvSelfStartM: null, lvSelfEndY: null, lvSelfEndM: null,
+        lvPtStartY: null, lvPtStartM: null, lvPtEndY: null, lvPtEndM: null
       };
     }
     function newCar() {
@@ -2918,6 +2928,39 @@
       const hi = Math.min(year * 12 + 12, ey ? ey * 12 + (em || 12) : Infinity);
       return Math.max(0, hi - lo + 1);
     }
+    /* 育児休業給付金。休業開始から6ヶ月は休業前賃金の67%、それ以降は50%。
+       非課税で社会保険料も免除されるため、手取りとしてそのまま計上する。
+       産前産後の出産手当金（賃金の約2/3）も率がほぼ同じなので同じ扱いにする。
+       支給には月額の上限があり、令和6年度は67%期が310,143円・50%期が231,450円。 */
+    const LEAVE_RATE_FIRST = 0.67, LEAVE_RATE_AFTER = 0.50;
+    const LEAVE_FIRST_MONTHS = 6;
+    const LEAVE_CAP_FIRST = 31.01, LEAVE_CAP_AFTER = 23.15;   /* 万円/月 */
+
+    /* 育休の期間と暦年の重なりを、開始から6ヶ月以内とそれ以降に分けて数える */
+    function leaveMonthsInYear(sy, sm, ey, em, year) {
+      if (!sy || !ey) return { first: 0, after: 0 };
+      const s = sy * 12 + (sm || 1), e = ey * 12 + (em || 12);
+      const lo = Math.max(s, year * 12 + 1), hi = Math.min(e, year * 12 + 12);
+      let first = 0, after = 0;
+      for (let idx = lo; idx <= hi; idx++) {
+        if (idx - s < LEAVE_FIRST_MONTHS) first++; else after++;
+      }
+      return { first, after };
+    }
+    /* その年の育休（複数の子ぶんを合算）。給付金は休業前の額面月額から計算する */
+    function leaveOfYear(spans, year, wageMonthlyMan) {
+      let first = 0, after = 0;
+      spans.forEach(sp => {
+        const r = leaveMonthsInYear(sp.sY, sp.sM, sp.eY, sp.eM, year);
+        first += r.first; after += r.after;
+      });
+      const months = Math.min(12, first + after);
+      const w = Math.max(0, nz(wageMonthlyMan));
+      const benefit = Math.min(w * LEAVE_RATE_FIRST, LEAVE_CAP_FIRST) * first
+        + Math.min(w * LEAVE_RATE_AFTER, LEAVE_CAP_AFTER) * after;
+      return { months, benefit, workFrac: Math.max(0, (12 - months) / 12) };
+    }
+
     /* 元利均等の月額返済 */
     function pmtMonthly(principal, years, ratePct) {
       if (!principal || principal <= 0 || !years || years <= 0) return 0;
@@ -3224,9 +3267,9 @@
          手取り入力モードでも grossOf() が額面を逆算するので同じ扱いにでき、
          累進課税で手取りの伸びが額面より鈍る点が反映される。
          手取り入力の初年度は入力値そのものを使いたいので、伸び率だけを借りる */
-      const netAtYear = (per, gross0, growth, dep, y, dep0) => {
-        if (!gross0) return incomeModeOf(per) === 'net' ? nz(per.netIncome) : 0;
-        const netY = calcNet(gross0 * Math.pow(growth, y), dep).netExact;
+      const netAtYear = (per, gross0, growth, dep, y, dep0, frac = 1) => {
+        if (!gross0) return incomeModeOf(per) === 'net' ? nz(per.netIncome) * frac : 0;
+        const netY = calcNet(gross0 * Math.pow(growth, y) * frac, dep).netExact;
         if (incomeModeOf(per) !== 'net') return netY;
         /* 基準は初年度の扶養控除で固定する。毎年の控除で割ってしまうと
            扶養控除の増減が打ち消し合って手取りに出てこない */
@@ -3290,6 +3333,11 @@
         .slice()
         .sort((a, b2) => (a.birthYear * 12 + (a.birthMonth || 1)) - (b2.birthYear * 12 + (b2.birthMonth || 1)));
       const sib = sc.ccSibling;
+      /* 育休（子ごと・本人／パートナー別） */
+      const lvSelfSpans = kids.map(c => ({ sY: c.lvSelfStartY, sM: c.lvSelfStartM, eY: c.lvSelfEndY, eM: c.lvSelfEndM }))
+        .filter(x => x.sY && x.eY);
+      const lvPtSpans = kids.map(c => ({ sY: c.lvPtStartY, sM: c.lvPtStartM, eY: c.lvPtEndY, eM: c.lvPtEndM }))
+        .filter(x => x.sY && x.eY);
 
       /* 住宅ローン */
       const hBuy = !!h.buy && !!h.buyY;
@@ -3404,9 +3452,16 @@
 
         /* --- 収入 --- */
         const depY = depDeductAt(b, kids, year);
-        const selfGrossY = selfGross0 * Math.pow(ig, y);
+        /* 育休。休んだ月は給与が止まり、代わりに非課税の給付金が入る */
+        const lvSelf = wk ? leaveOfYear(lvSelfSpans, year, selfGross0 * Math.pow(ig, y) / 12)
+          : { months: 0, benefit: 0, workFrac: 1 };
+        const selfGrossY = selfGross0 * Math.pow(ig, y) * lvSelf.workFrac;
         const pAgeY = pHas ? pAge0 + y : curAge;
-        const pGrossY = pHas && pAgeY < pRetire ? pGross0 * Math.pow(pIg, y) : 0;
+        const pwkY = pHas && pAgeY < pRetire;
+        const lvPt = pwkY ? leaveOfYear(lvPtSpans, year, pGross0 * Math.pow(pIg, y) / 12)
+          : { months: 0, benefit: 0, workFrac: 1 };
+        const pGrossY = pwkY ? pGross0 * Math.pow(pIg, y) * lvPt.workFrac : 0;
+        const leaveBenefit = lvSelf.benefit + lvPt.benefit;
 
         /* 年金。65歳以降は加給年金が乗り、在職中なら在職老齢年金で一部が止まる */
         let pensionCut = 0, kakyu = 0, pensionGrossY = 0;
@@ -3442,7 +3497,7 @@
         }
 
         /* 給与と年金は分けて持つ（支出内訳ページで収入の内訳を出すため） */
-        let wageSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0) : 0;
+        let wageSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0, lvSelf.workFrac) : 0;
         if (wk) wageSelf += nz(b.sideIncome);
         let pensionSelf = 0;
         if (pensionGrossY > 0) {
@@ -3474,7 +3529,7 @@
           const wsFrac = p.workStartY
             ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
             : 1;
-          if (pwk && wsFrac > 0) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0) * wsFrac + nz(p.sideIncome);
+          if (pwk && wsFrac > 0) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0, lvPt.workFrac) * wsFrac + nz(p.sideIncome);
           if (pAgeY >= pPenStart) {
             const cut = pwk ? zaishokuStopAnnual(pKoseiPart, pGrossY) : 0;
             const pg = Math.max(0, pPensionGross - cut);
@@ -3491,7 +3546,7 @@
         const incPartner = wagePartner + pensionPartner;
         let allowance = 0;
         kids.forEach((c, i) => { allowance += allowAnnualCY(c, year, i + 1); });
-        const income = incSelf + incPartner + allowance + severance + idecoSaving + loanCredit;
+        const income = incSelf + incPartner + allowance + severance + idecoSaving + loanCredit + leaveBenefit;
 
         /* --- 生活費（退職後は比率を掛け、医療・介護費を上乗せ） ---
            内訳の形で組み立てて合計する。表示側で別に計算し直すと本体とずれるため、
@@ -3638,6 +3693,7 @@
           allowance: Math.round(allowance), severance: Math.round(severance),
           incSelf: Math.round(incSelf), incPartner: Math.round(incPartner),
           wageSelf: Math.round(wageSelf), wagePartner: Math.round(wagePartner),
+          leaveBenefit: Math.round(leaveBenefit), leaveMonths: lvSelf.months + lvPt.months,
           pensionSelf: Math.round(pensionSelf), pensionPartner: Math.round(pensionPartner),
           nisaIn: Math.round(nisaIn), idecoIn: Math.round(idecoIn), insIn: Math.round(insIn),
           bd, mul, hSub, cSub, eSub, evSub,
@@ -3844,6 +3900,17 @@
           cf('children.' + i + '.univ', '大学', [{ v: '国公立', l: '国公立' }, { v: '私立文系', l: '私立文系' }, { v: '私立理系', l: '私立理系' }], { cols: 3 }),
           cf('children.' + i + '.univHome', '大学の通学', [{ v: '自宅', l: '自宅から' }, { v: '自宅外', l: '自宅外（仕送り）' }])],
           { hint: '文科省・政策金融公庫の統計から学校段階別の費用を自動計算します（塾・習い事の標準額込み）' });
+        q('c_leave_' + i, 'children', nth + 'で育休を取りますか？',
+          [ymf('children.' + i + '.lvSelfStartY', 'children.' + i + '.lvSelfStartM', '本人の育休 開始（年・月）'),
+          ymf('children.' + i + '.lvSelfEndY', 'children.' + i + '.lvSelfEndM', '本人の育休 終了（年・月）'),
+          ymf('children.' + i + '.lvPtStartY', 'children.' + i + '.lvPtStartM', 'パートナーの育休 開始（年・月）'),
+          ymf('children.' + i + '.lvPtEndY', 'children.' + i + '.lvPtEndM', 'パートナーの育休 終了（年・月）')],
+          {
+            hint: '取らない人は空欄でOK。休んだ月は給与を止め、代わりに育児休業給付金を計上します。'
+              + '給付は休業前の額面の67%（最初の6ヶ月）→50%で、非課税・社会保険料も免除なので手取りベースだと8割前後になります。'
+              + '産前産後の出産手当金（賃金の約2/3）も率がほぼ同じなのでまとめて扱います',
+            optional: true, prefill: () => prefillLeave(i)
+          });
         q('c_cc_' + i, 'children', nth + 'の保育料は？（0〜2歳児クラス）',
           [nf('children.' + i + '.ccFee', '保育料（満額）', '万円/月', '例：6'),
           [ymf('children.' + i + '.ccStartY', 'children.' + i + '.ccStartM', '開始（年・月）'),
@@ -4050,6 +4117,19 @@
         c.ccStartY = c.birthYear; c.ccStartM = c.birthMonth || 4;
         c.ccEndY = c.birthYear + 3 + ((c.birthMonth || 4) >= 4 ? 1 : 0);
         c.ccEndM = 3;
+      }
+    }
+    /* 育休の初期値：出産月から1歳の誕生月の前月まで。
+       誰が取るかは家庭によるので、期間だけ入れて空欄なら計上しない */
+    function prefillLeave(i) {
+      const c = S().children[i];
+      if (!c || !c.birthYear) return;
+      if (c.lvSelfStartY == null && c.lvSelfEndY == null
+        && c.lvPtStartY == null && c.lvPtEndY == null) {
+        const m = c.birthMonth || 4;
+        c.lvSelfStartY = c.birthYear; c.lvSelfStartM = m;
+        c.lvSelfEndY = c.birthYear + 1; c.lvSelfEndM = m === 1 ? 12 : m - 1;
+        if (m === 1) c.lvSelfEndY = c.birthYear;
       }
     }
     function prefillRentEnd() {
@@ -4877,6 +4957,7 @@
         ['パートナーの給与', m(r.wagePartner), '手取り'],
         ['本人の年金', m(r.pensionSelf), '手取り'],
         ['パートナーの年金', m(r.pensionPartner), '手取り'],
+        ['育児休業給付金', m(r.leaveBenefit), '非課税。休業前の額面の67%→50%'],
         ['児童手当', m(r.allowance), ''],
         ['退職一時金', m(r.severance), '退職金・iDeCo一時金（この年かぎり）'],
         ['iDeCoの節税', m(r.idecoSaving), '掛金の所得控除で軽くなる税'],
@@ -4934,7 +5015,8 @@
           <select id="expYearSel" onchange="setExpYear(this.value)">${opts}</select>
         </div>
 
-        <div class="exp-hd">${r.year}年（${r.age}歳）の 月あたり</div>
+        <div class="exp-hd">${r.year}年（${r.age}歳）の 月あたり
+          <span class="exp-hd-note">収支 ＝ 収入 − 支出 − 積立</span></div>
         <div class="exp-tri">
           ${box(leftM >= 0 ? 'bal' : 'bal neg', '収支',
         `${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}`,
@@ -4955,6 +5037,7 @@
           ${incList || '<p class="sim-detail-hint">この年の収入はありません。</p>'}
           ${r.severance > 0 ? `<p class="sim-detail-hint">この年は退職一時金 ${fmtManPlain(r.severance)} が入るため、収入が一時的に大きくなっています。</p>` : ''}
           ${r.pensionCut > 0 ? `<p class="sim-detail-hint">働きながら年金を受け取るため、在職老齢年金で年 ${fmtManPlain(r.pensionCut)} が支給停止になっています。</p>` : ''}
+          ${r.leaveMonths > 0 ? `<p class="sim-detail-hint">この年は育休が計 ${r.leaveMonths}ヶ月あるため、そのぶん給与が減り、代わりに育児休業給付金が入っています。</p>` : ''}
         </div>
 
         ${saves.length ? `<div class="card">
