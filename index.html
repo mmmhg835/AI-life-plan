@@ -967,6 +967,43 @@
       white-space: nowrap;
     }
 
+    .pr-yr {
+      font-size: 7.6pt;
+    }
+
+    .pr-yr th,
+    .pr-yr td {
+      padding: 1.55mm 1.6mm;
+    }
+
+    .pr-yr thead th {
+      font-size: 6.8pt;
+      letter-spacing: .06em;
+    }
+
+    .pr-yr thead th.r { text-align: right; }
+
+    .pr-yr tbody th {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+    }
+
+    .pr-yr td.ev {
+      font-size: 6.9pt;
+      color: var(--gray);
+      line-height: 1.45;
+    }
+
+    .pr-yr tr.hi {
+      background: var(--acc-lt);
+    }
+
+    .pr-yr tr.hi th,
+    .pr-yr tr.hi td {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
     .pr-tbl tr.tot th,
     .pr-tbl tr.tot td {
       font-weight: 700;
@@ -5707,35 +5744,75 @@
     /* 紙のためにグラフを描き直す。画面用をそのまま貼ると線が細く目盛が多すぎて
        印刷で沈むので、高解像度のcanvasに、太い線・最小限の目盛で描く。
        canvasはフレーム単位で描画されるため、待ってから取り出す。 */
-    const PR_W = 1720, PR_H = 860;
-    const PR_INK = '#0e2340', PR_NAVY = '#16365f', PR_ACC = '#b06a34';
-    const PR_GRID = '#e6eaf1', PR_TXT = '#6d7d95';
+    const PR_W = 1720, PR_H = 880;
+    /* 系列の色は固定の順番で割り当てる（色覚特性でも見分けられる並びを検証済み）。
+       同じ費目には毎回同じ色を使い、系列が増減しても色を振り直さない。 */
+    const PR_C = {
+      blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a',
+      yellow: '#eda100', magenta: '#e87ba4', red: '#e34948', deep: '#256abf'
+    };
+    const PR_GRID = '#eceff4', PR_TXT = '#6d7d95', PR_SURF = '#ffffff';
 
-    function prChartOpts(extra) {
-      const base = {
-        responsive: false, animation: false, devicePixelRatio: 1,
-        layout: { padding: { top: 14, right: 26, bottom: 6, left: 6 } },
-        plugins: {
-          legend: {
-            display: false,
-            labels: { boxWidth: 30, boxHeight: 4, padding: 22, color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 28, weight: '700' } }
-          },
-          tooltip: { enabled: false }
+    /* 端点や極値にだけ数字を置く。全部の点に置くと読めなくなる */
+    const prLabelPlugin = {
+      id: 'prLabel',
+      afterDatasetsDraw(chart, args, opts) {
+        const items = (opts && opts.items) || [];
+        const ctx = chart.ctx;
+        items.forEach(it => {
+          const meta = chart.getDatasetMeta(it.di);
+          const pt = meta && meta.data && meta.data[it.idx];
+          if (!pt) return;
+          ctx.save();
+          ctx.font = `700 ${it.size || 27}px 'Noto Sans JP',sans-serif`;
+          const w = ctx.measureText(it.text).width;
+          const x = Math.min(Math.max(pt.x, w / 2 + 8), chart.width - w / 2 - 8);
+          const y = pt.y + (it.dy || -22);
+          /* 線の上に置くので、背景を白で抜いて読めるようにする */
+          ctx.fillStyle = PR_SURF;
+          ctx.fillRect(x - w / 2 - 8, y - 30, w + 16, 38);
+          ctx.fillStyle = it.color || PR_TXT;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(it.text, x, y - 11);
+          ctx.restore();
+        });
+      }
+    };
+
+    function prAxis(stacked) {
+      return {
+        x: {
+          stacked: !!stacked, grid: { display: false },
+          border: { color: PR_GRID, width: 2 },
+          ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 12 }
         },
-        scales: {
-          x: {
-            grid: { display: false },
-            border: { color: PR_GRID, width: 2 },
-            ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 10 }
-          },
-          y: {
-            grid: { color: PR_GRID, lineWidth: 2, drawTicks: false },
-            border: { display: false },
-            ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 25 }, padding: 14, maxTicksLimit: 6, callback: v => fmtM(v) }
-          }
+        y: {
+          stacked: !!stacked,
+          grid: { color: PR_GRID, lineWidth: 2, drawTicks: false },
+          border: { display: false },
+          ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 25 }, padding: 16, maxTicksLimit: 6, callback: v => fmtM(v) }
         }
       };
-      return Object.assign(base, extra || {});
+    }
+
+    function prChartOpts(extra) {
+      return Object.assign({
+        responsive: false, animation: false, devicePixelRatio: 1,
+        layout: { padding: { top: 40, right: 30, bottom: 6, left: 6 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: prAxis(false)
+      }, extra || {});
+    }
+
+    /* 2系列以上には必ず凡例を出す（色だけで見分けさせない） */
+    function prLegend(size) {
+      return {
+        display: true, position: 'top', align: 'end',
+        labels: {
+          boxWidth: 26, boxHeight: 4, padding: 22, color: PR_TXT, usePointStyle: false,
+          font: { family: "'Noto Sans JP',sans-serif", size: size || 28, weight: '700' }
+        }
+      };
     }
 
     async function prRender(cfg) {
@@ -5754,7 +5831,6 @@
       return img;
     }
 
-    /* 縦の塗りに使うグラデーション（面グラフを紙で見たときの重さを抑える） */
     function prFill(hex, a1, a2) {
       return ctx => {
         const c = ctx.chart.ctx;
@@ -5770,89 +5846,109 @@
       if (!sim) return {};
       const lbls = sim.lbls, rows = sim.rows;
       const line = (data, color, fill) => ({
-        data, borderColor: color, borderWidth: 6, tension: .32,
+        data, borderColor: color, borderWidth: 6, tension: .3,
         pointRadius: 0, pointHoverRadius: 0,
         fill: fill ? 'origin' : false,
-        backgroundColor: fill ? prFill(color, '2b', '05') : undefined
+        backgroundColor: fill ? prFill(color, '26', '04') : undefined
       });
 
-      /* 資産推移。ブレ幅の設定があれば帯も重ねる */
+      /* --- 資産推移。ピークと最終値だけ数字を添える --- */
       const bandPct = nz(S().inv.rateBand);
       const lo = bandPct > 0 ? simulateShifted(S(), -bandPct) : null;
       const hi = bandPct > 0 ? simulateShifted(S(), bandPct) : null;
       const assetSets = [];
       if (lo && hi) {
         assetSets.push(
-          Object.assign(line(lo.aD, '#9db4d4', false), { borderWidth: 3, borderDash: [10, 8] }),
-          Object.assign(line(hi.aD, '#9db4d4', false), {
-            borderWidth: 3, borderDash: [10, 8],
-            fill: '-1', backgroundColor: 'rgba(22,54,95,.08)'
-          }));
+          Object.assign(line(lo.aD, '#a8c2e4', false), { borderWidth: 3 }),
+          Object.assign(line(hi.aD, '#a8c2e4', false), { borderWidth: 3, fill: '-1', backgroundColor: 'rgba(42,120,214,.10)' }));
       }
-      assetSets.push(line(sim.aD, PR_NAVY, !(lo && hi)));
-
+      assetSets.push(line(sim.aD, PR_C.deep, !(lo && hi)));
+      const mainDi = assetSets.length - 1;
+      const peakIdx = sim.aD.indexOf(sim.peakAssets);
+      const marks = [{ di: mainDi, idx: sim.aD.length - 1, text: fmtM(sim.totalAssets), color: PR_C.deep, dy: -20 }];
+      if (peakIdx >= 0 && peakIdx < sim.aD.length - 2)
+        marks.push({ di: mainDi, idx: peakIdx, text: `ピーク ${fmtM(sim.peakAssets)}`, color: PR_C.deep, dy: -20 });
+      if (sim.depletionAge != null) {
+        const di2 = sim.depletionAge - sim.age;
+        if (di2 >= 0) marks.push({ di: mainDi, idx: di2, text: `${sim.depletionAge}歳で枯渇`, color: PR_C.red, dy: -20 });
+      }
       const asset = await prRender({
-        type: 'line', data: { labels: lbls, datasets: assetSets }, options: prChartOpts()
+        type: 'line', data: { labels: lbls, datasets: assetSets },
+        plugins: [prLabelPlugin],
+        options: prChartOpts({ plugins: { legend: { display: false }, tooltip: { enabled: false }, prLabel: { items: marks } } })
       });
 
-      /* 収入と支出 */
+      /* --- 収入と支出 --- */
       const flow = await prRender({
         type: 'line',
         data: {
           labels: lbls, datasets: [
-            Object.assign(line(rows.map(r => r.income), '#1f7a4d', false), { label: '収入' }),
-            Object.assign(line(rows.map(r => r.expense), PR_ACC, false), { label: '支出' })
+            Object.assign(line(rows.map(r => r.income), PR_C.blue, false), { label: '収入' }),
+            Object.assign(line(rows.map(r => r.expense), PR_C.orange, false), { label: '支出' })
           ]
         },
+        plugins: [prLabelPlugin],
         options: prChartOpts({
           plugins: {
-            legend: {
-              display: true, position: 'top', align: 'end',
-              labels: { boxWidth: 30, boxHeight: 4, padding: 22, color: PR_TXT, usePointStyle: false, font: { family: "'Noto Sans JP',sans-serif", size: 28, weight: '700' } }
-            }, tooltip: { enabled: false }
+            legend: prLegend(), tooltip: { enabled: false },
+            /* 最終年でどちらの線が上かを見て、ラベルが重ならないように振り分ける */
+            prLabel: {
+              items: (() => {
+                const last = rows.length - 1;
+                const up = rows[last].income >= rows[last].expense;
+                return [
+                  { di: 0, idx: last, text: '収入', color: PR_C.blue, dy: up ? -20 : 34, size: 26 },
+                  { di: 1, idx: last, text: '支出', color: PR_C.orange, dy: up ? 34 : -20, size: 26 }
+                ];
+              })()
+            }
           }
         })
       });
 
-      /* 費目別の積み上げ */
-      const CATS = [['住まい', 'housing', '#16365f'], ['教育・保育', 'edu', '#3f6ea8'],
-      ['車', 'car', '#7f9dc4'], ['生活費', 'living', '#b06a34'], ['イベント', 'event', '#d9b48a']];
+      /* --- 費目別の積み上げ。帯のあいだに白を2px入れて境目を作る --- */
+      const CATS = [['生活費', 'living', PR_C.blue], ['住まい', 'housing', PR_C.orange],
+      ['教育・保育', 'edu', PR_C.aqua], ['車', 'car', PR_C.yellow], ['イベント', 'event', PR_C.magenta]];
       const expense = await prRender({
         type: 'line',
         data: {
           labels: lbls,
           datasets: CATS.map(([label, key, col]) => ({
-            label, data: rows.map(r => r[key]), borderColor: col, backgroundColor: col,
-            borderWidth: 0, pointRadius: 0, fill: true, tension: .3
+            label, data: rows.map(r => r[key]),
+            borderColor: PR_SURF, borderWidth: 2,
+            backgroundColor: col, pointRadius: 0, fill: true, tension: .25
           }))
         },
         options: prChartOpts({
-          plugins: {
-            legend: {
-              display: true, position: 'top', align: 'end',
-              labels: { boxWidth: 22, boxHeight: 14, padding: 18, color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26, weight: '700' } }
-            }, tooltip: { enabled: false }
-          },
-          scales: {
-            x: { stacked: true, grid: { display: false }, border: { color: PR_GRID, width: 2 }, ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 10 } },
-            y: { stacked: true, grid: { color: PR_GRID, lineWidth: 2, drawTicks: false }, border: { display: false }, ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 25 }, padding: 14, maxTicksLimit: 6, callback: v => fmtM(v) } }
-          }
+          plugins: { legend: prLegend(26), tooltip: { enabled: false } },
+          scales: prAxis(true)
         })
       });
 
-      /* 年間キャッシュの増減 */
+      /* --- 年間キャッシュの増減。プラスとマイナスで色を分ける（発散） --- */
       const balance = await prRender({
         type: 'bar',
         data: {
           labels: lbls, datasets: [{
-            data: sim.bD, borderWidth: 0,
-            backgroundColor: sim.bD.map(v => v >= 0 ? 'rgba(31,122,77,.85)' : 'rgba(176,106,52,.85)')
+            data: sim.bD, borderWidth: 0, borderRadius: 4, borderSkipped: false,
+            backgroundColor: sim.bD.map(v => v >= 0 ? PR_C.blue : PR_C.red)
           }]
         },
         options: prChartOpts()
       });
 
       return { asset, flow, expense, balance };
+    }
+
+    /* 表を複数ページに割る。最後のページだけ数行になると間が抜けるので、
+       必要なページ数を先に決めてから均等に配る */
+    function prChunk(arr, maxPerPage) {
+      if (!arr.length) return [[]];
+      const pages = Math.ceil(arr.length / maxPerPage);
+      const per = Math.ceil(arr.length / pages);
+      const out = [];
+      for (let i = 0; i < arr.length; i += per) out.push(arr.slice(i, i + per));
+      return out;
     }
 
     /* 数字から自動で拾う「読みどころ」。人に渡したときに、
@@ -6055,7 +6151,7 @@
         <div class="pr-h2">費目別の支出の移り変わり</div>
         <div class="pr-blk">
           ${imgs.expense ? `<img class="pr-img" src="${imgs.expense}" alt="費目別の支出">` : ''}
-          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。
+          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。帯の厚みがその費目の金額です。
             住宅を買った年に住まいの帯が立ち上がり、保育料や学費の帯は時期が来ると消えます。</p>
         </div>`);
 
@@ -6063,13 +6159,15 @@
         ${prHead(3, '収入と支出の推移', '毎年いくら入って、いくら出ていくのか。2本の線の開きがその年の余裕です。')}
         <div class="pr-blk">
           ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
-          <p class="pr-cap">緑＝収入が上回る、赤＝支出が上回る。収入には児童手当・年金・退職一時金を含みます。積立は含みません。</p>
+          <p class="pr-cap"><b>青が収入、オレンジが支出</b>です。青が上にあるあいだは貯まり、下回ると取り崩しに入ります。
+            収入には児童手当・年金・退職一時金を含みます（積立は含みません）。退職一時金が入る年だけ青が跳ね上がります。</p>
         </div>
         <div class="pr-h2">年間キャッシュの増減</div>
         <div class="pr-blk">
           ${imgs.balance ? `<img class="pr-img" src="${imgs.balance}" alt="年間キャッシュ増減">` : ''}
           <p class="pr-cap">収入から支出と積立を引いた、その年に手元の現金がいくら増えた（減った）かです。
-            マイナスの年は、貯金や投資を取り崩して埋めることになります。</p>
+            <b>青が増えた年、赤が減った年</b>。マイナスの年は貯金や投資を取り崩して埋めます。
+            退職一時金が入る年だけ突出するので、そこは例外として見てください。</p>
         </div>`);
 
       const pageMonth = prPage(`${r.year}年（${r.age}歳）の家計`, `
@@ -6095,9 +6193,7 @@
         </table></div>`);
 
       /* 年表は1ページ18行までで分ける */
-      const per = 18, chunks = [];
-      for (let i = 0; i < changes.length; i += per) chunks.push(changes.slice(i, i + per));
-      const pagesChange = (chunks.length ? chunks : [[]]).map((ck, i) => prPage('お金が動く年とその理由', `
+      const pagesChange = prChunk(changes, 20).map((ck, i) => prPage('お金が動く年とその理由', `
         ${i === 0 ? prHead(5, 'お金が動く年とその理由', '支出が大きく動いた年だけを抜き出しています。「なぜその年に増えたのか・減ったのか」まで書いてあります。')
           : '<div class="pr-h2">お金が動く年とその理由（続き）</div>'}
         <div class="pr-blk"><table class="pr-tbl">
@@ -6109,8 +6205,33 @@
             <td class="n ${c.total >= 0 ? '' : 'neg-n'}">${fmtManPlain(c.total)}</td></tr>`).join('') || '<tr><td colspan="4">大きく動く年はありません。</td></tr>'}</tbody>
         </table></div>`));
 
+      /* --- 年次一覧（1年ごと）。1ページ32行で分ける --- */
+      const markByYear = new Map();
+      buildYearChanges(sim, sc).forEach(c => {
+        const t = c.marks.map(x => x.text).join('／');
+        if (t) markByYear.set(c.year, t);
+      });
+      const pagesYear = prChunk(rows, 32).map((ck, i) => prPage('年次一覧', `
+        ${i === 0 ? prHead(6, '年次一覧', '1年ごとの収入・支出・積立・年末資産です。金額は万円、収入と支出は手取りベースです。')
+          : '<div class="pr-h2">年次一覧（続き）</div>'}
+        <div class="pr-blk"><table class="pr-tbl pr-yr">
+          <thead><tr><th>年</th><th>年齢</th><th class="r">収入</th><th class="r">支出</th><th class="r">積立</th><th class="r">収支</th><th class="r">年末資産</th><th>できごと</th></tr></thead>
+          <tbody>${ck.map(x => {
+            const sv = x.nisaIn + x.idecoIn + x.insIn;
+            const bal = x.income - x.expense - sv;
+            return `<tr${x.age === sim.retireAge ? ' class="hi"' : ''}>
+              <th>${x.year}</th><td>${x.age}</td>
+              <td class="n">${x.income.toLocaleString()}</td>
+              <td class="n">${x.expense.toLocaleString()}</td>
+              <td class="n">${sv ? sv.toLocaleString() : '—'}</td>
+              <td class="n ${bal >= 0 ? '' : 'neg-n'}">${bal >= 0 ? '' : '−'}${Math.abs(bal).toLocaleString()}</td>
+              <td class="n ${x.total >= 0 ? '' : 'neg-n'}">${x.total.toLocaleString()}</td>
+              <td class="ev">${escapeHtml(markByYear.get(x.year) || '')}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>`));
+
       const pageNote = prPage('この試算について', `
-        ${prHead(6, 'この試算について', '数字の読み方と、この試算がカバーしていないことをまとめています。')}
+        ${prHead(7, 'この試算について', '数字の読み方と、この試算がカバーしていないことをまとめています。')}
         <div class="pr-note">
           <b>金額の見方</b>
           金額はすべて物価上昇を織り込んだ「その年の金額」です。今の物価に直した額ではありません。
@@ -6133,7 +6254,7 @@
           個別の判断にあたっては、必要に応じて専門家にご相談ください。
         </div>`);
 
-      const html = [cover, pageSummary, pageAssume, pageFlow, pageMonth, ...pagesChange, pageNote].join('');
+      const html = [cover, pageSummary, pageAssume, pageFlow, pageMonth, ...pagesChange, ...pagesYear, pageNote].join('');
       const pa = document.getElementById('printArea');
       pa.innerHTML = html;
       /* フッターにページ番号と資料名を入れる（表紙は数えない） */
