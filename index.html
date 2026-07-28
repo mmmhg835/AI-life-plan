@@ -490,6 +490,200 @@
       color: var(--gray-800);
     }
 
+    .pdf-hint {
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--gray-400);
+      margin: 8px 2px 4px;
+      text-align: left;
+    }
+
+    /* レポート（印刷／PDF） */
+    #printArea { display: none; }
+
+    @media print {
+
+      header,
+      .sbar,
+      .scen-bar,
+      main,
+      .fab {
+        display: none !important;
+      }
+
+      body {
+        background: white;
+      }
+
+      #printArea {
+        display: block !important;
+        color: #1e293b;
+        font-family: 'Noto Sans JP', sans-serif;
+      }
+
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      .pr-page {
+        break-after: page;
+        page-break-after: always;
+      }
+
+      .pr-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+
+      .pr-blk,
+      .pr-row,
+      .pr-tbl tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+
+    #printArea * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .pr-hd {
+      border-bottom: 3px solid #1a56db;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+
+    .pr-ttl {
+      font-size: 20px;
+      font-weight: 900;
+      color: #1a56db;
+    }
+
+    .pr-meta {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 3px;
+    }
+
+    .pr-h2 {
+      font-size: 13px;
+      font-weight: 900;
+      color: #1a56db;
+      border-left: 4px solid #f97316;
+      padding-left: 7px;
+      margin: 16px 0 8px;
+    }
+
+    .pr-blk {
+      margin-bottom: 12px;
+    }
+
+    .pr-img {
+      width: 100%;
+      display: block;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+
+    .pr-cap {
+      font-size: 10px;
+      color: #64748b;
+      margin: 4px 0 0;
+      line-height: 1.6;
+    }
+
+    .pr-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .pr-tbl th,
+    .pr-tbl td {
+      border: 1px solid #e2e8f0;
+      padding: 5px 7px;
+      text-align: left;
+    }
+
+    .pr-tbl th {
+      background: #eef3fd;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pr-tbl td.n {
+      text-align: right;
+      font-family: 'DM Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .pr-kpi {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .pr-kpi div {
+      border: 1px solid #e2e8f0;
+      border-radius: 7px;
+      padding: 8px 9px;
+    }
+
+    .pr-kpi b {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 15px;
+      margin-top: 2px;
+    }
+
+    .pr-kpi span {
+      font-size: 10px;
+      color: #475569;
+    }
+
+    .pr-tri {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .pr-tri div {
+      border-radius: 8px;
+      padding: 9px;
+      color: white;
+      text-align: center;
+    }
+
+    .pr-tri .b { background: #1a56db; }
+    .pr-tri .b.ng { background: #dc2626; }
+    .pr-tri .i { background: #16a34a; }
+    .pr-tri .o { background: #ea580c; }
+
+    .pr-tri b {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 17px;
+      margin-top: 2px;
+    }
+
+    .pr-tri span {
+      font-size: 10px;
+      opacity: .9;
+    }
+
+    .pr-note {
+      font-size: 10px;
+      color: #64748b;
+      line-height: 1.7;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+    }
+
+    .pos-n { color: #16a34a; }
+    .neg-n { color: #dc2626; }
+
     /* MAIN */
     main {
       max-width: 600px;
@@ -2318,7 +2512,9 @@
         <div class="ph-ttl">支出の内訳</div>
       </div>
       <div id="expBody"></div>
-      <button class="btn btn-s" onclick="showView('graph')">グラフを見る →</button>
+      <button class="btn btn-s" onclick="exportReport()">📄 レポートをPDFで出す</button>
+      <p class="pdf-hint">グラフと内訳をまとめたA4のレポートを作ります。印刷画面が開いたら「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。</p>
+      <button class="btn btn-o" onclick="showView('graph')">グラフを見る →</button>
       <button class="btn btn-o" onclick="showView('summary')">← 入力内容サマリーへ</button>
     </div>
 
@@ -2359,6 +2555,10 @@
         <div class="clbl">💹 年間キャッシュ増減（収入−支出−積立）（万円）</div>
         <div class="chart-canvas-wrap"><canvas id="balanceChart"></canvas></div>
       </div>
+      <div class="ccard" style="text-align:center;">
+        <button class="btn btn-s" style="margin:0;" onclick="exportReport()">📄 レポートをPDFで出す</button>
+        <p class="pdf-hint">グラフと内訳をまとめたA4のレポートを作ります。印刷画面が開いたら「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。</p>
+      </div>
       <div class="card" id="simYearDetailCard" style="display:none;">
         <div class="ctitle">年次の数値一覧</div>
         <p class="sim-detail-hint">単位は万円。教育・保育＝教育費マスタ＋保育料＋習い事、住宅＝家賃＋ローン＋管理修繕・固定資産税、車＝ローン・維持費・購入時収支、イベント＝登録したライフイベントです。児童手当・年金・退職金は収入に含まれています（いずれも手取り換算）。取り崩し＝現金が不足した分を投資資産（課税口座→NISA→保険積立→iDeCo）の売却で補った額です。</p>
@@ -2388,6 +2588,9 @@
     </div>
 
   </main>
+
+  <!-- レポート（印刷／PDF専用。画面には出さない） -->
+  <div id="printArea"></div>
 
   <script>
     /* =====================================================================
@@ -5065,6 +5268,193 @@
             住まい・車・教育・年金は年によって大きく変わるので、上の年を切り替えて比べてみてください。
           </p>
         </div>`;
+    }
+
+    /* =====================================================================
+       レポート（印刷／PDF）
+       ===================================================================== */
+    /* グラフはcanvasのままだと印刷で欠けることがあるので、画像に変換して埋める。
+       canvasの描画はフレーム単位で進むため、アニメーションを切って再描画し、
+       フレームをまたいでから取り出す（同期で取ると描きかけの絵になる） */
+    async function chartImages() {
+      const prev = currentView;
+      /* 非表示だとcanvasのサイズが0になるので、いったんグラフを表示して描かせる */
+      if (currentView !== 'graph') showView('graph');
+      const cs = [chartAsset, chartFlow, chartExpense, chartBalance];
+      cs.forEach(c => { if (c) { c.options.animation = false; c.update('none'); } });
+      await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+      const grab = c => { try { return c ? c.toBase64Image('image/png', 1) : null; } catch (e) { return null; } };
+      const imgs = {
+        asset: grab(chartAsset), flow: grab(chartFlow),
+        expense: grab(chartExpense), balance: grab(chartBalance)
+      };
+      if (prev !== currentView) showView(prev);
+      return imgs;
+    }
+
+    function prTable(rows) {
+      return `<table class="pr-tbl"><tbody>${rows.map(([k, v]) =>
+        `<tr><th>${k}</th><td class="n">${v}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    /* 前提条件（人に渡したときに「何を仮定した数字か」が分かるように） */
+    function prAssumptions(sim, sc) {
+      const b = sc.basic, p = sc.partner, h = sc.housing, e = sc.exp, inv = sc.inv;
+      const money = v => nz(v) ? fmtManPlain(nz(v)) : '—';
+      const pct = v => (v == null || v === '') ? '—' : nz(v) + '%';
+      const rows = [
+        ['本人', `${sim.age}歳／${sim.retireAge}歳で退職／${sim.endAge}歳まで試算`],
+        ['本人の収入', incomeModeOf(b) === 'net' ? `手取り ${money(b.netIncome)}／年`
+          : `額面 ${money(grossOf(b))}／年（手取り ${fmtManPlain(Math.round(sim.netMonthly * 12))}）`],
+        ['昇給率', pct(b.incomeGrowth)]
+      ];
+      if (sim.pHas) {
+        rows.push(['パートナー', `${nz(p.age)}歳／${nz(p.retireAge)}歳で退職`]);
+        rows.push(['パートナーの収入', incomeModeOf(p) === 'net' ? `手取り ${money(p.netIncome)}／年` : `額面 ${money(grossOf(p))}／年`]);
+      }
+      rows.push(['子ども', sim.kidCount ? `${sim.kidCount}人` : 'なし']);
+      rows.push(['住まい', sim.hBuy ? `${fmtManPlain(nz(h.price))}で購入（${h.buyY}年）／ローン${nz(h.loanYears)}年・金利${pct(h.loanRate)}` : `賃貸 ${money(h.rent)}／月`]);
+      rows.push(['車', sim.carCount ? `${sim.carCount}台` : 'なし']);
+      rows.push(['年金', `${sim.penStart}歳から受給（手取り 月${sim.pm}万円の見込み）`]);
+      rows.push(['退職一時金', sim.severanceNetTotal ? `${fmtManPlain(sim.severanceNetTotal)}（手取り・iDeCo一時金を含む）` : 'なし']);
+      rows.push(['積立', [nz(inv.nisa) ? `NISA ${nz(inv.nisa)}万/月（年利${pct(inv.nisaRate)}）` : '',
+      nz(inv.ideco) ? `iDeCo ${nz(inv.ideco)}万/月（年利${pct(inv.idecoRate)}）` : '',
+      nz(inv.insReserve) ? `保険 ${nz(inv.insReserve)}万/月` : ''].filter(Boolean).join('／') || 'なし']);
+      rows.push(['物価上昇率', pct(e.inflationRate)]);
+      rows.push(['退職後の生活費', (e.retireLivingRate == null || e.retireLivingRate === '') ? '現役と同じ' : `現役の${nz(e.retireLivingRate)}%`]);
+      return `<table class="pr-tbl"><tbody>${rows.map(([k, v]) =>
+        `<tr><th style="width:30%">${k}</th><td>${escapeHtml(String(v))}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    async function buildReport() {
+      const sc = S(), sim = simulate(sc);
+      if (!sim) { alert('先に年齢などを入力して、シミュレーションを実行してください。'); return false; }
+      const imgs = await chartImages();
+      const rows = sim.rows;
+      const r = rows.find(x => x.year === (expYear == null ? rows[0].year : expYear)) || rows[0];
+      const m = v => v / 12;
+      const saveY = r.nisaIn + r.idecoIn + r.insIn;
+      const outM = m(r.expense + saveY), incomeM = m(r.income);
+      const r1 = v => Math.round(v * 10) / 10;
+      const leftDisp = r1(incomeM) - r1(outM);
+      const withdrawTotal = rows.reduce((a, x) => a + x.withdraw, 0);
+      const eduTotal = rows.reduce((a, x) => a + x.edu, 0);
+      const now = new Date();
+      const stamp = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+
+      const exp = [['住まい', r.housing], ['教育・保育', r.edu], ['車', r.car],
+      ['食費', r.bd.food], ['日用品・消耗品', r.bd.daily], ['水道光熱費', r.bd.utility],
+      ['通信費', r.bd.telecom], ['保険料', r.bd.insurance], ['サブスク', r.bd.subscription],
+      ['交通費', r.bd.transport], ['趣味・交際・被服', r.bd.hobby],
+      ['その他の固定費', r.bd.otherFixed], ['特別支出', r.bd.special],
+      ['医療・介護費', r.bd.medical], ['ライフイベント', r.event], ['積立', saveY]]
+        .filter(x => x[1] >= 0.6).sort((a, b) => b[1] - a[1]);
+      const inc = [['本人の給与', r.wageSelf], ['パートナーの給与', r.wagePartner],
+      ['本人の年金', r.pensionSelf], ['パートナーの年金', r.pensionPartner],
+      ['育児休業給付金', r.leaveBenefit], ['児童手当', r.allowance],
+      ['退職一時金', r.severance], ['iDeCoの節税', r.idecoSaving], ['住宅ローン控除', r.loanCredit]]
+        .filter(x => x[1] >= 0.6).sort((a, b) => b[1] - a[1]);
+
+      const changes = buildYearChanges(sim, sc).filter(c => !c.first).slice(0, 22);
+
+      document.getElementById('printArea').innerHTML = `
+      <div class="pr-page">
+        <div class="pr-hd">
+          <div class="pr-ttl">ライフプラン シミュレーション</div>
+          <div class="pr-meta">プラン：${escapeHtml(sim.name)}　／　作成日：${stamp}　／　${sim.age}歳〜${sim.endAge}歳の試算</div>
+        </div>
+
+        <div class="pr-h2">この試算の結論</div>
+        <div class="pr-blk pr-kpi">
+          <div><span>退職直前の資産（${sim.retireAge}歳）</span><b class="${sim.retireAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.retireAssets)}</b></div>
+          <div><span>最終資産（${sim.endAge}歳）</span><b class="${sim.totalAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.totalAssets)}</b></div>
+          <div><span>資産が尽きる年齢</span><b class="${sim.depletionAge == null ? 'pos-n' : 'neg-n'}">${sim.depletionAge == null ? '枯渇なし' : sim.depletionAge + '歳'}</b></div>
+          <div><span>資産のピーク</span><b>${fmtM(sim.peakAssets)}</b></div>
+          <div><span>老後の取り崩し総額</span><b>${fmtM(withdrawTotal)}</b></div>
+          <div><span>教育・保育の総額</span><b>${fmtM(eduTotal)}</b></div>
+        </div>
+
+        <div class="pr-h2">資産の推移</div>
+        <div class="pr-blk">
+          ${imgs.asset ? `<img class="pr-img" src="${imgs.asset}" alt="資産推移">` : '<p class="pr-cap">グラフを取得できませんでした。</p>'}
+          <p class="pr-cap">現金・課税口座・NISA・iDeCo・保険積立を合計した各年末の残高です。${sim.depletionAge == null
+          ? `${sim.endAge}歳まで資産が持つ想定です。` : `${sim.depletionAge}歳で資産がゼロになります。`}</p>
+        </div>
+
+        <div class="pr-h2">前提条件</div>
+        <div class="pr-blk">${prAssumptions(sim, sc)}</div>
+      </div>
+
+      <div class="pr-page">
+        <div class="pr-h2">収入と支出の推移</div>
+        <div class="pr-blk">
+          ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
+          <p class="pr-cap">2本の線の開きがその年の余裕です。緑＝収入が上回る、赤＝支出が上回る。積立は含みません。</p>
+        </div>
+
+        <div class="pr-h2">費目別の支出</div>
+        <div class="pr-blk">
+          ${imgs.expense ? `<img class="pr-img" src="${imgs.expense}" alt="費目別の支出">` : ''}
+          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。</p>
+        </div>
+
+        <div class="pr-h2">年間キャッシュの増減</div>
+        <div class="pr-blk">
+          ${imgs.balance ? `<img class="pr-img" src="${imgs.balance}" alt="年間キャッシュ増減">` : ''}
+          <p class="pr-cap">収入から支出と積立を引いた、その年に手元の現金がいくら増えたか（減ったか）です。</p>
+        </div>
+      </div>
+
+      <div class="pr-page">
+        <div class="pr-h2">${r.year}年（${r.age}歳）の月あたり収支</div>
+        <div class="pr-blk pr-tri">
+          <div class="b ${leftDisp >= 0 ? '' : 'ng'}"><span>収支</span><b>${leftDisp >= 0 ? '+' : '−'}${Math.abs(leftDisp).toFixed(1)}万</b></div>
+          <div class="i"><span>収入（手取り）</span><b>${incomeM.toFixed(1)}万</b></div>
+          <div class="o"><span>支出（積立含む）</span><b>${outM.toFixed(1)}万</b></div>
+        </div>
+        <p class="pr-cap">年間では 収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense + saveY)} ＝ ${fmtManSigned(r.income - r.expense - saveY)}。
+          「支出」には積立（NISA・iDeCo・保険積立）を含めています。積立は使ってなくなるのではなく資産として残ります。</p>
+
+        <div class="pr-h2">支出の内訳（月あたり）</div>
+        <div class="pr-blk"><table class="pr-tbl">
+          <thead><tr><th>費目</th><th style="text-align:right">月あたり</th><th style="text-align:right">年間</th><th style="text-align:right">割合</th></tr></thead>
+          <tbody>${exp.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / (r.expense + saveY) * 100)}%</td></tr>`).join('')}
+          <tr><th>合計</th><td class="n">${outM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.expense + saveY)}</td><td class="n">100%</td></tr></tbody>
+        </table></div>
+
+        <div class="pr-h2">収入の内訳（月あたり）</div>
+        <div class="pr-blk"><table class="pr-tbl">
+          <thead><tr><th>項目</th><th style="text-align:right">月あたり</th><th style="text-align:right">年間</th><th style="text-align:right">割合</th></tr></thead>
+          <tbody>${inc.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / r.income * 100)}%</td></tr>`).join('')}
+          <tr><th>合計</th><td class="n">${incomeM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.income)}</td><td class="n">100%</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="pr-page">
+        <div class="pr-h2">支出が動く年とその理由</div>
+        <div class="pr-blk"><table class="pr-tbl">
+          <thead><tr><th>年（年齢）</th><th>できごと・理由</th><th style="text-align:right">年間支出</th><th style="text-align:right">年末資産</th></tr></thead>
+          <tbody>${changes.map(c => `<tr>
+            <th>${c.year}（${c.age}歳）</th>
+            <td>${escapeHtml([...c.marks.map(x => x.text), c.reason].filter(Boolean).join(' / ')) || '—'}</td>
+            <td class="n">${fmtManPlain(c.expense)}</td>
+            <td class="n ${c.total >= 0 ? '' : 'neg-n'}">${fmtManPlain(c.total)}</td></tr>`).join('')}</tbody>
+        </table></div>
+
+        <div class="pr-h2">この試算について</div>
+        <p class="pr-note">
+          金額はすべて物価上昇を織り込んだその年の金額です（今の物価に直した額ではありません）。<br>
+          収入は税・社会保険料を引いた手取りで計算しています。年金・退職金・iDeCo一時金も手取り換算です。<br>
+          運用の利回りは毎年一定と仮定した単純な試算です。実際の相場は上下するため、この通りになるわけではありません。<br>
+          税制・年金制度は今後変わる可能性があります。制度の数値は作成時点のものです。<br>
+          この資料は家計の見通しを立てるための試算であり、投資や契約の勧誘・助言ではありません。
+        </p>
+      </div>`;
+      return true;
+    }
+
+    async function exportReport() {
+      if (await buildReport()) window.print();
     }
 
     /* =====================================================================
