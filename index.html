@@ -222,6 +222,111 @@
       .exp-box-yr { font-size: 9px; }
     }
 
+    /* 収入の使いみち（1本の帯） */
+    .exp-flow {
+      background: white;
+      border-radius: 14px;
+      padding: 13px 14px 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+    }
+
+    .fl-ttl {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-600);
+      margin-bottom: 8px;
+    }
+
+    .fl-bar {
+      position: relative;
+      display: flex;
+      height: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--gray-100);
+    }
+
+    .fl-seg {
+      display: block;
+      height: 100%;
+    }
+
+    .fl-seg.out { background: #ea580c; }
+    .fl-seg.sav { background: var(--blue-mid); }
+    .fl-seg.left { background: var(--green); }
+
+    .fl-mark {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      width: 3px;
+      background: var(--gray-800);
+      box-shadow: 0 0 0 2px white;
+    }
+
+    .fl-mklbl {
+      position: relative;
+      height: 15px;
+      margin-top: 3px;
+    }
+
+    .fl-mklbl span {
+      position: absolute;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gray-600);
+    }
+
+    .fl-lgd {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 9px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .fl-lgd i {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      margin-right: 5px;
+      vertical-align: baseline;
+    }
+
+    .fl-lgd i.out { background: #ea580c; }
+    .fl-lgd i.sav { background: var(--blue-mid); }
+    .fl-lgd i.left { background: var(--green); }
+    .fl-lgd .short { color: var(--red); }
+
+    .fl-lgd em {
+      font-style: normal;
+      font-weight: 400;
+      font-size: 10.5px;
+      color: var(--gray-400);
+      margin-left: 5px;
+    }
+
+    .exp-toggle {
+      display: block;
+      width: 100%;
+      margin: -2px 0 8px;
+      padding: 7px;
+      border: 1px solid var(--blue-bdr);
+      border-radius: 8px;
+      background: var(--blue-light);
+      color: var(--blue);
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     .exp-row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -3245,7 +3350,10 @@
       const otherFixedM = nz(e.parking) + nz(e.gym) + nz(e.learning) + nz(e.smoking) + nz(e.pet)
         + nz(e.support) + nz(e.golf) + nz(e.salon) + nz(e.educationManual)
         + (e.customFixed || []).reduce((s, r) => s + nz(r.amount), 0);
-      const variableM = nz(e.varDaily) + nz(e.varHobby) + nz(e.varSocial) + nz(e.varFashion);
+      /* 日用品・消耗品は入力欄が食費と並んでいるので独立させる。
+         物価上昇のフラグは変動費と共通（varDaily も variable グループ） */
+      const dailyM = nz(e.varDaily);
+      const hobbyM = nz(e.varHobby) + nz(e.varSocial) + nz(e.varFashion);
       const specialA = nz(e.annualTravel) + nz(e.annualAppliance) + nz(e.annualCeremony) + nz(e.annualOther);
 
       /* 退職後の生活費：現役時代に対する比率＋医療・介護費の上乗せ */
@@ -3397,7 +3505,8 @@
           subscription: nz(e.subscription) * infl('subscription', y) * 12 * lr,
           transport: nz(e.transport) * infl('transport', y) * 12 * lr,
           otherFixed: otherFixedM * infl('otherFixed', y) * 12 * lr,
-          variable: variableM * infl('variable', y) * 12 * lr,
+          daily: dailyM * infl('variable', y) * 12 * lr,
+          hobby: hobbyM * infl('variable', y) * 12 * lr,
           special: specialA * infl('special', y) * lr,
           medical: wk ? 0 : retireMedicalM * 12 * infl('otherFixed', y)
         };
@@ -3411,9 +3520,8 @@
         };
 
         /* --- 教育・保育・習い事（小項目に分けて合計する） --- */
-        const eSub = { tuition: 0, daycare: 0, lesson: 0 };
+        const eSub = kids.map(c => ({ tuition: eduAnnualCY(c, year), daycare: 0, lesson: 0 }));
         let edu = 0;
-        kids.forEach(c => { eSub.tuition += eduAnnualCY(c, year); });
         /* 保育料（きょうだい割引：同時在園順位） */
         const enrolled = kids.map(c => (nz(c.ccFee) > 0 && monthsOverlap(year, c.ccStartY, c.ccStartM, c.ccEndY, c.ccEndM) > 0));
         kids.forEach((c, i) => {
@@ -3425,13 +3533,13 @@
             for (let j = 0; j < i; j++) if (enrolled[j]) rank++;
             coef = rank === 1 ? 1 : rank === 2 ? nz(sib.second) : nz(sib.third);
           }
-          eSub.daycare += nz(c.ccFee) * coef * m;
+          eSub[i].daycare = nz(c.ccFee) * coef * m;
         });
         /* 習い事（教育費マスタへの上乗せ分） */
-        kids.forEach(c => {
-          if (nz(c.lessonFee) > 0) eSub.lesson += nz(c.lessonFee) * monthsOverlap(year, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM);
+        kids.forEach((c, i) => {
+          if (nz(c.lessonFee) > 0) eSub[i].lesson = nz(c.lessonFee) * monthsOverlap(year, c.lsStartY, c.lsStartM, c.lsEndY, c.lsEndM);
         });
-        edu = eSub.tuition + eSub.daycare + eSub.lesson;
+        edu = eSub.reduce((a, x) => a + x.tuition + x.daycare + x.lesson, 0);
 
         /* --- 住宅（小項目に分けて合計する） --- */
         const hSub = { rent: 0, loan: 0, mgmt: 0, tax: 0, down: 0 };
@@ -3448,17 +3556,18 @@
         const housing = hSub.rent + hSub.loan + hSub.mgmt + hSub.tax + hSub.down;
 
         /* --- 車（小項目に分けて合計する） --- */
-        const cSub = { buy: 0, loan: 0, maint: 0, tax: 0 };
-        cars.forEach(cr => {
+        const cSub = cars.map(cr => {
           const yLo = year * 12 + 1, yHi = year * 12 + 12;
-          if (year === cr.c.buyY) cSub.buy += cr.cashAtBuy + cr.lump;
           const loanMonths = Math.max(0, Math.min(yHi, cr.loanEndIdx) - Math.max(yLo, cr.sIdx) + 1);
-          cSub.loan += cr.pmt * loanMonths;
           const ownMonths = Math.max(0, Math.min(yHi, cr.eIdx) - Math.max(yLo, cr.sIdx) + 1);
-          cSub.maint += cr.maintMonthly * ownMonths;
-          cSub.tax += nz(cr.c.taxYear) * ownMonths / 12;
+          return {
+            buy: year === cr.c.buyY ? cr.cashAtBuy + cr.lump : 0,
+            loan: cr.pmt * loanMonths,
+            maint: cr.maintMonthly * ownMonths,
+            tax: nz(cr.c.taxYear) * ownMonths / 12
+          };
         });
-        const car = cSub.buy + cSub.loan + cSub.maint + cSub.tax;
+        const car = cSub.reduce((a, x) => a + x.buy + x.loan + x.maint + x.tax, 0);
 
         /* --- 年間収支 --- */
         const evSub = eventSubOf(year);
@@ -3565,7 +3674,7 @@
         idecoLumpTotal: Math.round(idecoLumpTotal),
         idecoTakeAge, selfPenStart,
         netMonthly: netAtYear(b, selfGross0, ig, dep0, 0, dep0) / 12,
-        kidCount: kids.length,
+        kidCount: kids.length, carCount: cars.length,
         hBuy, hPrice: nz(h.price),
         pm: Math.round(pensionNetAnnual(selfPensionGross, Math.max(65, selfPenStart)) / 12),
         pmGross: Math.round(selfPensionGross / 12),
@@ -4665,22 +4774,24 @@
        ===================================================================== */
     /* 表示する年。null なら今年 */
     let expYear = null;
+    /* 小項目を開いておくか。既定は開く */
+    let expOpen = true;
 
     const EXP_LIVING_LABELS = {
-      food: ['食費・日用品', '食費と日用品'],
+      food: ['食費', '外食を含む'],
+      daily: ['日用品・消耗品', ''],
       utility: ['水道光熱費', ''],
       telecom: ['通信費', 'スマホ・ネット'],
       insurance: ['保険料', ''],
       subscription: ['サブスク', ''],
       transport: ['交通費', ''],
-      variable: ['趣味・交際・被服', ''],
+      hobby: ['趣味・交際・被服', ''],
       otherFixed: ['その他の固定費', ''],
       special: ['特別支出', '年に一度の出費を12で割った額'],
       medical: ['医療・介護費', '退職後の上乗せ']
     };
     /* グループ内の小項目：[入力のキー, 表示名]。倍率は row.mul で共通 */
-    const EXP_VARIABLE_SUB = [['varDaily', '日用の生活費'], ['varHobby', '娯楽・趣味'],
-    ['varSocial', '交際費'], ['varFashion', '被服・美容']];
+    const EXP_HOBBY_SUB = [['varHobby', '娯楽・趣味'], ['varSocial', '交際費'], ['varFashion', '被服・美容']];
     const EXP_OTHERFIXED_SUB = [['parking', '駐車場'], ['gym', 'ジム'], ['learning', '習い事'],
     ['smoking', 'タバコ'], ['pet', 'ペット'], ['support', '仕送り・親の援助'],
     ['golf', 'ゴルフ'], ['salon', '美容・サロン'], ['educationManual', '教育費（手入力）']];
@@ -4688,24 +4799,19 @@
     ['annualCeremony', '冠婚葬祭・ギフト'], ['annualOther', 'その他大型']];
 
     function setExpYear(v) { expYear = v === '' ? null : Number(v); renderExpense(); }
+    function toggleExpOpen() { expOpen = !expOpen; renderExpense(); }
 
-    /* 費目1行。sub があればタップで小項目を開く */
+    /* 費目1行。小項目が2つ以上あればタップで開ける（1つだと親と同じ数字になるので出さない） */
     function expRow(name, v, note, sub, total, max, cls) {
       const pct = total > 0 ? Math.round(v / total * 100) : 0;
       const w = max > 0 ? (v / max * 100).toFixed(1) : 0;
-      /* 小項目が1つだけなら親と同じ数字になるので開けるようにしない */
       const parts = (sub || []).filter(x => Math.abs(x[1]) >= 0.05);
-      if (parts.length < 2) return `<div class="exp-row">${
-        `<span class="exp-name">${name}</span>
-        <span class="exp-amt">${v.toFixed(1)}万<i>${total > 0 ? Math.round(v / total * 100) : 0}%</i></span>
-        <span class="exp-bar ${cls || ''}"><span style="width:${max > 0 ? (v / max * 100).toFixed(1) : 0}%"></span></span>
-        ${note ? `<span class="exp-note">${note}</span>` : ''}`}</div>`;
-      const head = `<span class="exp-name">${name}${parts.length ? '<b class="exp-cr">▾</b>' : ''}</span>
+      const head = `<span class="exp-name">${name}${parts.length >= 2 ? '<b class="exp-cr">▾</b>' : ''}</span>
         <span class="exp-amt">${v.toFixed(1)}万<i>${pct}%</i></span>
         <span class="exp-bar ${cls || ''}"><span style="width:${w}%"></span></span>
         ${note ? `<span class="exp-note">${note}</span>` : ''}`;
-      if (!parts.length) return `<div class="exp-row">${head}</div>`;
-      return `<details class="exp-det"><summary class="exp-row">${head}</summary>
+      if (parts.length < 2) return `<div class="exp-row">${head}</div>`;
+      return `<details class="exp-det" ${expOpen ? 'open' : ''}><summary class="exp-row">${head}</summary>
         <div class="exp-sub">${parts.map(([n, val, hint]) =>
         `<div class="exp-subrow"><span>${n}${hint ? `<i>${hint}</i>` : ''}</span><b>${val.toFixed(1)}万</b></div>`).join('')}</div>
       </details>`;
@@ -4725,6 +4831,22 @@
       const r = rows.find(x => x.year === target) || rows[0];
       const m = v => v / 12;   /* 年額→月額 */
       const gsub = (list, k) => list.map(([key, label]) => [label, m(nz(e[key]) * r.mul[k])]);
+      /* 子・車が複数なら「第1子の」「1台目の」を付ける */
+      const kidPre = i => sim.kidCount > 1 ? `第${i + 1}子の` : '';
+      const carPre = i => sim.carCount > 1 ? `${i + 1}台目の` : '';
+
+      const eduSub = [];
+      r.eSub.forEach((x, i) => {
+        eduSub.push([`${kidPre(i)}学費`, m(x.tuition)], [`${kidPre(i)}保育料`, m(x.daycare)],
+          [`${kidPre(i)}習い事・塾`, m(x.lesson)]);
+      });
+      const carSub = [];
+      r.cSub.forEach((x, i) => {
+        carSub.push([`${carPre(i)}購入時の支払い`, m(x.buy), 'この年かぎり'],
+          [`${carPre(i)}ローン返済`, m(x.loan)],
+          [`${carPre(i)}維持費（保険・駐車場・燃料）`, m(x.maint)],
+          [`${carPre(i)}税金・車検`, m(x.tax)]);
+      });
 
       /* --- 支出の費目（小項目つき） --- */
       const items = [
@@ -4732,14 +4854,11 @@
           ['家賃', m(r.hSub.rent)], ['住宅ローン返済', m(r.hSub.loan)],
           ['管理費・修繕積立金', m(r.hSub.mgmt)], ['固定資産税', m(r.hSub.tax)],
           ['頭金', m(r.hSub.down), 'この年かぎり']]],
-        ['教育・保育', m(r.edu), '', [
-          ['学費', m(r.eSub.tuition)], ['保育料', m(r.eSub.daycare)], ['習い事・塾', m(r.eSub.lesson)]]],
-        ['車', m(r.car), '', [
-          ['購入時の支払い', m(r.cSub.buy), 'この年かぎり'], ['ローン返済', m(r.cSub.loan)],
-          ['維持費（保険・駐車場・燃料）', m(r.cSub.maint)], ['税金・車検', m(r.cSub.tax)]]],
+        ['教育・保育', m(r.edu), '', eduSub],
+        ['車', m(r.car), '', carSub],
         ...Object.keys(EXP_LIVING_LABELS).map(k => [
           EXP_LIVING_LABELS[k][0], m(r.bd[k]), EXP_LIVING_LABELS[k][1],
-          k === 'variable' ? gsub(EXP_VARIABLE_SUB, 'variable')
+          k === 'hobby' ? gsub(EXP_HOBBY_SUB, 'variable')
             : k === 'otherFixed' ? gsub(EXP_OTHERFIXED_SUB, 'otherFixed')
               .concat((e.customFixed || []).map((c, i) => [c.name || `その他${i + 1}`, m(nz(c.amount) * r.mul.otherFixed)]))
               : k === 'special' ? gsub(EXP_SPECIAL_SUB, 'special') : null]),
@@ -4749,6 +4868,7 @@
       const totalM = m(r.expense);
       const maxM = items.length ? items[0][1] : 1;
       const list = items.map(([n, v, note, sub]) => expRow(n, v, note, sub, totalM, maxM)).join('');
+      const canOpen = items.filter(x => (x[3] || []).filter(z => Math.abs(z[1]) >= 0.05).length >= 2).length;
 
       /* --- 収入の費目 --- */
       const incomeM = m(r.income);
@@ -4771,6 +4891,30 @@
       const saveM = saves.reduce((a2, x) => a2 + x[1], 0);
       const leftM = incomeM - totalM - saveM;
       const leftY = r.income - r.expense - r.nisaIn - r.idecoIn - r.insIn;
+
+      /* 収入がどこへ行くかを1本の帯で示す。積立が「支出と別」なのはここで分かる。
+         赤字の年は 支出＋積立 が収入を超えるので、帯の幅をそちらに合わせ、
+         収入がどこまで届くかに印を置く */
+      const base = Math.max(incomeM, totalM + saveM) || 1;
+      const seg = (v, cls, label) => v < 0.05 ? '' :
+        `<span class="fl-seg ${cls}" style="width:${(v / base * 100).toFixed(2)}%" title="${label}"></span>`;
+      const flow = `
+        <div class="exp-flow">
+          <div class="fl-ttl">収入 ${incomeM.toFixed(1)}万 の使いみち</div>
+          <div class="fl-bar">
+            ${seg(totalM, 'out', '支出')}${seg(saveM, 'sav', '積立')}${leftM > 0 ? seg(leftM, 'left', '残り') : ''}
+            ${leftM < 0 ? `<span class="fl-mark" style="left:${(incomeM / base * 100).toFixed(2)}%"></span>` : ''}
+          </div>
+          ${leftM < 0 ? `<div class="fl-mklbl">
+            <span style="left:${(incomeM / base * 100).toFixed(2)}%">↑ 収入で足りるのはここまで</span></div>` : ''}
+          <div class="fl-lgd">
+            <span><i class="out"></i>支出 ${totalM.toFixed(1)}万</span>
+            ${saveM > 0 ? `<span><i class="sav"></i>積立 ${saveM.toFixed(1)}万<em>資産に残る</em></span>` : ''}
+            ${leftM >= 0
+          ? `<span><i class="left"></i>残り ${leftM.toFixed(1)}万<em>現金が増える</em></span>`
+          : `<span class="short">▲ ${Math.abs(leftM).toFixed(1)}万 不足<em>資産の取り崩しで埋める</em></span>`}
+          </div>
+        </div>`;
 
       const opts = rows.map(x => {
         const tag = x.age === sim.retireAge ? '・退職' : (x.year === rows[0].year ? '・今年' : '');
@@ -4796,12 +4940,13 @@
         `${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}`,
         leftM >= 0 ? '黒字' : '赤字', `年 ${fmtManSigned(leftY)}`)}
           ${box('inc', '収入', incomeM.toFixed(1), '手取り', `年 ${fmtManPlain(r.income)}`)}
-          ${box('out', '支出', totalM.toFixed(1), saveM > 0 ? `積立 ${saveM.toFixed(1)}万は別` : '', `年 ${fmtManPlain(r.expense)}`)}
+          ${box('out', '支出', totalM.toFixed(1), '積立を除く', `年 ${fmtManPlain(r.expense)}`)}
         </div>
+        ${flow}
 
         <div class="card">
           <div class="ctitle">支出の内訳（計 ${totalM.toFixed(1)}万/月）</div>
-          <p class="sim-detail-hint" style="margin:-2px 0 6px;">▾ が付いた費目はタップすると内訳が開きます。</p>
+          ${canOpen ? `<button class="exp-toggle" onclick="toggleExpOpen()">${expOpen ? '▴ 小項目を閉じる' : '▾ 小項目をすべて開く'}</button>` : ''}
           ${list || '<p class="sim-detail-hint">この年の支出はありません。</p>'}
         </div>
 
@@ -4813,10 +4958,11 @@
         </div>
 
         ${saves.length ? `<div class="card">
-          <div class="ctitle">積立（支出ではなく資産に移る分 計 ${saveM.toFixed(1)}万/月）</div>
+          <div class="ctitle">積立の内訳（計 ${saveM.toFixed(1)}万/月）</div>
           ${saves.map(([n, v]) => `<div class="exp-row"><span class="exp-name">${n}</span>
             <span class="exp-amt">${v.toFixed(1)}万</span></div>`).join('')}
-          <p class="sim-detail-hint">出ていくお金ですが、使ってなくなるのではなく資産として残ります。</p>
+          <p class="sim-detail-hint">毎月の口座からは出ていきますが、使ってなくなるわけではなく資産として貯まります。
+            上の「支出」には含めていないのはそのためです。</p>
         </div>` : ''}
 
         <div class="card">
