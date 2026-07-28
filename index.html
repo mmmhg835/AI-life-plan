@@ -8,7 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <style>
     :root {
@@ -498,50 +498,26 @@
       text-align: left;
     }
 
-    /* レポート（印刷／PDF） */
-    #printArea { display: none; }
-
-    @media print {
-
-      header,
-      .sbar,
-      .scen-bar,
-      main,
-      .fab {
-        display: none !important;
-      }
-
-      body {
-        background: white;
-      }
-
-      #printArea {
-        display: block !important;
-        color: #1e293b;
-        font-family: 'Noto Sans JP', sans-serif;
-      }
-
-      @page {
-        size: A4;
-        margin: 12mm;
-      }
-
-      .pr-page {
-        break-after: page;
-        page-break-after: always;
-      }
-
-      .pr-page:last-child {
-        break-after: auto;
-        page-break-after: auto;
-      }
-
-      .pr-blk,
-      .pr-row,
-      .pr-tbl tr {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+    /* =====================================================================
+       レポート（印刷／PDF）
+       画面のUIとは別の設計。紙で読むものなので、明朝の見出し・広い余白・
+       細い罫線でまとめる。色は濃紺と銅色に絞る。
+       ===================================================================== */
+    #printArea {
+      display: none;
+      --ink: #0e2340;
+      --navy: #16365f;
+      --mid: #4a5c78;
+      --gray: #7c8ba3;
+      --line: #dde3ec;
+      --hair: #eef1f6;
+      --tint: #f7f9fc;
+      --acc: #b06a34;
+      --acc-lt: #f3ede6;
+      color: var(--ink);
+      font-family: 'Noto Sans JP', sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     #printArea * {
@@ -549,140 +525,588 @@
       print-color-adjust: exact;
     }
 
-    .pr-hd {
-      border-bottom: 3px solid #1a56db;
-      padding-bottom: 8px;
-      margin-bottom: 14px;
+    @media print {
+
+      header,
+      .sbar,
+      .scen-bar,
+      main {
+        display: none !important;
+      }
+
+      body { background: white; }
+
+      #printArea { display: block !important; }
+
+      @page {
+        size: A4;
+        margin: 0;
+      }
     }
 
-    .pr-ttl {
-      font-size: 20px;
+    .pr-page {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 24mm 20mm 20mm;
+      margin: 0 auto;
+      background: white;
+      box-sizing: border-box;
+      break-after: page;
+      page-break-after: always;
+      overflow: hidden;
+    }
+
+    .pr-page:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+
+    /* 柱・フッター */
+    .pr-run {
+      position: absolute;
+      top: 13mm;
+      left: 20mm;
+      right: 20mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 8pt;
+      color: var(--gray);
+      letter-spacing: .1em;
+      border-bottom: 1px solid var(--hair);
+      padding-bottom: 3mm;
+    }
+
+    .pr-run b {
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: .05em;
+    }
+
+    .pr-foot {
+      position: absolute;
+      left: 20mm;
+      right: 20mm;
+      bottom: 12mm;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: var(--gray);
+      letter-spacing: .04em;
+    }
+
+    .pr-foot .brand {
       font-weight: 900;
-      color: #1a56db;
+      color: var(--navy);
+      letter-spacing: .06em;
     }
 
-    .pr-meta {
-      font-size: 11px;
-      color: #475569;
-      margin-top: 3px;
+    .pr-foot .brand em {
+      font-style: normal;
+      color: var(--acc);
+    }
+
+    .pr-foot .pg {
+      font-family: 'DM Mono', monospace;
+      font-size: 9pt;
+      color: var(--navy);
+    }
+
+    /* ---------- 表紙 ---------- */
+    .pr-cover {
+      padding: 0;
+      background: #0e2340;
+      color: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pr-cv-art {
+      position: relative;
+      height: 104mm;
+      background: linear-gradient(170deg, #1b3f6c 0%, #0e2340 78%);
+      overflow: hidden;
+    }
+
+    .pr-cv-art svg {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 40mm;
+      display: block;
+      opacity: .85;
+    }
+
+    /* 文字の背後を暗く落として、グラフと重なっても読めるようにする */
+    .pr-cv-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #0e2340 0%, rgba(14, 35, 64, .92) 46%, rgba(14, 35, 64, 0) 72%);
+    }
+
+    .pr-cv-top {
+      position: absolute;
+      top: 20mm;
+      left: 20mm;
+      right: 20mm;
+    }
+
+    .pr-cv-eyebrow {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: .38em;
+      color: #b48a5f;
+    }
+
+    .pr-cv-ttl {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 30pt;
+      line-height: 1.45;
+      margin-top: 6mm;
+      letter-spacing: .04em;
+    }
+
+    .pr-cv-sub {
+      font-size: 11pt;
+      font-weight: 500;
+      color: #c8d5e8;
+      margin-top: 5mm;
+      letter-spacing: .06em;
+    }
+
+    .pr-cv-body {
+      flex: 1;
+      padding: 14mm 20mm 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pr-cv-badge {
+      display: inline-block;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: .18em;
+      border: 1px solid #b48a5f;
+      color: #d3a877;
+      border-radius: 2px;
+      padding: 2.5mm 5mm;
+    }
+
+    .pr-cv-msg {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 500;
+      font-size: 14pt;
+      line-height: 2;
+      margin: 6mm 0 9mm;
+      letter-spacing: .02em;
+    }
+
+    .pr-cv-list {
+      border-top: 1px solid rgba(255, 255, 255, .18);
+      padding-top: 6mm;
+    }
+
+    .pr-cv-list .t {
+      font-size: 7.5pt;
+      letter-spacing: .3em;
+      color: #b48a5f;
+      margin-bottom: 4mm;
+    }
+
+    .pr-cv-list div.i {
+      display: flex;
+      gap: 4mm;
+      align-items: baseline;
+      font-size: 9.5pt;
+      color: #d6e0ee;
+      line-height: 1.9;
+      padding: 1.5mm 0;
+      letter-spacing: .04em;
+    }
+
+    .pr-cv-list div.i em {
+      font-style: normal;
+      font-family: 'DM Mono', monospace;
+      color: #b48a5f;
+      min-width: 7mm;
+    }
+
+    .pr-cv-list div.i span { flex: 1; }
+
+    .pr-cv-list div.i u {
+      text-decoration: none;
+      font-family: 'DM Mono', monospace;
+      color: #7d90aa;
+      font-size: 8.5pt;
+    }
+
+    /* 読みどころ */
+    .pr-hl > div {
+      display: flex;
+      gap: 5mm;
+      padding: 5mm 0;
+      border-bottom: 1px solid var(--hair);
+    }
+
+    .pr-hl > div:last-child { border-bottom: none; }
+
+    .pr-hl i {
+      font-style: normal;
+      font-family: 'DM Mono', monospace;
+      font-size: 13pt;
+      color: var(--acc);
+      line-height: 1.5;
+    }
+
+    .pr-hl b {
+      display: block;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 11pt;
+      color: var(--ink);
+      letter-spacing: .04em;
+      line-height: 1.6;
+    }
+
+    .pr-hl p {
+      margin: 2mm 0 0;
+      font-size: 8.8pt;
+      color: var(--mid);
+      line-height: 1.95;
+      letter-spacing: .02em;
+    }
+
+    .pr-cv-nums {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      margin-top: auto;
+      border-top: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .pr-cv-nums div {
+      padding: 7mm 4mm 6mm;
+      text-align: center;
+      border-right: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    .pr-cv-nums div:last-child { border-right: none; }
+
+    .pr-cv-nums span {
+      display: block;
+      font-size: 7.5pt;
+      color: #a9bcd6;
+      letter-spacing: .06em;
+    }
+
+    .pr-cv-nums b {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 17pt;
+      font-weight: 500;
+      margin-top: 2.5mm;
+      color: #fff;
+    }
+
+    .pr-cv-meta {
+      font-size: 8.5pt;
+      color: #a9bcd6;
+      line-height: 2.1;
+      letter-spacing: .04em;
+      border-top: 1px solid rgba(255, 255, 255, .18);
+      padding: 5mm 0 6mm;
+    }
+
+    .pr-cv-brand {
+      background: white;
+      color: var(--navy);
+      text-align: center;
+      padding: 6mm;
+      font-weight: 900;
+      font-size: 11pt;
+      letter-spacing: .1em;
+    }
+
+    .pr-cv-brand em {
+      font-style: normal;
+      color: var(--acc);
+    }
+
+    .pr-cv-brand small {
+      display: block;
+      font-size: 7pt;
+      font-weight: 400;
+      color: var(--gray);
+      margin-top: 2.5mm;
+      letter-spacing: .02em;
+    }
+
+    /* ---------- 本文 ---------- */
+    .pr-sec {
+      display: flex;
+      align-items: baseline;
+      gap: 5mm;
+      margin: 0 0 4mm;
+    }
+
+    .pr-sec i {
+      font-style: normal;
+      font-family: 'DM Mono', monospace;
+      font-size: 26pt;
+      font-weight: 400;
+      line-height: 1;
+      color: var(--acc);
+    }
+
+    .pr-h1 {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 18pt;
+      color: var(--ink);
+      letter-spacing: .06em;
+      line-height: 1.4;
+    }
+
+    .pr-lead {
+      font-size: 9pt;
+      color: var(--mid);
+      line-height: 2.05;
+      margin: 0 0 9mm;
+      padding-left: 13mm;
+      letter-spacing: .02em;
     }
 
     .pr-h2 {
-      font-size: 13px;
-      font-weight: 900;
-      color: #1a56db;
-      border-left: 4px solid #f97316;
-      padding-left: 7px;
-      margin: 16px 0 8px;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 12pt;
+      color: var(--navy);
+      letter-spacing: .08em;
+      margin: 11mm 0 4mm;
+      padding-bottom: 2.5mm;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pr-h2:first-child { margin-top: 0; }
+
+    .pr-quote {
+      background: var(--tint);
+      border-left: 3px solid var(--acc);
+      padding: 6mm 7mm;
+      margin: 0 0 8mm;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 500;
+      font-size: 11.5pt;
+      line-height: 2;
+      color: var(--ink);
+      letter-spacing: .02em;
     }
 
     .pr-blk {
-      margin-bottom: 12px;
+      margin-bottom: 7mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .pr-img {
       width: 100%;
       display: block;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
     }
 
     .pr-cap {
-      font-size: 10px;
-      color: #64748b;
-      margin: 4px 0 0;
-      line-height: 1.6;
+      font-size: 8pt;
+      color: var(--gray);
+      margin: 3mm 0 0;
+      line-height: 1.9;
+      letter-spacing: .02em;
     }
 
+    .pr-cap b { color: var(--mid); }
+
+    /* 表 */
     .pr-tbl {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
+      font-size: 8.8pt;
     }
 
     .pr-tbl th,
     .pr-tbl td {
-      border: 1px solid #e2e8f0;
-      padding: 5px 7px;
+      border-bottom: 1px solid var(--hair);
+      padding: 2.9mm 3mm;
       text-align: left;
+      vertical-align: top;
+      letter-spacing: .02em;
     }
 
-    .pr-tbl th {
-      background: #eef3fd;
+    .pr-tbl thead th {
+      color: var(--gray);
       font-weight: 700;
+      font-size: 7.5pt;
+      letter-spacing: .12em;
+      border-bottom: 1px solid var(--navy);
+      padding-bottom: 2mm;
       white-space: nowrap;
     }
+
+    .pr-tbl tbody th {
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .pr-tbl td { color: var(--mid); }
 
     .pr-tbl td.n {
       text-align: right;
       font-family: 'DM Mono', monospace;
+      color: var(--ink);
       white-space: nowrap;
     }
 
+    .pr-tbl tr.tot th,
+    .pr-tbl tr.tot td {
+      font-weight: 700;
+      color: var(--navy);
+      border-top: 1px solid var(--navy);
+      border-bottom: none;
+      padding-top: 2.6mm;
+    }
+
+    /* 数字カード */
     .pr-kpi {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 7px;
+      border-top: 1px solid var(--line);
+      border-left: 1px solid var(--line);
     }
 
     .pr-kpi div {
-      border: 1px solid #e2e8f0;
-      border-radius: 7px;
-      padding: 8px 9px;
+      padding: 5mm 4mm;
+      text-align: center;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pr-kpi span {
+      font-size: 7.5pt;
+      color: var(--gray);
+      line-height: 1.7;
+      letter-spacing: .04em;
     }
 
     .pr-kpi b {
       display: block;
       font-family: 'DM Mono', monospace;
-      font-size: 15px;
-      margin-top: 2px;
-    }
-
-    .pr-kpi span {
-      font-size: 10px;
-      color: #475569;
+      font-size: 15pt;
+      font-weight: 500;
+      margin-top: 2mm;
+      color: var(--ink);
     }
 
     .pr-tri {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 7px;
+      gap: 4mm;
     }
 
     .pr-tri div {
-      border-radius: 8px;
-      padding: 9px;
-      color: white;
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--navy);
+      padding: 5mm 3mm;
       text-align: center;
     }
 
-    .pr-tri .b { background: #1a56db; }
-    .pr-tri .b.ng { background: #dc2626; }
-    .pr-tri .i { background: #16a34a; }
-    .pr-tri .o { background: #ea580c; }
+    .pr-tri .b { border-top-color: var(--navy); }
+    .pr-tri .b.ng { border-top-color: #b3261e; }
+    .pr-tri .i { border-top-color: #1f7a4d; }
+    .pr-tri .o { border-top-color: var(--acc); }
+
+    .pr-tri span {
+      font-size: 7.5pt;
+      color: var(--gray);
+      letter-spacing: .06em;
+    }
 
     .pr-tri b {
       display: block;
       font-family: 'DM Mono', monospace;
-      font-size: 17px;
-      margin-top: 2px;
+      font-size: 18pt;
+      font-weight: 500;
+      margin-top: 2mm;
+      color: var(--ink);
     }
 
-    .pr-tri span {
-      font-size: 10px;
-      opacity: .9;
-    }
+    .pr-tri .b.ng b { color: #b3261e; }
 
+    /* 注記 */
     .pr-note {
-      font-size: 10px;
-      color: #64748b;
-      line-height: 1.7;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 8px;
+      font-size: 8.5pt;
+      color: var(--mid);
+      line-height: 2.1;
+      letter-spacing: .02em;
+      columns: 1;
     }
 
-    .pos-n { color: #16a34a; }
-    .neg-n { color: #dc2626; }
+    .pr-note b {
+      display: block;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: 9.5pt;
+      color: var(--navy);
+      margin: 6mm 0 1.5mm;
+      letter-spacing: .06em;
+    }
+
+    .pr-note b:first-child { margin-top: 0; }
+
+    /* 目次 */
+    .pr-toc div {
+      display: flex;
+      align-items: baseline;
+      gap: 4mm;
+      padding: 3mm 0;
+      border-bottom: 1px solid var(--hair);
+      font-size: 9.5pt;
+    }
+
+    .pr-toc i {
+      font-style: normal;
+      font-family: 'DM Mono', monospace;
+      color: var(--acc);
+      min-width: 8mm;
+    }
+
+    .pr-toc span {
+      flex: 1;
+      color: var(--ink);
+      letter-spacing: .04em;
+    }
+
+    .pr-toc em {
+      font-style: normal;
+      font-family: 'DM Mono', monospace;
+      color: var(--gray);
+    }
+
+    .pos-n { color: #1f7a4d; }
+    .neg-n { color: #b3261e; }
+
+    @media screen {
+      #printArea.preview {
+        display: block;
+        background: #e8ebf0;
+        padding: 24px 0;
+      }
+
+      #printArea.preview .pr-page {
+        box-shadow: 0 3px 18px rgba(14, 35, 64, .16);
+        margin-bottom: 24px;
+      }
+    }
 
     /* MAIN */
     main {
@@ -2513,7 +2937,10 @@
       </div>
       <div id="expBody"></div>
       <button class="btn btn-s" onclick="exportReport()">📄 レポートをPDFで出す</button>
-      <p class="pdf-hint">グラフと内訳をまとめたA4のレポートを作ります。印刷画面が開いたら「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。</p>
+      <button class="btn btn-o" onclick="downloadReport()">⬇︎ レポートをファイルに保存する</button>
+      <p class="pdf-hint">グラフと内訳をまとめたA4・7ページのレポートを作ります。<br>
+        <b>PDFで出す</b>…印刷画面が開くので「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。文字がそのまま入るので印刷してもきれいです。<br>
+        <b>ファイルに保存</b>…HTMLファイルとしてすぐ端末に保存します。グラフも中に入っているので、そのまま人に送れます。</p>
       <button class="btn btn-o" onclick="showView('graph')">グラフを見る →</button>
       <button class="btn btn-o" onclick="showView('summary')">← 入力内容サマリーへ</button>
     </div>
@@ -2555,9 +2982,13 @@
         <div class="clbl">💹 年間キャッシュ増減（収入−支出−積立）（万円）</div>
         <div class="chart-canvas-wrap"><canvas id="balanceChart"></canvas></div>
       </div>
-      <div class="ccard" style="text-align:center;">
-        <button class="btn btn-s" style="margin:0;" onclick="exportReport()">📄 レポートをPDFで出す</button>
-        <p class="pdf-hint">グラフと内訳をまとめたA4のレポートを作ります。印刷画面が開いたら「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。</p>
+      <div class="ccard">
+        <div class="clbl">📄 レポートを作る</div>
+        <button class="btn btn-s" onclick="exportReport()">📄 レポートをPDFで出す</button>
+        <button class="btn btn-o" onclick="downloadReport()">⬇︎ レポートをファイルに保存する</button>
+        <p class="pdf-hint">グラフと内訳をまとめたA4・7ページのレポートを作ります。<br>
+          <b>PDFで出す</b>…印刷画面が開くので「PDFとして保存」を選んでください（iPhoneは共有ボタン →「ファイルに保存」）。文字がそのまま入るので印刷してもきれいです。<br>
+          <b>ファイルに保存</b>…HTMLファイルとしてすぐ端末に保存します。グラフも中に入っているので、そのまま人に送れます。</p>
       </div>
       <div class="card" id="simYearDetailCard" style="display:none;">
         <div class="ctitle">年次の数値一覧</div>
@@ -5273,28 +5704,233 @@
     /* =====================================================================
        レポート（印刷／PDF）
        ===================================================================== */
-    /* グラフはcanvasのままだと印刷で欠けることがあるので、画像に変換して埋める。
-       canvasの描画はフレーム単位で進むため、アニメーションを切って再描画し、
-       フレームをまたいでから取り出す（同期で取ると描きかけの絵になる） */
-    async function chartImages() {
-      const prev = currentView;
-      /* 非表示だとcanvasのサイズが0になるので、いったんグラフを表示して描かせる */
-      if (currentView !== 'graph') showView('graph');
-      const cs = [chartAsset, chartFlow, chartExpense, chartBalance];
-      cs.forEach(c => { if (c) { c.options.animation = false; c.update('none'); } });
-      await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
-      const grab = c => { try { return c ? c.toBase64Image('image/png', 1) : null; } catch (e) { return null; } };
-      const imgs = {
-        asset: grab(chartAsset), flow: grab(chartFlow),
-        expense: grab(chartExpense), balance: grab(chartBalance)
+    /* 紙のためにグラフを描き直す。画面用をそのまま貼ると線が細く目盛が多すぎて
+       印刷で沈むので、高解像度のcanvasに、太い線・最小限の目盛で描く。
+       canvasはフレーム単位で描画されるため、待ってから取り出す。 */
+    const PR_W = 1720, PR_H = 860;
+    const PR_INK = '#0e2340', PR_NAVY = '#16365f', PR_ACC = '#b06a34';
+    const PR_GRID = '#e6eaf1', PR_TXT = '#6d7d95';
+
+    function prChartOpts(extra) {
+      const base = {
+        responsive: false, animation: false, devicePixelRatio: 1,
+        layout: { padding: { top: 14, right: 26, bottom: 6, left: 6 } },
+        plugins: {
+          legend: {
+            display: false,
+            labels: { boxWidth: 30, boxHeight: 4, padding: 22, color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 28, weight: '700' } }
+          },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { color: PR_GRID, width: 2 },
+            ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 10 }
+          },
+          y: {
+            grid: { color: PR_GRID, lineWidth: 2, drawTicks: false },
+            border: { display: false },
+            ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 25 }, padding: 14, maxTicksLimit: 6, callback: v => fmtM(v) }
+          }
+        }
       };
-      if (prev !== currentView) showView(prev);
-      return imgs;
+      return Object.assign(base, extra || {});
     }
 
-    function prTable(rows) {
-      return `<table class="pr-tbl"><tbody>${rows.map(([k, v]) =>
-        `<tr><th>${k}</th><td class="n">${v}</td></tr>`).join('')}</tbody></table>`;
+    async function prRender(cfg) {
+      const cv = document.createElement('canvas');
+      cv.width = PR_W; cv.height = PR_H;
+      cv.style.cssText = `position:fixed;left:-99999px;top:0;width:${PR_W}px;height:${PR_H}px;`;
+      document.body.appendChild(cv);
+      let img = null;
+      try {
+        const ch = new Chart(cv.getContext('2d'), cfg);
+        await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+        img = cv.toDataURL('image/png');
+        ch.destroy();
+      } catch (e) { img = null; }
+      cv.remove();
+      return img;
+    }
+
+    /* 縦の塗りに使うグラデーション（面グラフを紙で見たときの重さを抑える） */
+    function prFill(hex, a1, a2) {
+      return ctx => {
+        const c = ctx.chart.ctx;
+        const g = c.createLinearGradient(0, 0, 0, PR_H);
+        g.addColorStop(0, hex + a1); g.addColorStop(1, hex + a2);
+        return g;
+      };
+    }
+
+    async function chartImages() {
+      if (typeof Chart !== 'function') return {};
+      const sim = simulate(S());
+      if (!sim) return {};
+      const lbls = sim.lbls, rows = sim.rows;
+      const line = (data, color, fill) => ({
+        data, borderColor: color, borderWidth: 6, tension: .32,
+        pointRadius: 0, pointHoverRadius: 0,
+        fill: fill ? 'origin' : false,
+        backgroundColor: fill ? prFill(color, '2b', '05') : undefined
+      });
+
+      /* 資産推移。ブレ幅の設定があれば帯も重ねる */
+      const bandPct = nz(S().inv.rateBand);
+      const lo = bandPct > 0 ? simulateShifted(S(), -bandPct) : null;
+      const hi = bandPct > 0 ? simulateShifted(S(), bandPct) : null;
+      const assetSets = [];
+      if (lo && hi) {
+        assetSets.push(
+          Object.assign(line(lo.aD, '#9db4d4', false), { borderWidth: 3, borderDash: [10, 8] }),
+          Object.assign(line(hi.aD, '#9db4d4', false), {
+            borderWidth: 3, borderDash: [10, 8],
+            fill: '-1', backgroundColor: 'rgba(22,54,95,.08)'
+          }));
+      }
+      assetSets.push(line(sim.aD, PR_NAVY, !(lo && hi)));
+
+      const asset = await prRender({
+        type: 'line', data: { labels: lbls, datasets: assetSets }, options: prChartOpts()
+      });
+
+      /* 収入と支出 */
+      const flow = await prRender({
+        type: 'line',
+        data: {
+          labels: lbls, datasets: [
+            Object.assign(line(rows.map(r => r.income), '#1f7a4d', false), { label: '収入' }),
+            Object.assign(line(rows.map(r => r.expense), PR_ACC, false), { label: '支出' })
+          ]
+        },
+        options: prChartOpts({
+          plugins: {
+            legend: {
+              display: true, position: 'top', align: 'end',
+              labels: { boxWidth: 30, boxHeight: 4, padding: 22, color: PR_TXT, usePointStyle: false, font: { family: "'Noto Sans JP',sans-serif", size: 28, weight: '700' } }
+            }, tooltip: { enabled: false }
+          }
+        })
+      });
+
+      /* 費目別の積み上げ */
+      const CATS = [['住まい', 'housing', '#16365f'], ['教育・保育', 'edu', '#3f6ea8'],
+      ['車', 'car', '#7f9dc4'], ['生活費', 'living', '#b06a34'], ['イベント', 'event', '#d9b48a']];
+      const expense = await prRender({
+        type: 'line',
+        data: {
+          labels: lbls,
+          datasets: CATS.map(([label, key, col]) => ({
+            label, data: rows.map(r => r[key]), borderColor: col, backgroundColor: col,
+            borderWidth: 0, pointRadius: 0, fill: true, tension: .3
+          }))
+        },
+        options: prChartOpts({
+          plugins: {
+            legend: {
+              display: true, position: 'top', align: 'end',
+              labels: { boxWidth: 22, boxHeight: 14, padding: 18, color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26, weight: '700' } }
+            }, tooltip: { enabled: false }
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, border: { color: PR_GRID, width: 2 }, ticks: { color: PR_TXT, font: { family: "'Noto Sans JP',sans-serif", size: 26 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 9, padding: 10 } },
+            y: { stacked: true, grid: { color: PR_GRID, lineWidth: 2, drawTicks: false }, border: { display: false }, ticks: { color: PR_TXT, font: { family: "'DM Mono',monospace", size: 25 }, padding: 14, maxTicksLimit: 6, callback: v => fmtM(v) } }
+          }
+        })
+      });
+
+      /* 年間キャッシュの増減 */
+      const balance = await prRender({
+        type: 'bar',
+        data: {
+          labels: lbls, datasets: [{
+            data: sim.bD, borderWidth: 0,
+            backgroundColor: sim.bD.map(v => v >= 0 ? 'rgba(31,122,77,.85)' : 'rgba(176,106,52,.85)')
+          }]
+        },
+        options: prChartOpts()
+      });
+
+      return { asset, flow, expense, balance };
+    }
+
+    /* 数字から自動で拾う「読みどころ」。人に渡したときに、
+       どこを見ればいいかが分かるようにする */
+    function reportHighlights(sim, sc) {
+      const rows = sim.rows, out = [];
+      const peak = rows.find(r => r.total === sim.peakAssets);
+      if (peak) out.push(['資産のピークは' + peak.age + '歳',
+        `${fmtM(sim.peakAssets)}まで増えたあと、取り崩しに入ります。ここが家計の折り返し地点です。`]);
+      const heavy = rows.reduce((a, r) => r.expense > a.expense ? r : a, rows[0]);
+      const ch = buildYearChanges(sim, sc).find(c => c.year === heavy.year);
+      /* 理由は多いと読みにくいので、目立つものを2つまでに絞る */
+      const why2 = ch ? [...ch.marks.map(x => x.text), ch.reason].filter(Boolean).slice(0, 2) : [];
+      out.push([`支出が最も重いのは${heavy.year}年（${heavy.age}歳）`,
+        `年間${fmtM(heavy.expense)}。${why2.length ? why2.join('／') + 'が重なる年です。'
+          : '教育費や住宅費が重なる時期です。'}`]);
+      const after = rows.filter(r => r.age >= sim.retireAge);
+      if (after.length) {
+        const ai = after.reduce((a, r) => a + r.income, 0) / after.length;
+        const ae = after.reduce((a, r) => a + r.expense, 0) / after.length;
+        out.push([`退職後は年平均${fmtM(ae - ai)}が不足`,
+          `収入 年${fmtM(ai)}に対し支出 年${fmtM(ae)}。差は資産から補うことになります。`]);
+      }
+      return out.slice(0, 3);
+    }
+
+    /* 表紙の背景に置く、資産推移のシルエット（SVGなので印刷で潰れない） */
+    function coverArt(sim) {
+      const d = sim.aD, n = d.length;
+      if (n < 2) return '';
+      const lo = Math.min(0, ...d), hi = Math.max(...d, 1);
+      const W = 1000, H = 320;
+      const x = i => (i / (n - 1) * W).toFixed(1);
+      const y = v => (H - (v - lo) / (hi - lo) * H * .82 - H * .06).toFixed(1);
+      const pts = d.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <defs><linearGradient id="cvg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5b83b8" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#5b83b8" stop-opacity="0"/></linearGradient></defs>
+        <polygon points="0,${H} ${pts} ${W},${H}" fill="url(#cvg)"/>
+        <polyline points="${pts}" fill="none" stroke="#9dc0ea" stroke-width="3" stroke-opacity=".9"
+          stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    /* 総合判定。表紙の見出しに使う */    /* 総合判定。表紙の見出しに使う */
+    function reportVerdict(sim) {
+      if (sim.depletionAge != null) return {
+        cls: 'alert', label: '要見直し',
+        msg: `このままだと${sim.depletionAge}歳で資産が尽きる見込みです。<br>支出か働き方、どちらかの見直しが必要です。`
+      };
+      if (sim.totalAssets < 1000) return {
+        cls: 'watch', label: '注意',
+        msg: `${sim.endAge}歳まで資産は持ちますが、残るのは${fmtM(sim.totalAssets)}。<br>想定が少し狂うと足りなくなる水準です。`
+      };
+      if (sim.totalAssets < 3000) return {
+        cls: 'watch', label: 'おおむね順調',
+        msg: `${sim.endAge}歳時点で${fmtM(sim.totalAssets)}が残る見込みです。<br>大きな崩れはありませんが、余裕は大きくありません。`
+      };
+      return {
+        cls: 'ok', label: '安心',
+        msg: `${sim.endAge}歳時点で${fmtM(sim.totalAssets)}が残る見込みです。<br>いまのペースを保てば、資産が尽きる心配はありません。`
+      };
+    }
+
+    /* 各ページの外枠（柱とフッターを共通で付ける） */
+    function prPage(chapter, inner) {
+      return `<section class="pr-page" data-ch="${escapeHtml(chapter)}">
+        <div class="pr-run"><b>${escapeHtml(chapter)}</b><span class="rd"></span></div>
+        ${inner}
+        <div class="pr-foot"><span class="brand">LifePlan <em>AI</em></span>
+          <span class="doc"></span><span class="pg"></span></div>
+      </section>`;
+    }
+    /* 章見出し（通し番号つき） */
+    function prHead(no, title, lead) {
+      return `<div class="pr-sec"><i>${String(no).padStart(2, '0')}</i><div class="pr-h1">${title}</div></div>
+        <p class="pr-lead">${lead}</p>`;
     }
 
     /* 前提条件（人に渡したときに「何を仮定した数字か」が分かるように） */
@@ -5317,13 +5953,14 @@
       rows.push(['車', sim.carCount ? `${sim.carCount}台` : 'なし']);
       rows.push(['年金', `${sim.penStart}歳から受給（手取り 月${sim.pm}万円の見込み）`]);
       rows.push(['退職一時金', sim.severanceNetTotal ? `${fmtManPlain(sim.severanceNetTotal)}（手取り・iDeCo一時金を含む）` : 'なし']);
-      rows.push(['積立', [nz(inv.nisa) ? `NISA ${nz(inv.nisa)}万/月（年利${pct(inv.nisaRate)}）` : '',
-      nz(inv.ideco) ? `iDeCo ${nz(inv.ideco)}万/月（年利${pct(inv.idecoRate)}）` : '',
-      nz(inv.insReserve) ? `保険 ${nz(inv.insReserve)}万/月` : ''].filter(Boolean).join('／') || 'なし']);
+      rows.push(['積立', [nz(inv.nisa) ? `NISA ${nz(inv.nisa)}万/月（想定年利${pct(inv.nisaRate)}）` : '',
+      nz(inv.ideco) ? `iDeCo ${nz(inv.ideco)}万/月（想定年利${pct(inv.idecoRate)}）` : '',
+      nz(inv.insReserve) ? `保険積立 ${nz(inv.insReserve)}万/月` : ''].filter(Boolean).join('／') || 'なし']);
+      rows.push(['手元の資産', `現金 ${money(b.assetCash)}／株・投信 ${money(b.assetStock)}（想定年利${pct(b.assetStockRate)}）`]);
       rows.push(['物価上昇率', pct(e.inflationRate)]);
       rows.push(['退職後の生活費', (e.retireLivingRate == null || e.retireLivingRate === '') ? '現役と同じ' : `現役の${nz(e.retireLivingRate)}%`]);
       return `<table class="pr-tbl"><tbody>${rows.map(([k, v]) =>
-        `<tr><th style="width:30%">${k}</th><td>${escapeHtml(String(v))}</td></tr>`).join('')}</tbody></table>`;
+        `<tr><th style="width:32%">${k}</th><td>${escapeHtml(String(v))}</td></tr>`).join('')}</tbody></table>`;
     }
 
     async function buildReport() {
@@ -5339,8 +5976,12 @@
       const leftDisp = r1(incomeM) - r1(outM);
       const withdrawTotal = rows.reduce((a, x) => a + x.withdraw, 0);
       const eduTotal = rows.reduce((a, x) => a + x.edu, 0);
+      const houseTotal = rows.reduce((a, x) => a + x.housing, 0);
+      const vd = reportVerdict(sim);
       const now = new Date();
       const stamp = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+      const family = [`${sim.age}歳`, sim.pHas ? 'パートナーあり' : '単身',
+      sim.kidCount ? `子ども${sim.kidCount}人` : '子どもなし'].join('・');
 
       const exp = [['住まい', r.housing], ['教育・保育', r.edu], ['車', r.car],
       ['食費', r.bd.food], ['日用品・消耗品', r.bd.daily], ['水道光熱費', r.bd.utility],
@@ -5354,107 +5995,200 @@
       ['育児休業給付金', r.leaveBenefit], ['児童手当', r.allowance],
       ['退職一時金', r.severance], ['iDeCoの節税', r.idecoSaving], ['住宅ローン控除', r.loanCredit]]
         .filter(x => x[1] >= 0.6).sort((a, b) => b[1] - a[1]);
+      const changes = buildYearChanges(sim, sc).filter(c => !c.first);
+      const peakRow = rows.find(x => x.total === sim.peakAssets);
 
-      const changes = buildYearChanges(sim, sc).filter(c => !c.first).slice(0, 22);
-
-      document.getElementById('printArea').innerHTML = `
-      <div class="pr-page">
-        <div class="pr-hd">
-          <div class="pr-ttl">ライフプラン シミュレーション</div>
-          <div class="pr-meta">プラン：${escapeHtml(sim.name)}　／　作成日：${stamp}　／　${sim.age}歳〜${sim.endAge}歳の試算</div>
+      const cover = `<section class="pr-page pr-cover">
+        <div class="pr-cv-art">
+          ${coverArt(sim)}
+          <div class="pr-cv-scrim"></div>
+          <div class="pr-cv-top">
+            <div class="pr-cv-eyebrow">LIFE PLAN REPORT</div>
+            <div class="pr-cv-ttl">ライフプラン<br>シミュレーション</div>
+            <div class="pr-cv-sub">${escapeHtml(sim.name)}</div>
+          </div>
         </div>
+        <div class="pr-cv-body">
+          <div><span class="pr-cv-badge">${vd.label}</span></div>
+          <div class="pr-cv-msg">${vd.msg}</div>
+          <div class="pr-cv-list">
+            <div class="t">CONTENTS</div>
+            <div id="prToc"></div>
+          </div>
+          <div class="pr-cv-nums">
+            <div><span>退職直前の資産（${sim.retireAge}歳）</span><b>${fmtM(sim.retireAssets)}</b></div>
+            <div><span>資産のピーク${peakRow ? `（${peakRow.age}歳）` : ''}</span><b>${fmtM(sim.peakAssets)}</b></div>
+            <div><span>最終資産（${sim.endAge}歳）</span><b>${fmtM(sim.totalAssets)}</b></div>
+          </div>
+          <div class="pr-cv-meta">
+            対象　${family}　／　試算期間　${sim.age}歳 — ${sim.endAge}歳（${sim.endAge - sim.age}年間）<br>
+            作成日　${stamp}
+          </div>
+        </div>
+        <div class="pr-cv-brand">LifePlan <em>AI</em><small>この資料は入力された条件にもとづく試算です。将来を保証するものではありません。</small></div>
+      </section>`;
 
-        <div class="pr-h2">この試算の結論</div>
+      const pageSummary = prPage('この試算の結論', `
+        ${prHead(1, 'この試算の結論', `入力された条件で${sim.age}歳から${sim.endAge}歳までを1年ずつ計算した結果です。金額はすべて手取り、物価上昇を織り込んだその年の金額です。`)}
+        <div class="pr-quote">${vd.msg}</div>
         <div class="pr-blk pr-kpi">
-          <div><span>退職直前の資産（${sim.retireAge}歳）</span><b class="${sim.retireAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.retireAssets)}</b></div>
-          <div><span>最終資産（${sim.endAge}歳）</span><b class="${sim.totalAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.totalAssets)}</b></div>
-          <div><span>資産が尽きる年齢</span><b class="${sim.depletionAge == null ? 'pos-n' : 'neg-n'}">${sim.depletionAge == null ? '枯渇なし' : sim.depletionAge + '歳'}</b></div>
-          <div><span>資産のピーク</span><b>${fmtM(sim.peakAssets)}</b></div>
-          <div><span>老後の取り崩し総額</span><b>${fmtM(withdrawTotal)}</b></div>
-          <div><span>教育・保育の総額</span><b>${fmtM(eduTotal)}</b></div>
+          <div><span>退職直前の資産<br>（${sim.retireAge}歳）</span><b class="${sim.retireAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.retireAssets)}</b></div>
+          <div><span>最終資産<br>（${sim.endAge}歳）</span><b class="${sim.totalAssets >= 0 ? 'pos-n' : 'neg-n'}">${fmtM(sim.totalAssets)}</b></div>
+          <div><span>資産が尽きる<br>年齢</span><b class="${sim.depletionAge == null ? 'pos-n' : 'neg-n'}">${sim.depletionAge == null ? '枯渇なし' : sim.depletionAge + '歳'}</b></div>
+          <div><span>老後の<br>取り崩し総額</span><b>${fmtM(withdrawTotal)}</b></div>
+          <div><span>教育・保育の<br>生涯総額</span><b>${fmtM(eduTotal)}</b></div>
+          <div><span>住まいの<br>生涯総額</span><b>${fmtM(houseTotal)}</b></div>
         </div>
-
         <div class="pr-h2">資産の推移</div>
         <div class="pr-blk">
-          ${imgs.asset ? `<img class="pr-img" src="${imgs.asset}" alt="資産推移">` : '<p class="pr-cap">グラフを取得できませんでした。</p>'}
+          ${imgs.asset ? `<img class="pr-img" src="${imgs.asset}" alt="資産推移">` : ''}
           <p class="pr-cap">現金・課税口座・NISA・iDeCo・保険積立を合計した各年末の残高です。${sim.depletionAge == null
           ? `${sim.endAge}歳まで資産が持つ想定です。` : `${sim.depletionAge}歳で資産がゼロになります。`}</p>
         </div>
+        <div class="pr-h2">この試算の読みどころ</div>
+        <div class="pr-hl">${reportHighlights(sim, sc).map(([t, d], i) =>
+        `<div><i>${String(i + 1).padStart(2, '0')}</i><div><b>${escapeHtml(t)}</b><p>${escapeHtml(d)}</p></div></div>`).join('')}</div>`);
 
-        <div class="pr-h2">前提条件</div>
+      const pageAssume = prPage('前提条件', `
+        ${prHead(2, '前提条件', 'この試算は下の条件をもとにしています。条件が変われば結果も変わります。数字を読むときは必ずここを確認してください。')}
         <div class="pr-blk">${prAssumptions(sim, sc)}</div>
-      </div>
-
-      <div class="pr-page">
-        <div class="pr-h2">収入と支出の推移</div>
-        <div class="pr-blk">
-          ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
-          <p class="pr-cap">2本の線の開きがその年の余裕です。緑＝収入が上回る、赤＝支出が上回る。積立は含みません。</p>
-        </div>
-
-        <div class="pr-h2">費目別の支出</div>
+        <div class="pr-h2">費目別の支出の移り変わり</div>
         <div class="pr-blk">
           ${imgs.expense ? `<img class="pr-img" src="${imgs.expense}" alt="費目別の支出">` : ''}
-          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。</p>
-        </div>
+          <p class="pr-cap">何の費用がいつ増えて、いつ無くなるかを積み上げで示しています。
+            住宅を買った年に住まいの帯が立ち上がり、保育料や学費の帯は時期が来ると消えます。</p>
+        </div>`);
 
+      const pageFlow = prPage('収入と支出の推移', `
+        ${prHead(3, '収入と支出の推移', '毎年いくら入って、いくら出ていくのか。2本の線の開きがその年の余裕です。')}
+        <div class="pr-blk">
+          ${imgs.flow ? `<img class="pr-img" src="${imgs.flow}" alt="収入と支出の推移">` : ''}
+          <p class="pr-cap">緑＝収入が上回る、赤＝支出が上回る。収入には児童手当・年金・退職一時金を含みます。積立は含みません。</p>
+        </div>
         <div class="pr-h2">年間キャッシュの増減</div>
         <div class="pr-blk">
           ${imgs.balance ? `<img class="pr-img" src="${imgs.balance}" alt="年間キャッシュ増減">` : ''}
-          <p class="pr-cap">収入から支出と積立を引いた、その年に手元の現金がいくら増えたか（減ったか）です。</p>
-        </div>
-      </div>
+          <p class="pr-cap">収入から支出と積立を引いた、その年に手元の現金がいくら増えた（減った）かです。
+            マイナスの年は、貯金や投資を取り崩して埋めることになります。</p>
+        </div>`);
 
-      <div class="pr-page">
-        <div class="pr-h2">${r.year}年（${r.age}歳）の月あたり収支</div>
+      const pageMonth = prPage(`${r.year}年（${r.age}歳）の家計`, `
+        ${prHead(4, `${r.year}年（${r.age}歳）の家計`, 'この年の1ヶ月あたりの収支です。「支出」には積立（NISA・iDeCo・保険積立）を含めています。')}
         <div class="pr-blk pr-tri">
           <div class="b ${leftDisp >= 0 ? '' : 'ng'}"><span>収支</span><b>${leftDisp >= 0 ? '+' : '−'}${Math.abs(leftDisp).toFixed(1)}万</b></div>
           <div class="i"><span>収入（手取り）</span><b>${incomeM.toFixed(1)}万</b></div>
           <div class="o"><span>支出（積立含む）</span><b>${outM.toFixed(1)}万</b></div>
         </div>
-        <p class="pr-cap">年間では 収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense + saveY)} ＝ ${fmtManSigned(r.income - r.expense - saveY)}。
-          「支出」には積立（NISA・iDeCo・保険積立）を含めています。積立は使ってなくなるのではなく資産として残ります。</p>
-
-        <div class="pr-h2">支出の内訳（月あたり）</div>
+        <p class="pr-cap">年間では 収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense + saveY)} ＝ <b>${fmtManSigned(r.income - r.expense - saveY)}</b>。
+          積立は使ってなくなるのではなく資産として残ります。</p>
+        <div class="pr-h2">支出の内訳</div>
         <div class="pr-blk"><table class="pr-tbl">
           <thead><tr><th>費目</th><th style="text-align:right">月あたり</th><th style="text-align:right">年間</th><th style="text-align:right">割合</th></tr></thead>
           <tbody>${exp.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / (r.expense + saveY) * 100)}%</td></tr>`).join('')}
-          <tr><th>合計</th><td class="n">${outM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.expense + saveY)}</td><td class="n">100%</td></tr></tbody>
+          <tr class="tot"><th>合計</th><td class="n">${outM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.expense + saveY)}</td><td class="n">100%</td></tr></tbody>
         </table></div>
-
-        <div class="pr-h2">収入の内訳（月あたり）</div>
+        <div class="pr-h2">収入の内訳</div>
         <div class="pr-blk"><table class="pr-tbl">
           <thead><tr><th>項目</th><th style="text-align:right">月あたり</th><th style="text-align:right">年間</th><th style="text-align:right">割合</th></tr></thead>
           <tbody>${inc.map(([n, v]) => `<tr><th>${n}</th><td class="n">${m(v).toFixed(1)}万</td><td class="n">${fmtManPlain(v)}</td><td class="n">${Math.round(v / r.income * 100)}%</td></tr>`).join('')}
-          <tr><th>合計</th><td class="n">${incomeM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.income)}</td><td class="n">100%</td></tr></tbody>
-        </table></div>
-      </div>
+          <tr class="tot"><th>合計</th><td class="n">${incomeM.toFixed(1)}万</td><td class="n">${fmtManPlain(r.income)}</td><td class="n">100%</td></tr></tbody>
+        </table></div>`);
 
-      <div class="pr-page">
-        <div class="pr-h2">支出が動く年とその理由</div>
+      /* 年表は1ページ18行までで分ける */
+      const per = 18, chunks = [];
+      for (let i = 0; i < changes.length; i += per) chunks.push(changes.slice(i, i + per));
+      const pagesChange = (chunks.length ? chunks : [[]]).map((ck, i) => prPage('お金が動く年とその理由', `
+        ${i === 0 ? prHead(5, 'お金が動く年とその理由', '支出が大きく動いた年だけを抜き出しています。「なぜその年に増えたのか・減ったのか」まで書いてあります。')
+          : '<div class="pr-h2">お金が動く年とその理由（続き）</div>'}
         <div class="pr-blk"><table class="pr-tbl">
           <thead><tr><th>年（年齢）</th><th>できごと・理由</th><th style="text-align:right">年間支出</th><th style="text-align:right">年末資産</th></tr></thead>
-          <tbody>${changes.map(c => `<tr>
+          <tbody>${ck.map(c => `<tr>
             <th>${c.year}（${c.age}歳）</th>
-            <td>${escapeHtml([...c.marks.map(x => x.text), c.reason].filter(Boolean).join(' / ')) || '—'}</td>
+            <td>${escapeHtml([...c.marks.map(x => x.text), c.reason].filter(Boolean).join(' ／ ')) || '—'}</td>
             <td class="n">${fmtManPlain(c.expense)}</td>
-            <td class="n ${c.total >= 0 ? '' : 'neg-n'}">${fmtManPlain(c.total)}</td></tr>`).join('')}</tbody>
-        </table></div>
+            <td class="n ${c.total >= 0 ? '' : 'neg-n'}">${fmtManPlain(c.total)}</td></tr>`).join('') || '<tr><td colspan="4">大きく動く年はありません。</td></tr>'}</tbody>
+        </table></div>`));
 
-        <div class="pr-h2">この試算について</div>
-        <p class="pr-note">
-          金額はすべて物価上昇を織り込んだその年の金額です（今の物価に直した額ではありません）。<br>
-          収入は税・社会保険料を引いた手取りで計算しています。年金・退職金・iDeCo一時金も手取り換算です。<br>
-          運用の利回りは毎年一定と仮定した単純な試算です。実際の相場は上下するため、この通りになるわけではありません。<br>
-          税制・年金制度は今後変わる可能性があります。制度の数値は作成時点のものです。<br>
-          この資料は家計の見通しを立てるための試算であり、投資や契約の勧誘・助言ではありません。
-        </p>
-      </div>`;
+      const pageNote = prPage('この試算について', `
+        ${prHead(6, 'この試算について', '数字の読み方と、この試算がカバーしていないことをまとめています。')}
+        <div class="pr-note">
+          <b>金額の見方</b>
+          金額はすべて物価上昇を織り込んだ「その年の金額」です。今の物価に直した額ではありません。
+          旅行や家電などの特別支出は年に一度の出費なので、年額を12で割って月あたりにならしています。
+          <b>収入の計算</b>
+          収入は税金と社会保険料を引いた手取りで計算しています。年金・退職金・iDeCoの一時金も手取り換算です。
+          給与所得控除、社会保険料、所得税（復興特別所得税込み）、住民税（所得割・均等割）、扶養控除を反映しています。
+          <b>運用について</b>
+          運用の利回りは毎年一定と仮定した単純な試算です。実際の相場は上下するため、この通りになるわけではありません。
+          アプリの「想定年利のブレ幅」を設定すると、利回りが上下した場合の幅も確認できます。
+          課税口座の取り崩しには譲渡益税20.315%を、NISAには非課税を適用しています。
+          <b>制度について</b>
+          税制・年金制度は今後変わる可能性があります。制度の数値は作成時点のものです。
+          年金は繰上げ・繰下げによる増減、加給年金、在職老齢年金による支給停止を反映しています。
+          <b>この試算に含まれていないこと</b>
+          相続・贈与、住宅の売却や住み替え、転職による収入の変化、離婚・死亡などの大きな変化、
+          医療費の自己負担上限や高額療養費、失業給付は計算に含まれていません。
+          <b>ご利用にあたって</b>
+          この資料は家計の見通しを立てるための試算であり、投資や保険、住宅の購入を勧めるものではありません。
+          個別の判断にあたっては、必要に応じて専門家にご相談ください。
+        </div>`);
+
+      const html = [cover, pageSummary, pageAssume, pageFlow, pageMonth, ...pagesChange, pageNote].join('');
+      const pa = document.getElementById('printArea');
+      pa.innerHTML = html;
+      /* フッターにページ番号と資料名を入れる（表紙は数えない） */
+      pa.querySelectorAll('.pr-run .rd').forEach(el => { el.textContent = `${sim.name}　${stamp}`; });
+      const foots = pa.querySelectorAll('.pr-foot');
+      foots.forEach((f, i) => {
+        f.querySelector('.pg').textContent = `${i + 1} / ${foots.length}`;
+        f.querySelector('.doc').textContent = `ライフプラン シミュレーション`;
+      });
+      /* 目次は実際に組み上がったページから作る（章が2ページに渡ることがあるため） */
+      const toc = [], seen = new Set();
+      pa.querySelectorAll('.pr-page[data-ch]').forEach((pg, i) => {
+        const ch = pg.dataset.ch;
+        if (seen.has(ch)) return;
+        seen.add(ch); toc.push([ch, i + 1]);
+      });
+      const tocEl = document.getElementById('prToc');
+      if (tocEl) tocEl.innerHTML = toc.map(([ch, n], i) =>
+        `<div class="i"><em>${String(i + 1).padStart(2, '0')}</em><span>${escapeHtml(ch)}</span><u>P.${n}</u></div>`).join('');
       return true;
     }
 
     async function exportReport() {
       if (await buildReport()) window.print();
+    }
+
+    /* 1つのHTMLファイルとして保存する。画像もCSSも中に入るので、
+       このファイル単体で開けるし、受け取った人がPDFにもできる */
+    async function downloadReport() {
+      if (!await buildReport()) return;
+      const css = [...document.querySelectorAll('style')].map(x => x.textContent).join('\n');
+      const sim = simulate(S());
+      const now = new Date();
+      const d = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      /* ファイル名に日本語を使うと、ブラウザによっては download 属性が無視されて
+         「download」という名前で落ちてしまうので、半角英数字にする */
+      const slug = String(sim.name || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20);
+      const name = `LifePlan_Report${slug ? '_' + slug : ''}_${d}`;
+      const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(name)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>${css}
+body{margin:0;background:#eef1f6;}
+#printArea{display:block !important;}
+@media screen{#printArea .pr-page{box-shadow:0 2px 14px rgba(15,23,42,.18);margin:0 auto 20px;}
+#printArea{padding:20px 0;}}
+@media print{body{background:#fff;}#printArea .pr-page{box-shadow:none;margin:0;}}
+</style></head><body><div id="printArea">${document.getElementById('printArea').innerHTML}</div></body></html>`;
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = name + '.html';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
     /* =====================================================================
