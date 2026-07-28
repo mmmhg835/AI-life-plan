@@ -155,12 +155,43 @@
       letter-spacing: .04em;
     }
 
+    .exp-total.neg {
+      background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+    }
+
     .exp-total-val {
       font-family: 'DM Mono', monospace;
       font-size: 32px;
       font-weight: 500;
       line-height: 1.15;
       margin: 4px 0 2px;
+    }
+
+    .exp-total-val em {
+      font-style: normal;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, .22);
+      border-radius: 999px;
+      padding: 3px 9px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .exp-total-brk {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin: 8px 0 6px;
+      font-size: 12px;
+      opacity: .95;
+    }
+
+    .exp-total-brk b {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      margin-left: 5px;
     }
 
     .exp-total-sub {
@@ -216,6 +247,10 @@
       height: 100%;
       border-radius: 3px;
       background: var(--blue-mid);
+    }
+
+    .exp-bar.in span {
+      background: var(--green);
     }
 
     .exp-sub {
@@ -3222,17 +3257,20 @@
           loanCredit = Math.max(0, Math.min(Math.min(bal, hCreditLimit) * LOAN_CREDIT_RATE, room));
         }
 
-        let incSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0) : 0;
+        /* 給与と年金は分けて持つ（支出内訳ページで収入の内訳を出すため） */
+        let wageSelf = wk ? netAtYear(b, selfGross0, ig, depY, y, dep0) : 0;
+        if (wk) wageSelf += nz(b.sideIncome);
+        let pensionSelf = 0;
         if (pensionGrossY > 0) {
           if (wk && selfGross0) {
             /* 年金を足したことによる手取りの増分だけを乗せる */
-            incSelf += Math.max(0, taxOfYear(selfGrossY, pensionGrossY, curAge, depY).netExact
+            pensionSelf = Math.max(0, taxOfYear(selfGrossY, pensionGrossY, curAge, depY).netExact
               - calcNet(selfGrossY, depY).netExact);
           } else {
-            incSelf += pensionNetAnnual(pensionGrossY, curAge);
+            pensionSelf = pensionNetAnnual(pensionGrossY, curAge);
           }
         }
-        if (wk) incSelf += nz(b.sideIncome);
+        const incSelf = wageSelf + pensionSelf;
         /* iDeCoは受取年齢に一時金で受け取る。会社の退職金と同じ年なら
            退職所得控除を分け合うのでまとめて課税計算する */
         let idecoLump = 0, severance = 0;
@@ -3246,26 +3284,27 @@
           if (curAge === selfSevAge) severance += selfSevNet;
           if (takeIdeco) severance += severanceNet(idecoLump, idecoYears);
         }
-        let incPartner = 0;
+        let wagePartner = 0, pensionPartner = 0;
         if (pHas) {
           const pwk = pAgeY < pRetire;
           const wsFrac = p.workStartY
             ? (year < p.workStartY ? 0 : (year === p.workStartY ? (13 - (p.workStartM || 1)) / 12 : 1))
             : 1;
-          if (pwk && wsFrac > 0) incPartner += netAtYear(p, pGross0, pIg, 0, y, 0) * wsFrac + nz(p.sideIncome);
+          if (pwk && wsFrac > 0) wagePartner = netAtYear(p, pGross0, pIg, 0, y, 0) * wsFrac + nz(p.sideIncome);
           if (pAgeY >= pPenStart) {
             const cut = pwk ? zaishokuStopAnnual(pKoseiPart, pGrossY) : 0;
             const pg = Math.max(0, pPensionGross - cut);
             pensionCut += cut;
             if (pwk && pGross0 && pGrossY > 0) {
-              incPartner += Math.max(0, netSalaryPlusPension(pGrossY, pg, pAgeY, 0)
+              pensionPartner = Math.max(0, netSalaryPlusPension(pGrossY, pg, pAgeY, 0)
                 - calcNet(pGrossY, 0).netExact);
             } else {
-              incPartner += pensionNetAnnual(pg, pAgeY);
+              pensionPartner = pensionNetAnnual(pg, pAgeY);
             }
           }
           if (pAgeY === pSevAge) severance += pSevNet;
         }
+        const incPartner = wagePartner + pensionPartner;
         let allowance = 0;
         kids.forEach((c, i) => { allowance += allowAnnualCY(c, year, i + 1); });
         const income = incSelf + incPartner + allowance + severance + idecoSaving + loanCredit;
@@ -3401,6 +3440,8 @@
           event: Math.round(eventCost),
           allowance: Math.round(allowance), severance: Math.round(severance),
           incSelf: Math.round(incSelf), incPartner: Math.round(incPartner),
+          wageSelf: Math.round(wageSelf), wagePartner: Math.round(wagePartner),
+          pensionSelf: Math.round(pensionSelf), pensionPartner: Math.round(pensionPartner),
           nisaIn: Math.round(nisaIn), idecoIn: Math.round(idecoIn), insIn: Math.round(insIn),
           bd,
           idecoSaving: Math.round(idecoSaving), loanCredit: Math.round(loanCredit),
@@ -4597,50 +4638,71 @@
         return `<option value="${x.year}" ${x.year === r.year ? 'selected' : ''}>${x.year}年（${x.age}歳${tag}）</option>`;
       }).join('');
 
+      /* 収入の内訳（月額） */
+      const incItems = [
+        ['本人の給与', m(r.wageSelf), '手取り。副業を含む'],
+        ['パートナーの給与', m(r.wagePartner), '手取り'],
+        ['本人の年金', m(r.pensionSelf), '手取り'],
+        ['パートナーの年金', m(r.pensionPartner), '手取り'],
+        ['児童手当', m(r.allowance), ''],
+        ['退職一時金', m(r.severance), '退職金・iDeCo一時金（この年かぎり）'],
+        ['iDeCoの節税', m(r.idecoSaving), '掛金の所得控除で軽くなる税'],
+        ['住宅ローン控除', m(r.loanCredit), '年末残高×0.7%の還付']
+      ].filter(x => x[1] >= 0.05).sort((a2, b2) => b2[1] - a2[1]);
+      const incMax = incItems.length ? incItems[0][1] : 1;
+      const incList = incItems.map(([name, v, sub]) => `
+        <div class="exp-row">
+          <span class="exp-name">${name}</span>
+          <span class="exp-amt">${v.toFixed(1)}万<i>${incomeM > 0 ? Math.round(v / incomeM * 100) : 0}%</i></span>
+          <span class="exp-bar in"><span style="width:${incMax > 0 ? (v / incMax * 100).toFixed(1) : 0}%"></span></span>
+          ${sub ? `<span class="exp-sub">${sub}</span>` : ''}
+        </div>`).join('');
+
       body.innerHTML = `
         <div class="exp-yr">
-          <label for="expYearSel">いつの支出を見る？</label>
+          <label for="expYearSel">いつの収支を見る？</label>
           <select id="expYearSel" onchange="setExpYear(this.value)">${opts}</select>
         </div>
 
-        <div class="exp-total">
-          <div class="exp-total-lbl">${r.year}年（${r.age}歳）の 月あたりの支出</div>
-          <div class="exp-total-val">${totalM.toFixed(1)}<span style="font-size:16px;"> 万円 / 月</span></div>
-          <div class="exp-total-sub">年間 ${fmtManPlain(r.expense)}${saveM > 0 ? `　＋ 積立 ${saveM.toFixed(1)}万/月` : ''}</div>
+        <div class="exp-total ${leftM >= 0 ? '' : 'neg'}">
+          <div class="exp-total-lbl">${r.year}年（${r.age}歳）の 月あたりの収支</div>
+          <div class="exp-total-val">${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}<span style="font-size:16px;"> 万円 / 月</span>
+            <em>${leftM >= 0 ? '黒字' : '赤字'}</em></div>
+          <div class="exp-total-brk">
+            <span>収入<b>${incomeM.toFixed(1)}万</b></span>
+            <span>支出<b>−${totalM.toFixed(1)}万</b></span>
+            ${saveM > 0 ? `<span>積立<b>−${saveM.toFixed(1)}万</b></span>` : ''}
+          </div>
+          <div class="exp-total-sub">年間 ${fmtManSigned(r.income - r.expense - r.nisaIn - r.idecoIn - r.insIn)}
+            （収入 ${fmtManPlain(r.income)} − 支出 ${fmtManPlain(r.expense)}${saveM > 0 ? ` − 積立 ${fmtManPlain(r.nisaIn + r.idecoIn + r.insIn)}` : ''}）</div>
         </div>
 
         <div class="card">
-          <div class="ctitle">費目別（月あたり）</div>
+          <div class="ctitle">支出の内訳（月あたり 計 ${totalM.toFixed(1)}万）</div>
           ${list || '<p class="sim-detail-hint">この年の支出はありません。</p>'}
         </div>
 
+        <div class="card">
+          <div class="ctitle">収入の内訳（月あたり 計 ${incomeM.toFixed(1)}万）</div>
+          ${incList || '<p class="sim-detail-hint">この年の収入はありません。</p>'}
+          ${r.severance > 0 ? `<p class="sim-detail-hint">この年は退職一時金 ${fmtManPlain(r.severance)} が入るため、収入が一時的に大きくなっています。</p>` : ''}
+          ${r.pensionCut > 0 ? `<p class="sim-detail-hint">働きながら年金を受け取るため、在職老齢年金で年 ${fmtManPlain(r.pensionCut)} が支給停止になっています。</p>` : ''}
+        </div>
+
         ${saves.length ? `<div class="card">
-          <div class="ctitle">積立（支出ではなく資産に移る分）</div>
+          <div class="ctitle">積立（支出ではなく資産に移る分 計 ${saveM.toFixed(1)}万）</div>
           ${saves.map(([n, v]) => `<div class="exp-row"><span class="exp-name">${n}</span>
             <span class="exp-amt">${v.toFixed(1)}万</span></div>`).join('')}
           <p class="sim-detail-hint">出ていくお金ですが、使ってなくなるのではなく資産として残ります。</p>
         </div>` : ''}
 
         <div class="card">
-          <div class="ctitle">この年の収支（月あたり）</div>
-          <div class="exp-bs">
-            <span>収入（手取り）</span><b>${incomeM.toFixed(1)}万</b>
-            <span>支出</span><b class="neg">−${totalM.toFixed(1)}万</b>
-            ${saveM > 0 ? `<span>積立</span><b class="neg">−${saveM.toFixed(1)}万</b>` : ''}
-            <span class="ttl">残り</span><b class="ttl ${leftM >= 0 ? 'pos' : 'neg'}">${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}万</b>
-          </div>
-          <p class="sim-detail-hint">${leftM >= 0
-          ? '毎月これだけ現金が増えていく計算です。'
-          : '毎月これだけ足りません。貯金や投資の取り崩しで埋めます。'}
-          ${r.severance > 0 ? `この年は退職一時金 ${fmtManPlain(r.severance)} が入るため、収入が一時的に大きくなっています。` : ''}</p>
-        </div>
-
-        <div class="card">
           <div class="ctitle">読み方</div>
           <p class="sim-detail-hint">
             金額は物価上昇を織り込んだその年の金額です（今の物価に直した額ではありません）。
             旅行や家電などの「特別支出」は年に一度の出費なので、年額を12で割って月あたりにならしています。
-            住まい・車・教育は年によって大きく変わるので、上の年を切り替えて比べてみてください。
+            収支が赤字の年は、貯金や投資の取り崩しで埋めます。
+            住まい・車・教育・年金は年によって大きく変わるので、上の年を切り替えて比べてみてください。
           </p>
         </div>`;
     }
