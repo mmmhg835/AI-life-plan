@@ -139,6 +139,140 @@
       white-space: nowrap;
     }
 
+    /* 支出内訳 */
+    .exp-total {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-mid) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 18px 16px;
+      margin-bottom: 12px;
+    }
+
+    .exp-total-lbl {
+      font-size: 11px;
+      font-weight: 700;
+      opacity: .85;
+      letter-spacing: .04em;
+    }
+
+    .exp-total-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 32px;
+      font-weight: 500;
+      line-height: 1.15;
+      margin: 4px 0 2px;
+    }
+
+    .exp-total-sub {
+      font-size: 12px;
+      opacity: .85;
+    }
+
+    .exp-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 10px;
+      align-items: baseline;
+      padding: 9px 0 7px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .exp-row:last-child {
+      border-bottom: none;
+    }
+
+    .exp-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .exp-amt {
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-800);
+      white-space: nowrap;
+    }
+
+    .exp-amt i {
+      font-style: normal;
+      font-size: 11px;
+      color: var(--gray-400);
+      margin-left: 6px;
+    }
+
+    .exp-bar {
+      grid-column: 1 / -1;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--gray-100);
+      overflow: hidden;
+      margin-top: 3px;
+    }
+
+    .exp-bar span {
+      display: block;
+      height: 100%;
+      border-radius: 3px;
+      background: var(--blue-mid);
+    }
+
+    .exp-sub {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--gray-400);
+      line-height: 1.5;
+    }
+
+    .exp-yr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .exp-yr label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-600);
+    }
+
+    .exp-yr select {
+      flex: 1;
+      min-width: 150px;
+      padding: 9px 10px;
+      border: 2px solid var(--blue-bdr);
+      border-radius: 9px;
+      background: white;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .exp-bs {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px 10px;
+      align-items: baseline;
+      font-size: 13px;
+    }
+
+    .exp-bs b {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .exp-bs .ttl {
+      border-top: 1px solid var(--gray-200);
+      padding-top: 8px;
+      font-weight: 700;
+    }
+
     /* MAIN */
     main {
       max-width: 600px;
@@ -1906,9 +2040,11 @@
         class="slbl">入力</span></button>
     <button class="sbtn" id="navBtn1" onclick="showView('summary')"><span class="step-num">02</span><span
         class="slbl">サマリー</span></button>
-    <button class="sbtn" id="navBtn2" onclick="showView('graph')"><span class="step-num">03</span><span
+    <button class="sbtn" id="navBtn2" onclick="showView('expense')"><span class="step-num">03</span><span
+        class="slbl">支出内訳</span></button>
+    <button class="sbtn" id="navBtn3" onclick="showView('graph')"><span class="step-num">04</span><span
         class="slbl">グラフ</span></button>
-    <button class="sbtn" id="navBtn3" onclick="showView('ai')"><span class="step-num">04</span><span
+    <button class="sbtn" id="navBtn4" onclick="showView('ai')"><span class="step-num">05</span><span
         class="slbl">AI診断</span></button>
   </div>
 
@@ -1956,6 +2092,17 @@
       <div id="summaryBody"></div>
       <button class="btn btn-s" onclick="runSimulation()">シミュレーション実行 →</button>
       <button class="btn btn-o" onclick="wizResume()">← ウィザードに戻る</button>
+    </div>
+
+    <!-- 支出内訳 -->
+    <div class="sec" id="viewExpense">
+      <div class="ph">
+        <div class="ph-bar"></div>
+        <div class="ph-ttl">支出の内訳</div>
+      </div>
+      <div id="expBody"></div>
+      <button class="btn btn-s" onclick="showView('graph')">グラフを見る →</button>
+      <button class="btn btn-o" onclick="showView('summary')">← 入力内容サマリーへ</button>
     </div>
 
     <!-- グラフ -->
@@ -3123,15 +3270,23 @@
         kids.forEach((c, i) => { allowance += allowAnnualCY(c, year, i + 1); });
         const income = incSelf + incPartner + allowance + severance + idecoSaving + loanCredit;
 
-        /* --- 生活費（退職後は比率を掛け、医療・介護費を上乗せ） --- */
-        const livingBase =
-          (nz(e.food) * infl('food', y) + nz(e.utility) * infl('utility', y)
-            + nz(e.telecom) * infl('telecom', y) + nz(e.insurance) * infl('insurance', y)
-            + nz(e.subscription) * infl('subscription', y) + nz(e.transport) * infl('transport', y)
-            + otherFixedM * infl('otherFixed', y) + variableM * infl('variable', y)) * 12
-          + specialA * infl('special', y);
-        const living = wk ? livingBase
-          : livingBase * retireLivingRate + retireMedicalM * 12 * infl('otherFixed', y);
+        /* --- 生活費（退職後は比率を掛け、医療・介護費を上乗せ） ---
+           内訳の形で組み立てて合計する。表示側で別に計算し直すと本体とずれるため、
+           支出内訳のページはこの bd をそのまま使う */
+        const lr = wk ? 1 : retireLivingRate;
+        const bd = {
+          food: nz(e.food) * infl('food', y) * 12 * lr,
+          utility: nz(e.utility) * infl('utility', y) * 12 * lr,
+          telecom: nz(e.telecom) * infl('telecom', y) * 12 * lr,
+          insurance: nz(e.insurance) * infl('insurance', y) * 12 * lr,
+          subscription: nz(e.subscription) * infl('subscription', y) * 12 * lr,
+          transport: nz(e.transport) * infl('transport', y) * 12 * lr,
+          otherFixed: otherFixedM * infl('otherFixed', y) * 12 * lr,
+          variable: variableM * infl('variable', y) * 12 * lr,
+          special: specialA * infl('special', y) * lr,
+          medical: wk ? 0 : retireMedicalM * 12 * infl('otherFixed', y)
+        };
+        const living = Object.keys(bd).reduce((a, k) => a + bd[k], 0);
 
         /* --- 教育・保育・習い事 --- */
         let edu = 0;
@@ -3245,6 +3400,9 @@
           housing: Math.round(housing), car: Math.round(car),
           event: Math.round(eventCost),
           allowance: Math.round(allowance), severance: Math.round(severance),
+          incSelf: Math.round(incSelf), incPartner: Math.round(incPartner),
+          nisaIn: Math.round(nisaIn), idecoIn: Math.round(idecoIn), insIn: Math.round(insIn),
+          bd,
           idecoSaving: Math.round(idecoSaving), loanCredit: Math.round(loanCredit),
           cgTax: Math.round(cgTax), kakyu: Math.round(kakyu),
           pensionCut: Math.round(pensionCut), idecoLump: Math.round(idecoLump),
@@ -3979,8 +4137,11 @@
        ビュー切替
        ===================================================================== */
     let currentView = 'wizard';
-    const VIEW_IDS = { wizard: 'viewWizard', summary: 'viewSummary', graph: 'viewGraph', ai: 'viewAI' };
-    const VIEW_ORDER = ['wizard', 'summary', 'graph', 'ai'];
+    const VIEW_IDS = {
+      wizard: 'viewWizard', summary: 'viewSummary', expense: 'viewExpense',
+      graph: 'viewGraph', ai: 'viewAI'
+    };
+    const VIEW_ORDER = ['wizard', 'summary', 'expense', 'graph', 'ai'];
     function showView(name) {
       currentView = name;
       VIEW_ORDER.forEach((v, i) => {
@@ -3990,6 +4151,7 @@
       window.scrollTo(0, 0);
       if (name === 'wizard') wizRefresh();
       if (name === 'summary') renderSummary();
+      if (name === 'expense') renderExpense();
       if (name === 'graph') runSimulation(false);
     }
 
@@ -4368,6 +4530,120 @@
         <thead><tr><th>シナリオ</th><th>退職直前資産</th><th>最終資産</th><th>資産枯渇</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
     function toggleCmp(i, on) { cmpChecked[i] = on; runSimulation(false); }
+
+    /* =====================================================================
+       支出の内訳（月あたり）
+       ===================================================================== */
+    /* 表示する年。null なら今年 */
+    let expYear = null;
+
+    const EXP_LIVING_LABELS = {
+      food: ['食費・日用品', '食費と日用品'],
+      utility: ['水道光熱費', ''],
+      telecom: ['通信費', 'スマホ・ネット'],
+      insurance: ['保険料', ''],
+      subscription: ['サブスク', ''],
+      transport: ['交通費', ''],
+      variable: ['趣味・交際・被服', '日用の変動費を含む'],
+      otherFixed: ['その他の固定費', 'ジム・習い事・ペットなど'],
+      special: ['特別支出', '旅行・家電・冠婚葬祭（年額を12で割った額）'],
+      medical: ['医療・介護費', '退職後の上乗せ']
+    };
+
+    function setExpYear(v) { expYear = v === '' ? null : Number(v); renderExpense(); }
+
+    function renderExpense() {
+      const body = document.getElementById('expBody');
+      const sim = simulate(S());
+      if (!sim) {
+        body.innerHTML = `<div class="card"><div class="ctitle">まだ計算できません</div>
+          <p class="sim-detail-hint">「現在の年齢」と「退職予定年齢」の入力が必要です。</p>
+          <button class="btn btn-p" onclick="wizJumpTo('y_age')" style="margin-top:10px;">年齢を入力する →</button></div>`;
+        return;
+      }
+      const rows = sim.rows;
+      const target = expYear == null ? rows[0].year : expYear;
+      const r = rows.find(x => x.year === target) || rows[0];
+      const m = v => v / 12;   /* 年額→月額 */
+
+      /* 費目（月額）。生活費は内訳を開き、住宅・車・教育などはまとめて1行 */
+      const items = [
+        ['住まい', m(r.housing), sim.hBuy ? 'ローン・管理費・固定資産税・家賃' : '家賃'],
+        ['教育・保育', m(r.edu), '学費・保育料・習い事'],
+        ['車', m(r.car), '購入費・ローン・維持費'],
+        ...Object.keys(EXP_LIVING_LABELS).map(k => [EXP_LIVING_LABELS[k][0], m(r.bd[k]), EXP_LIVING_LABELS[k][1]]),
+        ['ライフイベント', m(r.event), 'まとまった出費']
+      ].filter(x => x[1] >= 0.05).sort((a, b) => b[1] - a[1]);
+
+      const totalM = m(r.expense);
+      const maxM = items.length ? items[0][1] : 1;
+      const list = items.map(([name, v, sub]) => `
+        <div class="exp-row">
+          <span class="exp-name">${name}</span>
+          <span class="exp-amt">${v.toFixed(1)}万<i>${totalM > 0 ? Math.round(v / totalM * 100) : 0}%</i></span>
+          <span class="exp-bar"><span style="width:${maxM > 0 ? (v / maxM * 100).toFixed(1) : 0}%"></span></span>
+          ${sub ? `<span class="exp-sub">${sub}</span>` : ''}
+        </div>`).join('');
+
+      /* 積立は「支出」ではなく資産に移るお金なので分けて出す */
+      const saves = [['NISA・投資信託', m(r.nisaIn)], ['iDeCo', m(r.idecoIn)], ['保険積立', m(r.insIn)]]
+        .filter(x => x[1] >= 0.05);
+      const saveM = saves.reduce((a, x) => a + x[1], 0);
+      const incomeM = m(r.income);
+      const leftM = incomeM - totalM - saveM;
+
+      const opts = rows.map(x => {
+        const tag = x.age === sim.retireAge ? '・退職' : (x.year === rows[0].year ? '・今年' : '');
+        return `<option value="${x.year}" ${x.year === r.year ? 'selected' : ''}>${x.year}年（${x.age}歳${tag}）</option>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="exp-yr">
+          <label for="expYearSel">いつの支出を見る？</label>
+          <select id="expYearSel" onchange="setExpYear(this.value)">${opts}</select>
+        </div>
+
+        <div class="exp-total">
+          <div class="exp-total-lbl">${r.year}年（${r.age}歳）の 月あたりの支出</div>
+          <div class="exp-total-val">${totalM.toFixed(1)}<span style="font-size:16px;"> 万円 / 月</span></div>
+          <div class="exp-total-sub">年間 ${fmtManPlain(r.expense)}${saveM > 0 ? `　＋ 積立 ${saveM.toFixed(1)}万/月` : ''}</div>
+        </div>
+
+        <div class="card">
+          <div class="ctitle">費目別（月あたり）</div>
+          ${list || '<p class="sim-detail-hint">この年の支出はありません。</p>'}
+        </div>
+
+        ${saves.length ? `<div class="card">
+          <div class="ctitle">積立（支出ではなく資産に移る分）</div>
+          ${saves.map(([n, v]) => `<div class="exp-row"><span class="exp-name">${n}</span>
+            <span class="exp-amt">${v.toFixed(1)}万</span></div>`).join('')}
+          <p class="sim-detail-hint">出ていくお金ですが、使ってなくなるのではなく資産として残ります。</p>
+        </div>` : ''}
+
+        <div class="card">
+          <div class="ctitle">この年の収支（月あたり）</div>
+          <div class="exp-bs">
+            <span>収入（手取り）</span><b>${incomeM.toFixed(1)}万</b>
+            <span>支出</span><b class="neg">−${totalM.toFixed(1)}万</b>
+            ${saveM > 0 ? `<span>積立</span><b class="neg">−${saveM.toFixed(1)}万</b>` : ''}
+            <span class="ttl">残り</span><b class="ttl ${leftM >= 0 ? 'pos' : 'neg'}">${leftM >= 0 ? '+' : '−'}${Math.abs(leftM).toFixed(1)}万</b>
+          </div>
+          <p class="sim-detail-hint">${leftM >= 0
+          ? '毎月これだけ現金が増えていく計算です。'
+          : '毎月これだけ足りません。貯金や投資の取り崩しで埋めます。'}
+          ${r.severance > 0 ? `この年は退職一時金 ${fmtManPlain(r.severance)} が入るため、収入が一時的に大きくなっています。` : ''}</p>
+        </div>
+
+        <div class="card">
+          <div class="ctitle">読み方</div>
+          <p class="sim-detail-hint">
+            金額は物価上昇を織り込んだその年の金額です（今の物価に直した額ではありません）。
+            旅行や家電などの「特別支出」は年に一度の出費なので、年額を12で割って月あたりにならしています。
+            住まい・車・教育は年によって大きく変わるので、上の年を切り替えて比べてみてください。
+          </p>
+        </div>`;
+    }
 
     /* =====================================================================
        AI診断
