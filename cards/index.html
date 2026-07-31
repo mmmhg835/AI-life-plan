@@ -799,6 +799,364 @@
       line-height: 1.8;
     }
 
+    /* ===== 名刺そのものの見せ方 ===== */
+    .mgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+      gap: 12px;
+    }
+
+    .mcard {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .15s;
+    }
+
+    .mcard:hover {
+      box-shadow: 0 4px 16px rgba(26, 86, 219, .14);
+      transform: translateY(-1px);
+    }
+
+    .mface {
+      position: relative;
+      aspect-ratio: 91 / 55;
+      background: linear-gradient(135deg, #fff 0%, #f4f7fd 100%);
+      border-bottom: 1px solid var(--gray-200);
+      overflow: hidden;
+    }
+
+    .mface img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .mface-t {
+      position: absolute;
+      inset: 0;
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mface-co {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--gray-600);
+      letter-spacing: .3px;
+      line-height: 1.4;
+    }
+
+    .mface-nm {
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      line-height: 1.3;
+    }
+
+    .mface-nm small {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--gray-400);
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .mface-ti {
+      font-size: 10px;
+      color: var(--gray-600);
+      line-height: 1.5;
+    }
+
+    .mface-ct {
+      font-size: 9.5px;
+      color: var(--gray-400);
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .mface-rule {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    .mbody {
+      padding: 9px 12px 11px;
+    }
+
+    .mbody-co {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue);
+      line-height: 1.4;
+      margin-bottom: 3px;
+    }
+
+    .mbody-b {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .photo-box {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .photo-pv {
+      width: 168px;
+      aspect-ratio: 91/55;
+      border: 1.5px dashed var(--gray-300);
+      border-radius: 8px;
+      background: var(--gray-50);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      color: var(--gray-400);
+      overflow: hidden;
+      text-align: center;
+      padding: 6px;
+    }
+
+    .photo-pv img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ===== 人物プロフィール ===== */
+    .prof-h {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .prof-card {
+      width: 300px;
+      flex-shrink: 0;
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .prof-main {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .prof-nm {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -.5px;
+      line-height: 1.3;
+    }
+
+    .prof-kn {
+      font-size: 11px;
+      color: var(--gray-400);
+      font-weight: 700;
+    }
+
+    .prof-ti {
+      font-size: 13px;
+      color: var(--gray-600);
+      font-weight: 700;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    .prof-ct a {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .prof-ct a:hover {
+      text-decoration: underline;
+    }
+
+    .prof-ct div {
+      font-size: 12.5px;
+      margin-top: 4px;
+    }
+
+    .peers {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* ===== 可視化 ===== */
+    .mx {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 2px;
+      font-size: 11.5px;
+      min-width: 620px;
+    }
+
+    .mx th {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--gray-600);
+      padding: 3px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .mx th.l,
+    .mx td.l {
+      text-align: left;
+      white-space: nowrap;
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mx td {
+      padding: 5px 6px;
+      text-align: center;
+      border-radius: 5px;
+      background: var(--gray-50);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .mx td.l {
+      background: none;
+      font-weight: 700;
+    }
+
+    .cell-fresh {
+      background: #d6f5e2 !important;
+      color: #12703a;
+    }
+
+    .cell-warm {
+      background: #fdeecd !important;
+      color: #96590a;
+    }
+
+    .cell-stale {
+      background: #fbdcdc !important;
+      color: #a51b1b;
+    }
+
+    .cell-none {
+      background: #eef1f5 !important;
+      color: var(--gray-400);
+    }
+
+    .cell-empty {
+      background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 4px, #eef1f5 4px, #eef1f5 8px) !important;
+      color: var(--gray-300);
+    }
+
+    .hm td {
+      width: 26px;
+      height: 22px;
+      padding: 0;
+      font-size: 9.5px;
+      color: rgba(255, 255, 255, .95);
+    }
+
+    .hm-0 {
+      background: #eef1f5 !important;
+      color: transparent;
+    }
+
+    .hm-1 {
+      background: #c3d8fb !important;
+      color: #1240a8;
+    }
+
+    .hm-2 {
+      background: #7ea8f2 !important;
+    }
+
+    .hm-3 {
+      background: #3b72e8 !important;
+    }
+
+    .hm-4 {
+      background: #1240a8 !important;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 10.5px;
+      color: var(--gray-600);
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      vertical-align: -2px;
+      margin-right: 4px;
+    }
+
+    .spark {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 20px;
+      margin-top: 8px;
+    }
+
+    .spark i {
+      flex: 1;
+      background: var(--blue-bdr);
+      border-radius: 1px 1px 0 0;
+      min-height: 2px;
+    }
+
+    .spark i.on {
+      background: var(--blue-mid);
+    }
+
+    .seg {
+      display: inline-flex;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .seg button {
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 13px;
+      border: none;
+      background: white;
+      color: var(--gray-600);
+      cursor: pointer;
+    }
+
+    .seg button.on {
+      background: var(--blue);
+      color: white;
+    }
+
     @media (max-width: 560px) {
       .hdr-note {
         display: none;
@@ -806,6 +1164,10 @@
 
       nav {
         top: 52px;
+      }
+
+      .prof-card {
+        width: 100%;
       }
     }
   </style>
@@ -826,6 +1188,7 @@
     <div class="nav-in">
       <button class="navbtn on" data-view="dash">ダッシュボード</button>
       <button class="navbtn" data-view="companies">企業</button>
+      <button class="navbtn" data-view="map">接点マップ</button>
       <button class="navbtn" data-view="cards">名刺</button>
       <button class="navbtn" data-view="acts">接点</button>
       <button class="navbtn" data-view="data">取り込み／保存</button>
@@ -929,6 +1292,20 @@
           </div>
           <div style="margin-top:10px"><label class="f">メモ</label><textarea class="i" id="f-memo" rows="2"></textarea>
           </div>
+          <div style="margin-top:12px">
+            <label class="f">名刺の写真（撮影・画像ファイル）</label>
+            <div class="photo-box">
+              <div class="photo-pv" id="f-photo-pv">まだありません</div>
+              <div>
+                <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none">
+                <div class="btnrow">
+                  <button type="button" class="btn ghost mini" id="f-photo-pick">写真を選ぶ／撮る</button>
+                  <button type="button" class="btn danger mini" id="f-photo-del">写真を外す</button>
+                </div>
+                <div class="sm" style="margin-top:6px;line-height:1.7">長辺1000pxまで縮小して保存します。<br>スマホなら「撮る」でそのままカメラが開きます。</div>
+              </div>
+            </div>
+          </div>
           <div class="btnrow" style="margin-top:12px">
             <button type="submit" class="btn" id="f-submit">この名刺を登録</button>
             <button type="button" class="btn ghost" id="f-clear">クリア</button>
@@ -949,11 +1326,59 @@
       <div class="panel">
         <div class="row-sb" style="margin-bottom:10px">
           <div class="panel-ttl" style="margin:0">名刺一覧 <span class="sm" id="card-count"></span></div>
-          <input class="i" id="card-q" placeholder="氏名・会社・部署で検索" style="max-width:260px">
+          <div class="row-sb" style="gap:8px">
+            <div class="seg">
+              <button type="button" class="on" data-cardview="grid">名刺で見る</button>
+              <button type="button" data-cardview="table">表で見る</button>
+            </div>
+            <input class="i" id="card-q" placeholder="氏名・会社・部署で検索" style="max-width:220px">
+          </div>
         </div>
-        <div class="tw">
-          <table class="t" id="card-table"></table>
+        <div id="card-body"></div>
+      </div>
+    </section>
+
+    <!-- ============ PERSON ============ -->
+    <section class="view" id="v-person">
+      <div class="back" id="p-back">← 戻る</div>
+      <div id="p-detail"></div>
+    </section>
+
+    <!-- ============ MAP ============ -->
+    <section class="view" id="v-map">
+      <div class="panel">
+        <div class="panel-ttl">到達マップ｜企業 × 役職の層</div>
+        <div class="panel-sub">
+          セルの色は<b>その層で一番新しい接点</b>の状態。斜線は「その層の名刺をまだ持っていない」＝空白地帯です。
+          右に行くほど下の層。左の列が緑になっていない会社は、決裁に届いていません。
         </div>
+        <div class="tw" id="map-matrix"></div>
+        <div class="legend">
+          <span><i style="background:#d6f5e2"></i>接点あり</span>
+          <span><i style="background:#fdeecd"></i>冷えかけ</span>
+          <span><i style="background:#fbdcdc"></i>途絶</span>
+          <span><i style="background:#eef1f5"></i>名刺のみ</span>
+          <span><i style="background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 4px,#eef1f5 4px,#eef1f5 8px)"></i>名刺なし</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">接点ヒートマップ｜企業 × 直近12か月</div>
+        <div class="panel-sub">月ごとの接点の件数。横に途切れている期間が、その会社を放置していた期間です。</div>
+        <div class="tw" id="map-heat"></div>
+        <div class="legend">
+          <span><i class="hm-0" style="background:#eef1f5"></i>0件</span>
+          <span><i style="background:#c3d8fb"></i>1件</span>
+          <span><i style="background:#7ea8f2"></i>2件</span>
+          <span><i style="background:#3b72e8"></i>3件</span>
+          <span><i style="background:#1240a8"></i>4件以上</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">自社担当ごとの持ち分</div>
+        <div class="panel-sub">誰がどれだけ抱えていて、そのうちどれだけ生きているか。</div>
+        <div class="tw" id="map-owner"></div>
       </div>
     </section>
 
@@ -1115,7 +1540,10 @@
          ========================================================== */
       let state = { cards: [], acts: [], meta: {}, settings: Object.assign({}, DEFAULT_SETTINGS) };
       let currentCompanyKey = null;
+      let currentCardId = null;
       let currentView = 'dash';
+      let cardViewMode = 'grid';
+      let backFrom = 'cards';
 
       function load() {
         try {
@@ -1198,6 +1626,104 @@
         return String(s).replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, function (c) {
           return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
         }).replace(/　/g, ' ');
+      }
+
+      /* ==========================================================
+         名刺画像の保管
+         localStorage は数MBで頭打ちなので画像は IndexedDB に置く。
+         使えない環境（古いSafariのfile://など）では localStorage に落とす。
+         描画は同期でやりたいので、起動時に photoCache へ全部読み込む。
+         ========================================================== */
+      const PHOTO_DB = 'meishi-photos', PHOTO_ST = 'imgs', PHOTO_LS = 'meishi-photo-';
+      let photoCache = {};
+      let dbPromise = null;
+
+      function idb() {
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise(function (res, rej) {
+          if (typeof indexedDB === 'undefined') { rej(new Error('no idb')); return; }
+          const r = indexedDB.open(PHOTO_DB, 1);
+          r.onupgradeneeded = function () { r.result.createObjectStore(PHOTO_ST); };
+          r.onsuccess = function () { res(r.result); };
+          r.onerror = function () { rej(r.error || new Error('idb error')); };
+        });
+        return dbPromise;
+      }
+
+      function photoLoadAll() {
+        return idb().then(function (db) {
+          return new Promise(function (res, rej) {
+            const out = {};
+            const t = db.transaction(PHOTO_ST, 'readonly');
+            const cur = t.objectStore(PHOTO_ST).openCursor();
+            cur.onsuccess = function () {
+              const c = cur.result;
+              if (c) { out[c.key] = c.value; c.continue(); }
+            };
+            t.oncomplete = function () { res(out); };
+            t.onerror = function () { rej(t.error); };
+          });
+        }).catch(function () {
+          // IndexedDBが使えない環境
+          const out = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf(PHOTO_LS) === 0) out[k.slice(PHOTO_LS.length)] = localStorage.getItem(k);
+          }
+          return out;
+        }).then(function (out) { photoCache = out; return out; });
+      }
+
+      function photoSave(id, dataUrl) {
+        photoCache[id] = dataUrl;
+        return idb().then(function (db) {
+          return new Promise(function (res, rej) {
+            const t = db.transaction(PHOTO_ST, 'readwrite');
+            t.objectStore(PHOTO_ST).put(dataUrl, id);
+            t.oncomplete = function () { res(); };
+            t.onerror = function () { rej(t.error); };
+          });
+        }).catch(function () {
+          try { localStorage.setItem(PHOTO_LS + id, dataUrl); }
+          catch (e) { delete photoCache[id]; throw new Error('写真を保存できませんでした（容量オーバー）'); }
+        });
+      }
+
+      function photoRemove(id) {
+        delete photoCache[id];
+        try { localStorage.removeItem(PHOTO_LS + id); } catch (e) { /* 無視 */ }
+        return idb().then(function (db) {
+          return new Promise(function (res) {
+            const t = db.transaction(PHOTO_ST, 'readwrite');
+            t.objectStore(PHOTO_ST).delete(id);
+            t.oncomplete = function () { res(); };
+            t.onerror = function () { res(); };
+          });
+        }).catch(function () { });
+      }
+
+      // 撮った写真をそのまま持つと重いので、長辺1000pxのJPEGに落とす
+      function fileToDataUrl(file, maxSide, quality) {
+        return new Promise(function (res, rej) {
+          const fr = new FileReader();
+          fr.onload = function () {
+            const img = new Image();
+            img.onload = function () {
+              const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+              const w = Math.max(1, Math.round(img.width * scale));
+              const h = Math.max(1, Math.round(img.height * scale));
+              const cv = document.createElement('canvas');
+              cv.width = w; cv.height = h;
+              cv.getContext('2d').drawImage(img, 0, 0, w, h);
+              try { res(cv.toDataURL('image/jpeg', quality)); }
+              catch (e) { rej(new Error('画像を変換できませんでした')); }
+            };
+            img.onerror = function () { rej(new Error('画像として読めませんでした')); };
+            img.src = fr.result;
+          };
+          fr.onerror = function () { rej(new Error('ファイルを読めませんでした')); };
+          fr.readAsDataURL(file);
+        });
       }
 
       /* ==========================================================
@@ -1383,7 +1909,7 @@
             const r = titleRank(c.title);
             const band = rankBand(r, st.decRank);
             const ps = personStatus(c);
-            h += '<div class="pchip f-' + ps.fresh + (band.key === 'dec' ? ' decider' : '') + '" data-card="' + esc(c.id) + '">' +
+            h += '<div class="pchip f-' + ps.fresh + (band.key === 'dec' ? ' decider' : '') + '" data-person="' + esc(c.id) + '">' +
               '<div class="t">' + esc(c.title || '—') + (band.key === 'dec' ? ' ★' : '') + '</div>' +
               '<div class="n">' + esc(c.name) + '</div>' +
               '<div class="d">' + FRESH_LABEL[ps.fresh] + '・最終 ' + fmtDate(ps.last) + '</div>' +
@@ -1406,12 +1932,14 @@
          ========================================================== */
       function showView(v) {
         currentView = v;
-        ['dash', 'companies', 'company', 'cards', 'acts', 'data'].forEach(function (name) {
+        ['dash', 'companies', 'company', 'cards', 'person', 'acts', 'map', 'data'].forEach(function (name) {
           const el = $('v-' + name);
           if (el) el.classList.toggle('on', name === v);
         });
         document.querySelectorAll('.navbtn').forEach(function (b) {
-          b.classList.toggle('on', b.dataset.view === v || (v === 'company' && b.dataset.view === 'companies'));
+          b.classList.toggle('on', b.dataset.view === v ||
+            (v === 'company' && b.dataset.view === 'companies') ||
+            (v === 'person' && b.dataset.view === 'cards'));
         });
         window.scrollTo(0, 0);
         render();
@@ -1420,6 +1948,11 @@
       function openCompany(key) {
         currentCompanyKey = key;
         showView('company');
+      }
+
+      function openPerson(id) {
+        currentCardId = id;
+        showView('person');
       }
 
       /* ==========================================================
@@ -1432,7 +1965,9 @@
         if (currentView === 'companies') renderCompanies(cos);
         if (currentView === 'company') renderCompanyDetail(cos);
         if (currentView === 'cards') renderCards();
+        if (currentView === 'person') renderPerson();
         if (currentView === 'acts') renderActs(cos);
+        if (currentView === 'map') renderMap(cos);
         if (currentView === 'data') renderSettings();
       }
 
@@ -1524,14 +2059,19 @@
         return a && a.companyName ? a.companyName : key;
       }
 
-      function actRow(a) {
+      // opts: hideCo / hidePerson（その画面で自明な情報を省く）、del（削除ボタン）
+      function actRow(a, opts) {
+        opts = opts || {};
         const card = state.cards.filter(function (c) { return c.id === a.cardId; })[0];
         return '<div class="tl-item"><div class="tl-d">' + fmtDate(a.date) + '</div><div class="tl-b">' +
           '<div class="tl-t"><span class="badge b-gray">' + esc(a.type) + '</span>' +
-          '<span class="lk" data-co="' + esc(a.companyKey) + '">' + esc(coNameOf(a.companyKey)) + '</span>' +
-          (card ? '<span class="sm">' + esc(card.name) + (card.title ? '（' + esc(card.title) + '）' : '') + '</span>' : '') +
+          (opts.hideCo ? '' : '<span class="lk" data-co="' + esc(a.companyKey) + '">' + esc(coNameOf(a.companyKey)) + '</span>') +
+          (card && !opts.hidePerson ? '<span class="lk" data-person="' + esc(card.id) + '">' + esc(card.name) +
+            (card.title ? '（' + esc(card.title) + '）' : '') + '</span>' : '') +
           (a.owner ? '<span class="sm">担当:' + esc(a.owner) + '</span>' : '') + '</div>' +
-          (a.memo ? '<div class="tl-m">' + esc(a.memo) + '</div>' : '') + '</div></div>';
+          (a.memo ? '<div class="tl-m">' + esc(a.memo) + '</div>' : '') +
+          (opts.del ? '<div style="margin-top:4px"><button class="btn mini danger" data-delact="' + esc(a.id) + '">削除</button></div>' : '') +
+          '</div></div>';
       }
 
       /* ---------- 企業一覧 ---------- */
@@ -1580,7 +2120,18 @@
           '<div class="bar-l"><span>カバレッジ</span><span class="mono">' + c.score + '/100</span></div>' +
           '<div class="bar"><i style="width:' + c.score + '%;background:' +
           (c.score >= 70 ? 'var(--green)' : c.score >= 40 ? 'var(--blue-mid)' : 'var(--orange)') + '"></i></div>' +
+          sparkline(c.acts) +
           '</div>';
+      }
+
+      // 直近12か月の接点の粗さを、企業ボックスの中に小さく出す
+      function sparkline(acts) {
+        const months = lastMonths(12);
+        const counts = monthCounts(acts, months);
+        const max = Math.max.apply(null, counts.concat([1]));
+        return '<div class="spark" title="直近12か月の接点件数">' + counts.map(function (n) {
+          return '<i class="' + (n ? 'on' : '') + '" style="height:' + Math.round(Math.max(n / max, 0.08) * 100) + '%"></i>';
+        }).join('') + '</div>';
       }
 
       /* ---------- 企業カルテ ---------- */
@@ -1667,8 +2218,7 @@
 
         h += '<div class="panel"><div class="panel-ttl">接点の履歴（' + co.acts.length + '件）</div>' +
           (co.acts.length ? co.acts.map(function (a) {
-            return actRow(a).replace('</div></div>',
-              '</div><div style="margin-top:4px"><button class="btn mini danger" data-delact="' + esc(a.id) + '">削除</button></div></div>');
+            return actRow(a, { hideCo: true, del: true });
           }).join('') : emptyBox('まだ接点がありません。')) + '</div>';
 
         h += '<div class="panel"><div class="panel-ttl">この会社の名刺（' + co.cards.length + '枚）</div><div class="tw">' +
@@ -1689,7 +2239,8 @@
           const ps = personStatus(c);
           h += '<tr>' +
             (showCompany ? '<td><span class="lk" data-co="' + esc(c.companyKey) + '">' + esc(coNameOf(c.companyKey)) + '</span></td>' : '') +
-            '<td><b>' + esc(c.name) + '</b>' + (c.kana ? '<div class="sm">' + esc(c.kana) + '</div>' : '') + '</td>' +
+            '<td><span class="lk" data-person="' + esc(c.id) + '">' + esc(c.name) + '</span>' +
+            (c.kana ? '<div class="sm">' + esc(c.kana) + '</div>' : '') + '</td>' +
             '<td>' + esc(c.dept || '—') + '</td>' +
             '<td>' + esc(c.title || '—') + '</td>' +
             '<td><span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label + '</span></td>' +
@@ -1703,10 +2254,45 @@
         return h + '</tbody></table>';
       }
 
+      // 名刺そのものの見た目。写真があればそれを、無ければ名刺サイズに組んだ文字を出す
+      function cardFace(c) {
+        const photo = photoCache[c.id];
+        if (photo) return '<div class="mface"><img src="' + photo + '" alt=""></div>';
+        const ps = personStatus(c);
+        const color = { fresh: 'var(--green)', warm: 'var(--amber)', stale: 'var(--red)', none: 'var(--gray-300)' }[ps.fresh];
+        return '<div class="mface"><div class="mface-rule" style="background:' + color + '"></div><div class="mface-t">' +
+          '<div class="mface-co">' + esc(coNameOf(c.companyKey)) + '</div>' +
+          '<div><div class="mface-ti">' + esc(c.dept || '') + (c.dept && c.title ? '　' : '') + esc(c.title || '') + '</div>' +
+          '<div class="mface-nm">' + (c.kana ? '<small>' + esc(c.kana) + '</small>' : '') + esc(c.name) + '</div></div>' +
+          '<div class="mface-ct">' + esc(c.email || '') + (c.tel ? '　TEL ' + esc(c.tel) : '') + '</div>' +
+          '</div></div>';
+      }
+
+      function cardGrid(list) {
+        const st = state.settings;
+        return '<div class="mgrid">' + list.map(function (c) {
+          const ps = personStatus(c);
+          const band = rankBand(titleRank(c.title), st.decRank);
+          const hasPhoto = !!photoCache[c.id];
+          return '<div class="mcard" data-person="' + esc(c.id) + '">' + cardFace(c) +
+            '<div class="mbody">' +
+            // 写真のときは面から文字が読めないので、下に会社と氏名を出す
+            (hasPhoto ? '<div class="mbody-co">' + esc(coNameOf(c.companyKey)) + '</div>' +
+              '<div style="font-size:13.5px;font-weight:900">' + esc(c.name) + '</div>' +
+              '<div class="sm">' + esc([c.dept, c.title].filter(Boolean).join('　') || '—') + '</div>' : '') +
+            '<div class="row-sb"><div class="mbody-b" style="margin:0">' +
+            '<span class="badge b-' + ps.fresh + '">' + FRESH_LABEL[ps.fresh] + '</span>' +
+            '<span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label + '</span>' +
+            (hasPhoto ? '<span class="badge b-gray">写真あり</span>' : '') +
+            '</div><span class="sm">最終 ' + fmtDate(ps.last) + '</span></div></div></div>';
+        }).join('') + '</div>';
+      }
+
       function renderCards() {
         const q = ($('card-q').value || '').trim().toLowerCase();
         let list = state.cards.slice().sort(function (a, b) {
-          return String(a.company).localeCompare(String(b.company), 'ja') || titleRank(a.title) - titleRank(b.title);
+          return String(coNameOf(a.companyKey)).localeCompare(String(coNameOf(b.companyKey)), 'ja') ||
+            titleRank(a.title) - titleRank(b.title);
         });
         if (q) {
           list = list.filter(function (c) {
@@ -1714,9 +2300,174 @@
           });
         }
         $('card-count').textContent = '（' + list.length + ' / ' + state.cards.length + '枚）';
-        $('card-table').outerHTML = list.length ?
-          cardTable(list, true).replace('<table class="t">', '<table class="t" id="card-table">') :
-          '<table class="t" id="card-table"><tbody><tr><td>' + emptyBox('名刺がまだありません。') + '</td></tr></tbody></table>';
+        document.querySelectorAll('[data-cardview]').forEach(function (b) {
+          b.classList.toggle('on', b.dataset.cardview === cardViewMode);
+        });
+        $('card-body').innerHTML = !list.length ? emptyBox('名刺がまだありません。') :
+          (cardViewMode === 'grid' ? cardGrid(list) : '<div class="tw">' + cardTable(list, true) + '</div>');
+      }
+
+      /* ---------- 人物プロフィール ---------- */
+      function renderPerson() {
+        const c = state.cards.filter(function (x) { return x.id === currentCardId; })[0];
+        if (!c) { $('p-detail').innerHTML = emptyBox('名刺が見つかりません。'); return; }
+        const st = state.settings;
+        const ps = personStatus(c);
+        const rank = titleRank(c.title);
+        const band = rankBand(rank, st.decRank);
+        const mine = state.acts.filter(function (a) { return a.cardId === c.id; })
+          .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+        const peers = state.cards.filter(function (x) { return x.companyKey === c.companyKey && x.id !== c.id; })
+          .sort(function (a, b) { return titleRank(a.title) - titleRank(b.title); });
+
+        let h = '<div class="panel"><div class="prof-h">' +
+          '<div class="prof-card">' + cardFace(c) + '</div>' +
+          '<div class="prof-main">' +
+          (c.kana ? '<div class="prof-kn">' + esc(c.kana) + '</div>' : '') +
+          '<div class="prof-nm">' + esc(c.name) + '</div>' +
+          '<div class="prof-ti">' + esc([c.dept, c.title].filter(Boolean).join('　') || '—') + '</div>' +
+          '<div style="margin:8px 0"><span class="lk" data-co="' + esc(c.companyKey) + '" style="font-size:14px">' +
+          esc(coNameOf(c.companyKey)) + '</span></div>' +
+          '<div class="cobox-b"><span class="badge b-' + ps.fresh + '">' + FRESH_LABEL[ps.fresh] + '</span>' +
+          '<span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label +
+          '（' + esc(RANK_LABELS[rank]) + '相当）</span>' +
+          (c.source ? '<span class="badge b-gray">' + esc(c.source) + '</span>' : '') + '</div>' +
+          '<div class="prof-ct">' +
+          (c.email ? '<div>✉️ <a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></div>' : '') +
+          (c.tel ? '<div>☎️ <a href="tel:' + esc(c.tel.replace(/[^\d+]/g, '')) + '">' + esc(c.tel) + '</a></div>' : '') +
+          (c.mobile ? '<div>📱 <a href="tel:' + esc(c.mobile.replace(/[^\d+]/g, '')) + '">' + esc(c.mobile) + '</a></div>' : '') +
+          (c.address ? '<div class="sm">' + esc(c.address) + '</div>' : '') +
+          '</div>' +
+          '<div class="sm" style="margin-top:8px">名刺交換 ' + fmtDate(c.met) + (c.owner ? '／自社担当 ' + esc(c.owner) : '') + '</div>' +
+          (c.memo ? '<div class="tl-m" style="margin-top:6px">' + esc(c.memo) + '</div>' : '') +
+          '<div class="btnrow" style="margin-top:12px">' +
+          '<button class="btn ghost mini" data-edit="' + esc(c.id) + '">この名刺を編集</button>' +
+          '<button class="btn danger mini" data-del="' + esc(c.id) + '">削除</button></div>' +
+          '</div></div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">この人との接点を記録</div>' +
+          '<div class="grid2">' +
+          '<div><label class="f">種類</label><select class="i" id="pq-type">' +
+          ACT_TYPES.map(function (t) { return '<option value="' + esc(t.t) + '"' + (t.t === '訪問' ? ' selected' : '') + '>' + esc(t.t) + '</option>'; }).join('') +
+          '</select></div>' +
+          '<div><label class="f">日付</label><input class="i" type="date" id="pq-date" value="' + todayStr() + '"></div>' +
+          '<div><label class="f">自社担当</label><input class="i" id="pq-owner" list="dl-owners" value="' + esc(c.owner) + '"></div>' +
+          '</div><div style="margin-top:10px"><label class="f">内容</label><textarea class="i" id="pq-memo" rows="2"></textarea></div>' +
+          '<div class="btnrow" style="margin-top:10px"><button class="btn" id="pq-add">記録する</button></div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">この人との接点（' + mine.length + '件）</div>' +
+          (mine.length ? mine.map(function (a) {
+            return actRow(a, { hideCo: true, hidePerson: true, del: true });
+          }).join('') : emptyBox('まだ接点がありません。')) + '</div>';
+
+        h += '<div class="panel"><div class="panel-ttl">同じ会社の人（' + peers.length + '名）</div>' +
+          (peers.length ? '<div class="peers">' + peers.map(function (p) {
+            const s2 = personStatus(p);
+            const b2 = rankBand(titleRank(p.title), st.decRank);
+            return '<div class="pchip f-' + s2.fresh + (b2.key === 'dec' ? ' decider' : '') + '" data-person="' + esc(p.id) + '">' +
+              '<div class="t">' + esc(p.title || '—') + '</div><div class="n">' + esc(p.name) + '</div>' +
+              '<div class="d">' + esc(p.dept || '') + '</div></div>';
+          }).join('') + '</div>' : emptyBox('この会社の名刺はこの1枚だけです。')) + '</div>';
+
+        $('p-detail').innerHTML = h;
+      }
+
+      /* ---------- 接点マップ ---------- */
+      function lastMonths(n) {
+        const out = [], now = new Date();
+        for (let i = n - 1; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+        }
+        return out;
+      }
+
+      function monthCounts(acts, months) {
+        const m = {};
+        acts.forEach(function (a) {
+          const k = (a.date || '').slice(0, 7);
+          if (k) m[k] = (m[k] || 0) + 1;
+        });
+        return months.map(function (k) { return m[k] || 0; });
+      }
+
+      function renderMap(cos) {
+        const st = state.settings;
+        if (!cos.length) {
+          $('map-matrix').innerHTML = emptyBox('まだデータがありません。');
+          $('map-heat').innerHTML = '';
+          $('map-owner').innerHTML = '';
+          return;
+        }
+
+        const bands = [
+          { label: '決裁層', test: function (r) { return r <= st.decRank; } },
+          { label: '管理層', test: function (r) { return r > st.decRank && r <= 10; } },
+          { label: '実務層', test: function (r) { return r > 10; } }
+        ];
+        const order = { fresh: 0, warm: 1, stale: 2, none: 3 };
+        const sorted = cos.slice().sort(function (a, b) { return b.score - a.score; });
+
+        let mx = '<table class="mx"><thead><tr><th class="l">企業</th>' +
+          bands.map(function (b) { return '<th>' + b.label + '</th>'; }).join('') +
+          '<th>ステージ</th><th>カバレッジ</th></tr></thead><tbody>';
+        sorted.forEach(function (co) {
+          mx += '<tr><td class="l"><span class="lk" data-co="' + esc(co.key) + '">' + esc(co.name) + '</span></td>';
+          bands.forEach(function (b) {
+            const people = co.cards.filter(function (c) { return b.test(titleRank(c.title)); });
+            if (!people.length) { mx += '<td class="cell-empty">—</td>'; return; }
+            const best = people.map(function (p) { return personStatus(p).fresh; })
+              .sort(function (x, y) { return order[x] - order[y]; })[0];
+            mx += '<td class="cell-' + best + '">' + people.length + '名</td>';
+          });
+          mx += '<td>' + esc(co.stageLabel) + '</td><td class="mono">' + co.score + '</td></tr>';
+        });
+        $('map-matrix').innerHTML = mx + '</tbody></table>';
+
+        // ヒートマップ
+        const months = lastMonths(12);
+        let hm = '<table class="mx hm"><thead><tr><th class="l">企業</th>' +
+          months.map(function (m) {
+            const mm = Number(m.slice(5));
+            // 年をまたぐので、1月と左端には年も出す
+            return '<th title="' + m + '">' + (mm === 1 || m === months[0] ? "'" + m.slice(2, 4) + ' ' : '') + mm + '月</th>';
+          }).join('') +
+          '<th>計</th></tr></thead><tbody>';
+        sorted.forEach(function (co) {
+          const counts = monthCounts(co.acts, months);
+          hm += '<tr><td class="l"><span class="lk" data-co="' + esc(co.key) + '">' + esc(co.name) + '</span></td>' +
+            counts.map(function (n, i) {
+              return '<td class="hm-' + Math.min(n, 4) + '" title="' + months[i] + '　' + n + '件">' + (n || '') + '</td>';
+            }).join('') +
+            '<td class="mono" style="background:none">' + counts.reduce(function (s, n) { return s + n; }, 0) + '</td></tr>';
+        });
+        $('map-heat').innerHTML = hm + '</tbody></table>';
+
+        // 担当者別
+        const owners = {};
+        cos.forEach(function (co) {
+          const names = {};
+          co.cards.forEach(function (c) { if (c.owner) names[c.owner] = 1; });
+          co.acts.forEach(function (a) { if (a.owner) names[a.owner] = 1; });
+          const keys = Object.keys(names);
+          (keys.length ? keys : ['（未設定）']).forEach(function (o) {
+            if (!owners[o]) owners[o] = { co: 0, fresh: 0, dec: 0, cards: 0, acts: 0 };
+            owners[o].co++;
+            if (co.fresh === 'fresh') owners[o].fresh++;
+            if (co.hasDecider) owners[o].dec++;
+          });
+        });
+        state.cards.forEach(function (c) { const o = c.owner || '（未設定）'; if (owners[o]) owners[o].cards++; });
+        state.acts.forEach(function (a) { const o = a.owner || '（未設定）'; if (owners[o]) owners[o].acts++; });
+
+        let ow = '<table class="t"><thead><tr><th>自社担当</th><th>担当企業</th><th>接点が生きている</th><th>決裁層に到達</th><th>名刺</th><th>接点</th></tr></thead><tbody>';
+        Object.keys(owners).sort(function (a, b) { return owners[b].co - owners[a].co; }).forEach(function (o) {
+          const d = owners[o];
+          ow += '<tr><td><b>' + esc(o) + '</b></td><td class="mono">' + d.co + '</td>' +
+            '<td class="mono">' + d.fresh + '<span class="sm">（' + Math.round(d.fresh / d.co * 100) + '%）</span></td>' +
+            '<td class="mono">' + d.dec + '</td><td class="mono">' + d.cards + '</td><td class="mono">' + d.acts + '</td></tr>';
+        });
+        $('map-owner').innerHTML = ow + '</tbody></table>';
       }
 
       /* ---------- 接点一覧 ---------- */
@@ -1822,6 +2573,7 @@
       function deleteCard(id) {
         state.cards = state.cards.filter(function (c) { return c.id !== id; });
         state.acts = state.acts.filter(function (a) { return a.cardId !== id; });
+        photoRemove(id);
       }
 
       function addAct(companyName, cardId, type, date, memo, owner) {
@@ -2067,7 +2819,16 @@
       /* ==========================================================
          フォーム
          ========================================================== */
+      let formPhoto = { url: null, changed: false };
+
+      function renderPhotoPreview() {
+        $('f-photo-pv').innerHTML = formPhoto.url ?
+          '<img src="' + formPhoto.url + '" alt="">' : 'まだありません';
+      }
+
       function fillForm(c) {
+        formPhoto = { url: c ? (photoCache[c.id] || null) : null, changed: false };
+        renderPhotoPreview();
         $('f-id').value = c ? c.id : '';
         $('f-company').value = c ? c.company : '';
         $('f-name').value = c ? c.name : '';
@@ -2112,6 +2873,29 @@
           b.addEventListener('click', function () { showView(b.dataset.view); });
         });
         $('co-back').addEventListener('click', function () { showView('companies'); });
+        $('p-back').addEventListener('click', function () { showView(backFrom === 'person' ? 'cards' : backFrom); });
+
+        // 名刺の表示切り替え
+        document.querySelectorAll('[data-cardview]').forEach(function (b) {
+          b.addEventListener('click', function () { cardViewMode = b.dataset.cardview; renderCards(); });
+        });
+
+        // 名刺の写真
+        $('f-photo-pick').addEventListener('click', function () { $('f-photo').click(); });
+        $('f-photo').addEventListener('change', function (e) {
+          const f = e.target.files[0];
+          e.target.value = '';
+          if (!f) return;
+          fileToDataUrl(f, 1000, 0.75).then(function (url) {
+            formPhoto = { url: url, changed: true };
+            renderPhotoPreview();
+            toast('写真を読み込みました（保存を押すと確定します）');
+          }).catch(function (err) { toast(err.message); });
+        });
+        $('f-photo-del').addEventListener('click', function () {
+          formPhoto = { url: null, changed: true };
+          renderPhotoPreview();
+        });
 
         // 一覧のフィルタ
         ['co-q', 'co-stage', 'co-fresh', 'co-sort'].forEach(function (id) {
@@ -2133,8 +2917,17 @@
           const d = readForm();
           if (!d.company.trim() || !d.name.trim()) { toast('会社名と氏名は必須です'); return; }
           const id = $('f-id').value;
+          let savedId = id;
           if (id) { updateCard(id, d); toast('名刺を更新しました'); }
-          else { addCard(d); toast('名刺を登録しました（企業の箱に自動でまとめました）'); }
+          else {
+            const c = addCard(d);
+            savedId = c && c.id;
+            toast('名刺を登録しました（企業の箱に自動でまとめました）');
+          }
+          if (formPhoto.changed && savedId) {
+            const p = formPhoto.url ? photoSave(savedId, formPhoto.url) : photoRemove(savedId);
+            p.then(function () { render(); }).catch(function (err) { toast(err.message); render(); });
+          }
           save(); fillForm(null); render();
         });
         $('f-clear').addEventListener('click', function () { fillForm(null); });
@@ -2157,8 +2950,12 @@
           const co = e.target.closest('[data-co]');
           if (co) { openCompany(co.dataset.co); return; }
 
-          const chip = e.target.closest('[data-card]');
-          if (chip) { editCard(chip.dataset.card); return; }
+          const pn = e.target.closest('[data-person]');
+          if (pn) {
+            backFrom = currentView === 'person' ? backFrom : currentView;
+            openPerson(pn.dataset.person);
+            return;
+          }
 
           const ed = e.target.closest('[data-edit]');
           if (ed) { editCard(ed.dataset.edit); return; }
@@ -2166,8 +2963,12 @@
           const del = e.target.closest('[data-del]');
           if (del) {
             const c = state.cards.filter(function (x) { return x.id === del.dataset.del; })[0];
-            if (c && confirm(c.name + ' さんの名刺を削除します。よろしいですか？（紐づく接点も消えます）')) {
-              deleteCard(del.dataset.del); save(); render(); toast('削除しました');
+            if (c && confirm(c.name + ' さんの名刺を削除します。よろしいですか？（紐づく接点も写真も消えます）')) {
+              deleteCard(del.dataset.del);
+              save();
+              if (currentView === 'person') showView(backFrom === 'person' ? 'cards' : backFrom);
+              else render();
+              toast('削除しました');
             }
             return;
           }
@@ -2191,6 +2992,14 @@
               memo: $('m-memo').value.trim()
             });
             save(); render(); toast('保存しました');
+            return;
+          }
+
+          if (e.target.id === 'pq-add') {
+            const c = state.cards.filter(function (x) { return x.id === currentCardId; })[0];
+            if (!c) return;
+            addAct(coNameOf(c.companyKey), c.id, $('pq-type').value, $('pq-date').value, $('pq-memo').value, $('pq-owner').value);
+            save(); render(); toast('接点を記録しました');
             return;
           }
 
@@ -2228,7 +3037,10 @@
 
         // 書き出し
         $('exp-json').addEventListener('click', function () {
-          download('meishi-coverage-' + todayStr() + '.json', JSON.stringify(state, null, 2), 'application/json');
+          // 写真も一緒に入れる（バックアップとして完結させるため、そのぶん大きくなる）
+          const out = Object.assign({}, state, { photos: photoCache });
+          download('meishi-coverage-' + todayStr() + '.json', JSON.stringify(out), 'application/json');
+          toast('写真も含めて書き出しました');
         });
         $('exp-cards').addEventListener('click', function () {
           const rows = [['会社名', '氏名', 'ふりがな', '部署', '役職', '役職ランク', '層', 'メール', '電話', '携帯', '名刺交換日', '自社担当', 'きっかけ', '住所', 'メモ']];
@@ -2261,7 +3073,12 @@
               state.acts = Array.isArray(d.acts) ? d.acts : [];
               state.meta = d.meta || {};
               state.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
-              save(); render(); toast('復元しました');
+              save();
+              const photos = d.photos && typeof d.photos === 'object' ? d.photos : {};
+              Promise.all(Object.keys(photos).map(function (k) { return photoSave(k, photos[k]); }))
+                .catch(function () { toast('写真の一部を保存できませんでした'); })
+                .then(function () { render(); });
+              render(); toast('復元しました');
             } catch (err) {
               toast('読み込めませんでした：' + err.message);
             }
@@ -2286,7 +3103,8 @@
           demoData(); save(); showView('dash'); toast('サンプルデータを入れました');
         });
         $('wipe').addEventListener('click', function () {
-          if (!confirm('名刺・接点・企業の設定をすべて削除します。元に戻せません。よろしいですか？')) return;
+          if (!confirm('名刺・接点・企業の設定・写真をすべて削除します。元に戻せません。よろしいですか？')) return;
+          Object.keys(photoCache).forEach(function (k) { photoRemove(k); });
           state = { cards: [], acts: [], meta: {}, settings: Object.assign({}, DEFAULT_SETTINGS) };
           save(); showView('dash'); toast('全部消しました');
         });
@@ -2311,13 +3129,16 @@
       renderSettings();
       refreshPersonSelect();
       render();
+      // 写真は非同期に読み込んで、揃ったところで描き直す
+      photoLoadAll().then(function () { render(); }).catch(function () { });
 
       // テストから触れるように最小限だけ公開する
       window.__cc = {
         companyKey: companyKey, titleRank: titleRank, deptPath: deptPath,
         coverageScore: coverageScore, freshnessOf: freshnessOf, normDate: normDate,
         parseCardText: parseCardText, splitRows: splitRows, mapHeaders: mapHeaders,
-        computeCompanies: computeCompanies, state: state
+        computeCompanies: computeCompanies, state: state,
+        photos: function () { return photoCache; }, lastMonths: lastMonths, monthCounts: monthCounts
       };
     })();
   </script>

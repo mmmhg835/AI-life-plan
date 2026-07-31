@@ -179,7 +179,111 @@ function ok(name, cond, extra) {
   const d3 = await page.textContent('#co-detail');
   ok('テキスト取り込み分も組織図に入る', /開発本部/.test(d3) && /人事部/.test(d3));
 
-  console.log('\n[9] 設定の反映');
+  console.log('\n[9] 名刺のカード表示と人物プロフィール');
+  await page.click('.navbtn[data-view="cards"]');
+  await page.waitForTimeout(250);
+  const cardTotal = await page.evaluate(() => window.__cc.state.cards.length);
+  const faces = await page.$$eval('#card-body .mcard', els => els.length);
+  ok('名刺がカードで並ぶ', faces === cardTotal, [faces, cardTotal]);
+  const faceText = await page.textContent('#card-body .mcard');
+  ok('名刺の面に会社名と氏名が載る', faceText.length > 4, faceText.slice(0, 40));
+  await page.click('[data-cardview="table"]');
+  await page.waitForTimeout(200);
+  ok('表示切替で表になる', (await page.$$('#card-body table')).length === 1);
+  ok('表のときカードは無い', (await page.$$('#card-body .mcard')).length === 0);
+  await page.click('[data-cardview="grid"]');
+  await page.waitForTimeout(200);
+
+  await page.fill('#card-q', '渡辺');
+  await page.waitForTimeout(200);
+  await page.click('#card-body .mcard');
+  await page.waitForTimeout(250);
+  ok('プロフィールが開く', await page.isVisible('#v-person'));
+  const prof = await page.textContent('#p-detail');
+  ok('氏名が出る', /渡辺 修/.test(prof));
+  ok('会社へのリンクが出る', /青空リース/.test(prof));
+  ok('決裁層と表示される', /決裁層/.test(prof), prof.slice(0, 200));
+  const peerCount = await page.$$eval('#p-detail .peers .pchip', els => els.length);
+  ok('同じ会社の人が並ぶ（自分を除く2名）', peerCount === 2, peerCount);
+  const actsBefore = await page.evaluate(() => window.__cc.state.acts.length);
+  await page.selectOption('#pq-type', '電話');
+  await page.fill('#pq-memo', 'プロフィールから記録');
+  await page.click('#pq-add');
+  await page.waitForTimeout(250);
+  const actsAfter = await page.evaluate(() => window.__cc.state.acts.length);
+  ok('プロフィールから接点を記録できる', actsAfter === actsBefore + 1, [actsBefore, actsAfter]);
+  ok('記録が履歴に出る', /プロフィールから記録/.test(await page.textContent('#p-detail')));
+  await page.click('#p-back');
+  await page.waitForTimeout(200);
+  ok('戻るで名刺一覧へ', await page.isVisible('#v-cards'));
+
+  console.log('\n[10] 名刺の写真');
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AAD///9BHTQRAAAAG0lEQVQoz2NgGAWjYBSMglEwCkbBKBgFo2AUAAAHrgABlfDrOgAAAABJRU5ErkJggg==',
+    'base64');
+  await page.click('#card-body .mcard');
+  await page.waitForTimeout(200);
+  await page.click('#p-detail [data-edit]');
+  await page.waitForTimeout(250);
+  const editing = await page.inputValue('#f-name');
+  ok('編集フォームに乗る', editing === '渡辺 修', editing);
+  await page.setInputFiles('#f-photo', { name: 'card.png', mimeType: 'image/png', buffer: png });
+  await page.waitForTimeout(400);
+  ok('写真のプレビューが出る', (await page.$$('#f-photo-pv img')).length === 1);
+  await page.click('#f-submit');
+  await page.waitForTimeout(500);
+  const photoCount = await page.evaluate(() => Object.keys(window.__cc.photos()).length);
+  ok('写真が1枚保存される', photoCount === 1, photoCount);
+  await page.fill('#card-q', '渡辺');
+  await page.waitForTimeout(250);
+  ok('名刺カードが写真になる', (await page.$$('#card-body .mcard .mface img')).length === 1);
+  ok('写真ありバッジが出る', /写真あり/.test(await page.textContent('#card-body .mcard')));
+  await page.reload();
+  await page.waitForTimeout(600);
+  const photoCount2 = await page.evaluate(() => Object.keys(window.__cc.photos()).length);
+  ok('リロードしても写真が残る（IndexedDB）', photoCount2 === 1, photoCount2);
+
+  console.log('\n[11] 接点マップ');
+  await page.click('.navbtn[data-view="map"]');
+  await page.waitForTimeout(300);
+  const mxRows = await page.$$eval('#map-matrix tbody tr', els => els.length);
+  const coTotal = await page.evaluate(() => window.__cc.computeCompanies().length);
+  ok('到達マップの行数＝企業数', mxRows === coTotal, [mxRows, coTotal]);
+  const mxHead = await page.$$eval('#map-matrix thead th', els => els.map(e => e.textContent));
+  ok('列は決裁層/管理層/実務層', mxHead.includes('決裁層') && mxHead.includes('管理層') && mxHead.includes('実務層'), mxHead);
+  const emptyCells = await page.$$eval('#map-matrix .cell-empty', els => els.length);
+  ok('名刺の無い層は斜線セル', emptyCells > 0, emptyCells);
+  const freshCells = await page.$$eval('#map-matrix .cell-fresh', els => els.length);
+  ok('接点のある層は緑セル', freshCells > 0, freshCells);
+  const heatCols = await page.$$eval('#map-heat thead th', els => els.length);
+  ok('ヒートマップは企業＋12か月＋計', heatCols === 14, heatCols);
+  const heatRows = await page.$$eval('#map-heat tbody tr', els => els.length);
+  ok('ヒートマップの行数＝企業数', heatRows === coTotal, [heatRows, coTotal]);
+  const hot = await page.$$eval('#map-heat td.hm-1, #map-heat td.hm-2, #map-heat td.hm-3, #map-heat td.hm-4', els => els.length);
+  ok('接点のある月に色がつく', hot > 0, hot);
+  const ownerRows = await page.$$eval('#map-owner tbody tr', els => els.length);
+  ok('担当者別の表が出る', ownerRows > 0, ownerRows);
+  ok('担当者名が出る', /自分/.test(await page.textContent('#map-owner')));
+  await page.click('#map-matrix tbody tr .lk');
+  await page.waitForTimeout(250);
+  ok('マップから企業カルテへ飛べる', await page.isVisible('#v-company'));
+
+  console.log('\n[12] 企業ボックスのスパークライン');
+  await page.click('.navbtn[data-view="companies"]');
+  await page.waitForTimeout(250);
+  const sparks = await page.$$eval('.cobox .spark', els => els.length);
+  const bars = await page.$$eval('.cobox .spark i', els => els.length);
+  ok('全企業にスパークラインが出る', sparks === coTotal, [sparks, coTotal]);
+  ok('12か月ぶんのバー', bars === sparks * 12, [bars, sparks]);
+  const monthsLen = await page.evaluate(() => window.__cc.lastMonths(12).length);
+  ok('直近12か月を数える', monthsLen === 12, monthsLen);
+  const mc = await page.evaluate(() => {
+    const m = window.__cc.lastMonths(12);
+    return window.__cc.monthCounts([{ date: m[11] + '-05' }, { date: m[11] + '-09' }, { date: '1999-01-01' }], m);
+  });
+  ok('月別集計が当月2件', mc[11] === 2 && mc.reduce((s, n) => s + n, 0) === 2, mc);
+
+  console.log('\n[13] 設定の反映');
   await page.click('.navbtn[data-view="data"]');
   await page.fill('#s-fresh', '10');
   await page.click('#s-save');
@@ -189,21 +293,21 @@ function ok(name, cond, extra) {
   const kpi2 = await page.$$eval('#dash-kpis .kpi-n', els => els.map(e => e.textContent));
   ok('設定した日数がKPI注記に出る', kpi2.some(t => /10日以内/.test(t)), kpi2);
 
-  console.log('\n[10] 保存の永続化');
+  console.log('\n[14] 保存の永続化');
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('meishi-coverage-v1')).cards.length);
   await page.reload();
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => window.__cc.state.cards.length);
   ok('リロードしても残る', before === after && after > 0, [before, after]);
 
-  console.log('\n[11] 全削除');
+  console.log('\n[15] 全削除');
   await page.click('.navbtn[data-view="data"]');
   await page.click('#wipe');
   await page.waitForTimeout(250);
   const emptyKpi = await page.$$eval('#dash-kpis .kpi-v', els => els.map(e => e.textContent.trim()));
   ok('削除後は0件', emptyKpi[0].startsWith('0'), emptyKpi);
 
-  console.log('\n[12] JSエラー');
+  console.log('\n[16] JSエラー');
   ok('コンソールエラーなし', errors.length === 0, errors.slice(0, 5));
 
   await page.setViewportSize({ width: 390, height: 800 });
