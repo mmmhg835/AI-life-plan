@@ -1,0 +1,2326 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>名刺カバレッジ｜企業別 接点・組織図・営業進捗</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --blue: #1a56db;
+      --blue-dark: #1240a8;
+      --blue-light: #eef3fd;
+      --blue-mid: #3b72e8;
+      --blue-bdr: #c2d3f8;
+      --orange: #f97316;
+      --orange-dk: #c85a08;
+      --orange-lt: #fff4ed;
+      --green: #16a34a;
+      --green-lt: #eafaf0;
+      --amber: #d97706;
+      --amber-lt: #fef6e7;
+      --red: #dc2626;
+      --red-lt: #fdeeee;
+      --purple: #7c3aed;
+      --gray-50: #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-400: #94a3b8;
+      --gray-600: #475569;
+      --gray-800: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--gray-100);
+      color: var(--gray-800);
+      font-family: 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      font-size: 14px;
+    }
+
+    .mono {
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--blue);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .hdr {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .hdr-eye {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, .65);
+      margin-bottom: 2px;
+    }
+
+    .hdr-ttl {
+      font-size: 19px;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -.5px;
+    }
+
+    .hdr-ttl span {
+      color: var(--orange);
+    }
+
+    .hdr-note {
+      font-size: 11px;
+      color: rgba(255, 255, 255, .7);
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    nav {
+      background: white;
+      border-bottom: 2px solid var(--blue-bdr);
+      position: sticky;
+      top: 56px;
+      z-index: 39;
+    }
+
+    .nav-in {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      overflow-x: auto;
+    }
+
+    .navbtn {
+      flex: 1;
+      min-width: 92px;
+      padding: 11px 6px 9px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      text-align: center;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      color: var(--gray-400);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: color .15s;
+    }
+
+    .navbtn.on {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 16px 16px 64px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.on {
+      display: block;
+    }
+
+    /* CARDS / PANELS */
+    .panel {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .panel-ttl {
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .panel-sub {
+      font-size: 11.5px;
+      color: var(--gray-600);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    /* KPI */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .kpi {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 13px 14px;
+    }
+
+    .kpi-l {
+      font-size: 11px;
+      color: var(--gray-600);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .kpi-v {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1px;
+    }
+
+    .kpi-v small {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-400);
+      margin-left: 2px;
+      letter-spacing: 0;
+    }
+
+    .kpi-n {
+      font-size: 10.5px;
+      color: var(--gray-400);
+      margin-top: 3px;
+    }
+
+    .kpi.hot .kpi-v {
+      color: var(--red);
+    }
+
+    .kpi.good .kpi-v {
+      color: var(--green);
+    }
+
+    .kpi.blue .kpi-v {
+      color: var(--blue);
+    }
+
+    /* BADGES */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      line-height: 1.6;
+    }
+
+    .b-fresh {
+      background: var(--green-lt);
+      color: var(--green);
+    }
+
+    .b-warm {
+      background: var(--amber-lt);
+      color: var(--amber);
+    }
+
+    .b-stale {
+      background: var(--red-lt);
+      color: var(--red);
+    }
+
+    .b-none {
+      background: var(--gray-100);
+      color: var(--gray-400);
+    }
+
+    .b-stage {
+      background: var(--blue-light);
+      color: var(--blue-dark);
+    }
+
+    .b-key {
+      background: #f3ebff;
+      color: var(--purple);
+    }
+
+    .b-gray {
+      background: var(--gray-100);
+      color: var(--gray-600);
+    }
+
+    /* BUTTONS */
+    button.btn {
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--blue);
+      background: var(--blue);
+      color: white;
+      cursor: pointer;
+    }
+
+    button.btn:hover {
+      background: var(--blue-dark);
+      border-color: var(--blue-dark);
+    }
+
+    button.btn.ghost {
+      background: white;
+      color: var(--blue);
+    }
+
+    button.btn.ghost:hover {
+      background: var(--blue-light);
+    }
+
+    button.btn.mini {
+      padding: 5px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+    }
+
+    button.btn.danger {
+      border-color: var(--red);
+      background: white;
+      color: var(--red);
+    }
+
+    button.btn.danger:hover {
+      background: var(--red-lt);
+    }
+
+    .btnrow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* FORMS */
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+    }
+
+    label.f {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray-600);
+      margin-bottom: 4px;
+    }
+
+    input.i,
+    select.i,
+    textarea.i {
+      width: 100%;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      background: white;
+      color: var(--gray-800);
+    }
+
+    input.i:focus,
+    select.i:focus,
+    textarea.i:focus {
+      outline: none;
+      border-color: var(--blue-mid);
+    }
+
+    textarea.i {
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .req::after {
+      content: ' *';
+      color: var(--red);
+    }
+
+    /* COMPANY LIST */
+    .colist {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+
+    .cobox {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-left: 4px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: box-shadow .15s;
+    }
+
+    .cobox:hover {
+      box-shadow: 0 2px 10px rgba(26, 86, 219, .12);
+    }
+
+    .cobox.s-fresh {
+      border-left-color: var(--green);
+    }
+
+    .cobox.s-warm {
+      border-left-color: var(--amber);
+    }
+
+    .cobox.s-stale {
+      border-left-color: var(--red);
+    }
+
+    .cobox.s-none {
+      border-left-color: var(--gray-300);
+    }
+
+    .cobox-h {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .cobox-n {
+      font-size: 14.5px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .cobox-m {
+      font-size: 11px;
+      color: var(--gray-600);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .cobox-b {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .bar {
+      height: 6px;
+      background: var(--gray-100);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar > i {
+      display: block;
+      height: 100%;
+      background: var(--blue-mid);
+      border-radius: 4px;
+    }
+
+    .bar-l {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: var(--gray-400);
+      margin-bottom: 3px;
+      font-weight: 700;
+    }
+
+    /* FUNNEL */
+    .funnel-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .funnel-l {
+      width: 92px;
+      flex-shrink: 0;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--gray-600);
+      text-align: right;
+    }
+
+    .funnel-b {
+      flex: 1;
+      height: 22px;
+      background: var(--gray-50);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .funnel-b > i {
+      display: block;
+      height: 100%;
+      background: var(--blue-mid);
+      border-radius: 5px;
+      min-width: 2px;
+    }
+
+    .funnel-c {
+      width: 46px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 900;
+      text-align: right;
+    }
+
+    /* TABLE */
+    .tw {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table.t {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 640px;
+    }
+
+    table.t th {
+      text-align: left;
+      font-size: 11px;
+      color: var(--gray-600);
+      font-weight: 700;
+      padding: 7px 8px;
+      border-bottom: 2px solid var(--gray-200);
+      white-space: nowrap;
+    }
+
+    table.t td {
+      padding: 8px;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: top;
+    }
+
+    table.t tr:hover td {
+      background: var(--gray-50);
+    }
+
+    .lk {
+      color: var(--blue);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .lk:hover {
+      text-decoration: underline;
+    }
+
+    /* ORG CHART */
+    .org {
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+    }
+
+    .org-node {
+      margin-left: 0;
+    }
+
+    .org-kids {
+      margin-left: 14px;
+      padding-left: 14px;
+      border-left: 2px solid var(--gray-200);
+    }
+
+    .org-dept {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--blue-light);
+      border: 1px solid var(--blue-bdr);
+      color: var(--blue-dark);
+      font-weight: 900;
+      font-size: 12px;
+      padding: 5px 11px;
+      border-radius: 7px;
+      margin: 8px 0 4px;
+    }
+
+    .org-dept.root {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+      font-size: 13px;
+    }
+
+    .org-dept .cnt {
+      font-weight: 500;
+      font-size: 10.5px;
+      opacity: .8;
+    }
+
+    .org-people {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 2px 0 4px;
+    }
+
+    .pchip {
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 6px 10px;
+      background: white;
+      cursor: pointer;
+      min-width: 132px;
+    }
+
+    .pchip:hover {
+      border-color: var(--blue-mid);
+    }
+
+    .pchip.f-fresh {
+      border-left: 4px solid var(--green);
+    }
+
+    .pchip.f-warm {
+      border-left: 4px solid var(--amber);
+    }
+
+    .pchip.f-stale {
+      border-left: 4px solid var(--red);
+    }
+
+    .pchip.f-none {
+      border-left: 4px solid var(--gray-300);
+    }
+
+    .pchip .t {
+      font-size: 10px;
+      color: var(--gray-600);
+      font-weight: 700;
+    }
+
+    .pchip .n {
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+
+    .pchip .d {
+      font-size: 10px;
+      color: var(--gray-400);
+      margin-top: 1px;
+    }
+
+    .pchip.decider {
+      background: #faf6ff;
+      border-color: #e2d3ff;
+    }
+
+    /* TIMELINE */
+    .tl-item {
+      display: flex;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .tl-d {
+      width: 76px;
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--gray-400);
+      font-weight: 700;
+      padding-top: 2px;
+    }
+
+    .tl-b {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tl-t {
+      font-size: 12.5px;
+      font-weight: 700;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tl-m {
+      font-size: 11.5px;
+      color: var(--gray-600);
+      line-height: 1.6;
+      margin-top: 2px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* MISC */
+    .empty {
+      text-align: center;
+      color: var(--gray-400);
+      font-size: 12.5px;
+      padding: 26px 10px;
+      line-height: 1.8;
+    }
+
+    .hint {
+      background: var(--blue-light);
+      border: 1px solid var(--blue-bdr);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11.5px;
+      line-height: 1.75;
+      color: var(--blue-dark);
+      margin-bottom: 12px;
+    }
+
+    .warn {
+      background: var(--orange-lt);
+      border: 1px solid #fcd9bd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11.5px;
+      line-height: 1.75;
+      color: var(--orange-dk);
+      margin-bottom: 12px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .filters > div {
+      flex: 1;
+      min-width: 128px;
+    }
+
+    .sep {
+      height: 1px;
+      background: var(--gray-200);
+      margin: 14px 0;
+    }
+
+    .back {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--blue);
+      cursor: pointer;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--gray-800);
+      color: white;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 11px 20px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all .2s;
+      z-index: 90;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .toast.on {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .cardgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .sm {
+      font-size: 11px;
+      color: var(--gray-400);
+    }
+
+    .row-sb {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    footer {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 16px 40px;
+      font-size: 11px;
+      color: var(--gray-400);
+      line-height: 1.8;
+    }
+
+    @media (max-width: 560px) {
+      .hdr-note {
+        display: none;
+      }
+
+      nav {
+        top: 52px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="hdr">
+      <div>
+        <div class="hdr-eye">CARD COVERAGE</div>
+        <div class="hdr-ttl">名刺<span>カバレッジ</span></div>
+      </div>
+      <div class="hdr-note">名刺を入れると企業ごとに箱ができ、<br>接点・組織図・営業進捗が自動でつきます</div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-in">
+      <button class="navbtn on" data-view="dash">ダッシュボード</button>
+      <button class="navbtn" data-view="companies">企業</button>
+      <button class="navbtn" data-view="cards">名刺</button>
+      <button class="navbtn" data-view="acts">接点</button>
+      <button class="navbtn" data-view="data">取り込み／保存</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ============ DASHBOARD ============ -->
+    <section class="view on" id="v-dash">
+      <div class="kpis" id="dash-kpis"></div>
+
+      <div class="panel">
+        <div class="panel-ttl">営業ステージの分布</div>
+        <div class="panel-sub">接点履歴の中で一番進んだ種類から、企業ごとのステージを自動で判定しています（手で上書きも可）。</div>
+        <div id="dash-funnel"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">🔥 いま追いかけるべき企業</div>
+        <div class="panel-sub">商談が動いているのに接点が空いている順。カッコ内は最終接点からの日数です。</div>
+        <div id="dash-follow"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">⚠️ 名刺はあるが接点が無い企業</div>
+        <div class="panel-sub">名刺交換だけで止まっている企業。ここが一番の伸びしろです。</div>
+        <div id="dash-cold"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">最近の接点</div>
+        <div id="dash-recent"></div>
+      </div>
+    </section>
+
+    <!-- ============ COMPANIES ============ -->
+    <section class="view" id="v-companies">
+      <div class="filters panel" style="margin-bottom:14px">
+        <div>
+          <label class="f">キーワード</label>
+          <input class="i" id="co-q" placeholder="会社名・業界・担当者名">
+        </div>
+        <div>
+          <label class="f">ステージ</label>
+          <select class="i" id="co-stage"></select>
+        </div>
+        <div>
+          <label class="f">接点の状態</label>
+          <select class="i" id="co-fresh">
+            <option value="">すべて</option>
+            <option value="fresh">接点あり（90日以内）</option>
+            <option value="warm">冷えかけ（91〜365日）</option>
+            <option value="stale">途絶（365日超）</option>
+            <option value="none">名刺のみ</option>
+          </select>
+        </div>
+        <div>
+          <label class="f">並び替え</label>
+          <select class="i" id="co-sort">
+            <option value="score">カバレッジが低い順</option>
+            <option value="score-d">カバレッジが高い順</option>
+            <option value="last">最終接点が古い順</option>
+            <option value="last-d">最終接点が新しい順</option>
+            <option value="cards">名刺が多い順</option>
+            <option value="name">会社名順</option>
+          </select>
+        </div>
+      </div>
+      <div id="co-count" class="sm" style="margin-bottom:8px"></div>
+      <div class="colist" id="co-list"></div>
+    </section>
+
+    <!-- ============ COMPANY DETAIL ============ -->
+    <section class="view" id="v-company">
+      <div class="back" id="co-back">← 企業一覧へ戻る</div>
+      <div id="co-detail"></div>
+    </section>
+
+    <!-- ============ CARDS ============ -->
+    <section class="view" id="v-cards">
+      <div class="panel">
+        <div class="panel-ttl" id="card-form-ttl">名刺を追加</div>
+        <div class="panel-sub">会社名を入れると、同じ会社の箱に自動でまとまります（「株式会社」「(株)」「全角/半角」の違いは吸収します）。</div>
+        <form id="card-form">
+          <input type="hidden" id="f-id">
+          <div class="grid2">
+            <div><label class="f req">会社名</label><input class="i" id="f-company" list="dl-companies" autocomplete="off"></div>
+            <div><label class="f req">氏名</label><input class="i" id="f-name" autocomplete="off"></div>
+            <div><label class="f">ふりがな</label><input class="i" id="f-kana" autocomplete="off"></div>
+            <div><label class="f">部署（階層は「/」か空白で区切る）</label><input class="i" id="f-dept"
+                placeholder="営業本部/第一営業部/東京1課" autocomplete="off"></div>
+            <div><label class="f">役職</label><input class="i" id="f-title" placeholder="部長" autocomplete="off"></div>
+            <div><label class="f">メール</label><input class="i" id="f-email" autocomplete="off"></div>
+            <div><label class="f">電話</label><input class="i" id="f-tel" autocomplete="off"></div>
+            <div><label class="f">携帯</label><input class="i" id="f-mobile" autocomplete="off"></div>
+            <div><label class="f">名刺交換日</label><input class="i" type="date" id="f-met"></div>
+            <div><label class="f">自社担当</label><input class="i" id="f-owner" list="dl-owners" autocomplete="off"></div>
+            <div><label class="f">きっかけ</label><input class="i" id="f-source" list="dl-sources" placeholder="展示会／紹介／訪問"
+                autocomplete="off"></div>
+            <div><label class="f">住所</label><input class="i" id="f-addr" autocomplete="off"></div>
+          </div>
+          <div style="margin-top:10px"><label class="f">メモ</label><textarea class="i" id="f-memo" rows="2"></textarea>
+          </div>
+          <div class="btnrow" style="margin-top:12px">
+            <button type="submit" class="btn" id="f-submit">この名刺を登録</button>
+            <button type="button" class="btn ghost" id="f-clear">クリア</button>
+          </div>
+        </form>
+        <datalist id="dl-companies"></datalist>
+        <datalist id="dl-owners"></datalist>
+        <datalist id="dl-sources">
+          <option value="展示会"></option>
+          <option value="紹介"></option>
+          <option value="訪問"></option>
+          <option value="問い合わせ"></option>
+          <option value="セミナー"></option>
+          <option value="交流会"></option>
+        </datalist>
+      </div>
+
+      <div class="panel">
+        <div class="row-sb" style="margin-bottom:10px">
+          <div class="panel-ttl" style="margin:0">名刺一覧 <span class="sm" id="card-count"></span></div>
+          <input class="i" id="card-q" placeholder="氏名・会社・部署で検索" style="max-width:260px">
+        </div>
+        <div class="tw">
+          <table class="t" id="card-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ACTIVITIES ============ -->
+    <section class="view" id="v-acts">
+      <div class="panel">
+        <div class="panel-ttl">接点を記録する</div>
+        <div class="panel-sub">ここに入れた「一番進んだ種類」が、その企業の営業ステージになります。</div>
+        <form id="act-form">
+          <div class="grid2">
+            <div><label class="f req">会社</label><input class="i" id="a-company" list="dl-companies"
+                autocomplete="off"></div>
+            <div><label class="f">相手（任意）</label><select class="i" id="a-person"></select></div>
+            <div><label class="f req">種類</label><select class="i" id="a-type"></select></div>
+            <div><label class="f req">日付</label><input class="i" type="date" id="a-date"></div>
+            <div><label class="f">自社担当</label><input class="i" id="a-owner" list="dl-owners" autocomplete="off"></div>
+          </div>
+          <div style="margin-top:10px"><label class="f">内容</label><textarea class="i" id="a-memo" rows="2"
+              placeholder="話した内容、次アクション"></textarea></div>
+          <div class="btnrow" style="margin-top:12px">
+            <button type="submit" class="btn">接点を記録</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="row-sb" style="margin-bottom:10px">
+          <div class="panel-ttl" style="margin:0">接点の履歴 <span class="sm" id="act-count"></span></div>
+          <input class="i" id="act-q" placeholder="会社・相手・内容で検索" style="max-width:260px">
+        </div>
+        <div class="tw">
+          <table class="t" id="act-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DATA ============ -->
+    <section class="view" id="v-data">
+      <div class="panel">
+        <div class="panel-ttl">名刺をまとめて取り込む（CSV / タブ区切り）</div>
+        <div class="panel-sub">
+          1行目が見出し行。<b>会社名・氏名</b>があれば取り込めます。見出しは「会社名／氏名／部署／役職／メール／電話／携帯／名刺交換日／自社担当／きっかけ／メモ」を自動で見分けます。
+          Excelからそのままコピー＆ペーストしても動きます。
+        </div>
+        <textarea class="i" id="imp-csv" rows="7"
+          placeholder="会社名,氏名,部署,役職,メール,電話,名刺交換日&#10;株式会社サンプル,山田太郎,営業本部/第一営業部,部長,yamada@example.com,03-1234-5678,2026-04-10"></textarea>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="btn" id="imp-csv-run">取り込む</button>
+          <button class="btn ghost" id="imp-csv-tpl">見出しの雛形を入れる</button>
+        </div>
+        <div id="imp-csv-res" class="sm" style="margin-top:8px"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">名刺の文字起こしから取り込む</div>
+        <div class="panel-sub">
+          名刺をOCRしたテキストや、メール署名をそのまま貼ってください。<b>空行で1枚の区切り</b>です。
+          会社名・氏名・役職・部署・メール・電話を推測して埋めます（推測なので、取り込み後に名刺一覧で直せます）。
+        </div>
+        <textarea class="i" id="imp-txt" rows="8"
+          placeholder="株式会社サンプル&#10;営業本部 第一営業部&#10;部長 山田 太郎&#10;yamada@example.com&#10;TEL 03-1234-5678&#10;&#10;サンプル商事株式会社&#10;技術部 課長 佐藤 花子&#10;sato@example.co.jp"></textarea>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="btn" id="imp-txt-run">読み取って取り込む</button>
+        </div>
+        <div id="imp-txt-res" class="sm" style="margin-top:8px"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">書き出し・バックアップ</div>
+        <div class="panel-sub">データはこのブラウザの中だけに保存されます（サーバには送られません）。機種変更や共有のときは書き出してください。</div>
+        <div class="btnrow">
+          <button class="btn ghost" id="exp-json">全データをJSONで保存</button>
+          <button class="btn ghost" id="exp-cards">名刺をCSVで保存</button>
+          <button class="btn ghost" id="exp-cov">企業カバレッジをCSVで保存</button>
+          <button class="btn ghost" id="imp-json-btn">JSONから復元</button>
+          <input type="file" id="imp-json" accept="application/json,.json" style="display:none">
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">判定のルール（変更できます）</div>
+        <div class="grid2">
+          <div><label class="f">「接点あり」とみなす日数</label><input class="i" type="number" id="s-fresh" min="7" max="365">
+          </div>
+          <div><label class="f">「途絶」とみなす日数</label><input class="i" type="number" id="s-stale" min="30" max="1460"></div>
+          <div><label class="f">決裁層とみなす役職ランク</label><select class="i" id="s-dec"></select></div>
+        </div>
+        <div class="btnrow" style="margin-top:12px">
+          <button class="btn" id="s-save">保存</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-ttl">お試し・初期化</div>
+        <div class="btnrow">
+          <button class="btn ghost" id="demo">サンプルデータを入れる</button>
+          <button class="btn danger" id="wipe">全部消す</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    データはブラウザ内（localStorage）にのみ保存されます。キャッシュ削除やシークレットウィンドウでは消えるので、大事なデータはJSON書き出しでバックアップしてください。
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ==========================================================
+         定数
+         ========================================================== */
+      const LS_KEY = 'meishi-coverage-v1';
+
+      // 役職ランク（小さいほど上位）。並び順は「長い語・具体的な語が先」。
+      const TITLE_PATTERNS = [
+        ['代表取締役会長', 1], ['取締役会長', 1], ['名誉会長', 1], ['会長', 1], ['CEO', 1], ['最高経営責任者', 1],
+        ['取締役副社長', 3], ['副社長', 3], ['COO', 3], ['最高執行責任者', 3],
+        ['代表取締役社長', 2], ['取締役社長', 2], ['代表取締役', 2], ['代表社員', 2], ['社長', 2], ['理事長', 2], ['院長', 2],
+        ['専務取締役', 4], ['専務執行役員', 4], ['専務', 4],
+        ['常務取締役', 5], ['常務執行役員', 5], ['常務', 5],
+        ['上席執行役員', 7], ['執行役員', 7], ['CTO', 7], ['CFO', 7], ['CIO', 7], ['CHRO', 7], ['CMO', 7],
+        ['社外取締役', 6], ['監査役', 6], ['取締役', 6], ['理事', 6],
+        ['事業部長', 7], ['本部長', 7], ['統括', 7],
+        ['部長代理', 9], ['副部長', 9], ['次長', 9],
+        ['支社長', 8], ['支店長', 8], ['工場長', 8], ['センター長', 8], ['研究所長', 8], ['局長', 8], ['所長', 8], ['部長', 8],
+        ['課長代理', 11], ['副課長', 11],
+        ['室長', 10], ['課長', 10], ['マネージャー', 10], ['マネジャー', 10], ['グループ長', 10], ['チームリーダー', 10],
+        ['係長', 11], ['主任', 11], ['主査', 11], ['主席', 11], ['チーフ', 11], ['リーダー', 11], ['班長', 11],
+        ['担当', 12], ['社員', 12], ['スタッフ', 12], ['メンバー', 12]
+      ];
+
+      const RANK_LABELS = {
+        1: '会長', 2: '社長', 3: '副社長', 4: '専務', 5: '常務', 6: '取締役',
+        7: '執行役員・本部長', 8: '部長', 9: '次長', 10: '課長・室長', 11: '係長・主任', 12: '担当'
+      };
+
+      // 接点の種類と、それが示すステージ
+      const ACT_TYPES = [
+        { t: '名刺交換', s: 0 }, { t: 'メール', s: 0 }, { t: '電話', s: 1 }, { t: '訪問', s: 1 },
+        { t: '打合せ', s: 1 }, { t: 'ヒアリング', s: 2 }, { t: '提案', s: 3 }, { t: '見積提出', s: 4 },
+        { t: '受注', s: 5 }, { t: '失注', s: -1 }, { t: 'その他', s: 0 }
+      ];
+
+      const STAGES = [
+        { k: 0, label: '名刺のみ' }, { k: 1, label: '接触・訪問' }, { k: 2, label: 'ヒアリング' },
+        { k: 3, label: '提案' }, { k: 4, label: '見積提出' }, { k: 5, label: '受注' }, { k: -1, label: '失注' }
+      ];
+
+      const DEFAULT_SETTINGS = { freshDays: 90, staleDays: 365, decRank: 7 };
+
+      const COMPANY_KW = /株式会社|\(株\)|（株）|㈱|有限会社|\(有\)|㈲|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|独立行政法人|学校法人|医療法人|宗教法人|協同組合|Inc\.|Corp|Co\.,|Co\.|Ltd|LLC|K\.K\.|大学|銀行|信用金庫|病院|市役所|県庁/i;
+      const DEPT_KW = /本部|事業部|部$|部\s|課|室|センター|支店|支社|営業所|工場|研究所|グループ|チーム|ユニット|局|科$/;
+
+      /* ==========================================================
+         状態
+         ========================================================== */
+      let state = { cards: [], acts: [], meta: {}, settings: Object.assign({}, DEFAULT_SETTINGS) };
+      let currentCompanyKey = null;
+      let currentView = 'dash';
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (!raw) return;
+          const d = JSON.parse(raw);
+          state.cards = Array.isArray(d.cards) ? d.cards : [];
+          state.acts = Array.isArray(d.acts) ? d.acts : [];
+          state.meta = d.meta && typeof d.meta === 'object' ? d.meta : {};
+          state.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
+        } catch (e) {
+          console.warn('保存データを読めませんでした', e);
+        }
+      }
+
+      function save() {
+        try {
+          localStorage.setItem(LS_KEY, JSON.stringify(state));
+        } catch (e) {
+          toast('保存できませんでした（容量オーバーの可能性）');
+        }
+      }
+
+      /* ==========================================================
+         小道具
+         ========================================================== */
+      const $ = function (id) { return document.getElementById(id); };
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function uid() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      }
+
+      let toastTimer = null;
+      function toast(msg) {
+        const el = $('toast');
+        el.textContent = msg;
+        el.classList.add('on');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.remove('on'); }, 2400);
+      }
+
+      function todayStr() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      }
+
+      // いろいろな書式の日付を YYYY-MM-DD に寄せる
+      function normDate(v) {
+        if (!v) return '';
+        const s = String(v).trim().replace(/[年月]/g, '/').replace(/日/g, '');
+        let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+        if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+        m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+        if (m) return m[1] + '-' + m[2] + '-' + m[3];
+        return '';
+      }
+
+      function daysSince(dateStr) {
+        if (!dateStr) return null;
+        const d = new Date(dateStr + 'T00:00:00');
+        if (isNaN(d)) return null;
+        const t = new Date(todayStr() + 'T00:00:00');
+        return Math.floor((t - d) / 86400000);
+      }
+
+      function fmtDate(s) {
+        if (!s) return '—';
+        const p = s.split('-');
+        return p.length === 3 ? Number(p[1]) + '/' + Number(p[2]) + ' \'' + p[0].slice(2) : s;
+      }
+
+      // 全角英数記号を半角へ
+      function toHalf(s) {
+        return String(s).replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, function (c) {
+          return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+        }).replace(/　/g, ' ');
+      }
+
+      /* ==========================================================
+         会社名の正規化 — 表記ゆれを吸収して同じ箱に入れる
+         ========================================================== */
+      function companyKey(name) {
+        let s = toHalf(String(name || '')).toLowerCase().trim();
+        s = s.replace(/[\s　]/g, '');
+        s = s.replace(/株式会社|\(株\)|㈱|有限会社|\(有\)|㈲|合同会社|合名会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|独立行政法人|学校法人|医療法人|社会福祉法人|特定非営利活動法人|npo法人/g, '');
+        s = s.replace(/(inc|incorporated|corp|corporation|co\.,ltd|co\.ltd|coltd|ltd|llc|k\.k|kk)\.?$/g, '');
+        s = s.replace(/[.,・･、。'"`’”\-‐－―ー_]/g, '');
+        return s || String(name || '').trim().toLowerCase();
+      }
+
+      /* ==========================================================
+         役職ランク
+         ========================================================== */
+      function titleRank(title) {
+        const t = toHalf(String(title || '')).toUpperCase();
+        if (!t.trim()) return 12;
+        for (let i = 0; i < TITLE_PATTERNS.length; i++) {
+          const kw = toHalf(TITLE_PATTERNS[i][0]).toUpperCase();
+          if (t.indexOf(kw) !== -1) return TITLE_PATTERNS[i][1];
+        }
+        return 12;
+      }
+
+      function rankBand(rank, decRank) {
+        if (rank <= decRank) return { key: 'dec', label: '決裁層' };
+        if (rank <= 10) return { key: 'mgr', label: '管理層' };
+        return { key: 'stf', label: '実務層' };
+      }
+
+      /* ==========================================================
+         部署の階層
+         ========================================================== */
+      function deptPath(dept) {
+        const s = toHalf(String(dept || '')).replace(/[／]/g, '/');
+        return s.split(/[\/>＞｜|・]+|\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      }
+
+      /* ==========================================================
+         集計 — 企業ごとの箱をつくる
+         ========================================================== */
+      function computeCompanies() {
+        const st = state.settings;
+        const map = {};
+
+        state.cards.forEach(function (c) {
+          const k = c.companyKey || companyKey(c.company);
+          if (!map[k]) {
+            map[k] = { key: k, name: c.company, cards: [], acts: [] };
+          }
+          map[k].cards.push(c);
+        });
+
+        state.acts.forEach(function (a) {
+          const k = a.companyKey;
+          if (!map[k]) map[k] = { key: k, name: a.companyName || k, cards: [], acts: [] };
+          map[k].acts.push(a);
+        });
+
+        return Object.keys(map).map(function (k) {
+          const co = map[k];
+          const meta = state.meta[k] || {};
+          co.name = meta.name || co.name || k;
+          co.industry = meta.industry || '';
+          co.memo = meta.memo || '';
+          co.priority = meta.priority || '';
+          co.owner = meta.owner || '';
+          co.stageOverride = (meta.stage === undefined || meta.stage === null || meta.stage === '') ? null : Number(meta.stage);
+
+          co.cards.sort(function (a, b) { return titleRank(a.title) - titleRank(b.title); });
+          co.acts.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+          // 接点の状態
+          const real = co.acts.filter(function (a) { return a.type !== '名刺交換'; });
+          co.realCount = real.length;
+          co.lastAct = co.acts.length ? co.acts[0].date : '';
+          co.lastReal = real.length ? real[0].date : '';
+          co.days = daysSince(co.lastAct);
+          co.fresh = freshnessOf(co.realCount, co.lastAct, st);
+
+          // ステージ
+          let auto = 0;
+          co.acts.forEach(function (a) {
+            const def = ACT_TYPES.filter(function (x) { return x.t === a.type; })[0];
+            if (def && def.s > auto) auto = def.s;
+          });
+          if (co.acts.length && co.acts[0].type === '失注') auto = -1;
+          co.stageAuto = co.cards.length || co.acts.length ? auto : 0;
+          co.stage = co.stageOverride === null ? co.stageAuto : co.stageOverride;
+          co.stageLabel = (STAGES.filter(function (s) { return s.k === co.stage; })[0] || STAGES[0]).label;
+
+          // 到達している役職の層
+          co.ranks = co.cards.map(function (c) { return titleRank(c.title); });
+          co.topRank = co.ranks.length ? Math.min.apply(null, co.ranks) : 99;
+          co.hasDecider = co.topRank <= st.decRank;
+          co.hasManager = co.topRank <= 10;
+
+          // 部署の広がり（第1階層で数える）
+          const tops = {};
+          co.cards.forEach(function (c) {
+            const p = deptPath(c.dept);
+            tops[p.length ? p[0] : '（部署未記入）'] = true;
+          });
+          co.deptCount = Object.keys(tops).length;
+          co.deptTops = Object.keys(tops);
+
+          co.score = coverageScore(co, st);
+          return co;
+        });
+      }
+
+      function freshnessOf(realCount, lastDate, st) {
+        if (!realCount) return 'none';
+        const d = daysSince(lastDate);
+        if (d === null) return 'none';
+        if (d <= st.freshDays) return 'fresh';
+        if (d <= st.staleDays) return 'warm';
+        return 'stale';
+      }
+
+      const FRESH_LABEL = { fresh: '接点あり', warm: '冷えかけ', stale: '途絶', none: '名刺のみ' };
+
+      // どこまで営業できているか（0〜100）
+      function coverageScore(co, st) {
+        let s = 0;
+        s += Math.min(co.cards.length, 3) / 3 * 25;                 // 人の数
+        s += Math.min(co.deptCount, 3) / 3 * 15;                    // 部署の広がり
+        s += co.hasDecider ? 25 : (co.hasManager ? 10 : 0);          // 上への到達
+        s += co.fresh === 'fresh' ? 15 : (co.fresh === 'warm' ? 7 : 0); // 鮮度
+        s += co.stage > 0 ? co.stage / 5 * 20 : 0;                   // 進捗
+        return Math.round(Math.max(0, Math.min(100, s)));
+      }
+
+      function personStatus(card) {
+        const st = state.settings;
+        const mine = state.acts.filter(function (a) { return a.cardId === card.id; });
+        const real = mine.filter(function (a) { return a.type !== '名刺交換'; });
+        const last = mine.reduce(function (m, a) { return (a.date || '') > m ? a.date : m; }, '');
+        return { fresh: freshnessOf(real.length, last, st), last: last, count: mine.length };
+      }
+
+      /* ==========================================================
+         組織図の組み立て
+         ========================================================== */
+      function buildOrg(co) {
+        const root = { name: co.name, kids: {}, people: [], root: true };
+        co.cards.forEach(function (c) {
+          const path = deptPath(c.dept);
+          let node = root;
+          path.forEach(function (seg) {
+            if (!node.kids[seg]) node.kids[seg] = { name: seg, kids: {}, people: [] };
+            node = node.kids[seg];
+          });
+          node.people.push(c);
+        });
+        return root;
+      }
+
+      function countPeople(node) {
+        let n = node.people.length;
+        Object.keys(node.kids).forEach(function (k) { n += countPeople(node.kids[k]); });
+        return n;
+      }
+
+      function renderOrg(node, depth) {
+        const st = state.settings;
+        const kids = Object.keys(node.kids).sort();
+        const people = node.people.slice().sort(function (a, b) {
+          const d = titleRank(a.title) - titleRank(b.title);
+          return d !== 0 ? d : String(a.name).localeCompare(String(b.name), 'ja');
+        });
+
+        let h = '<div class="org-node">';
+        h += '<div class="org-dept' + (node.root ? ' root' : '') + '">' + esc(node.name) +
+          '<span class="cnt">' + countPeople(node) + '名</span></div>';
+
+        if (people.length) {
+          h += '<div class="org-people">';
+          people.forEach(function (c) {
+            const r = titleRank(c.title);
+            const band = rankBand(r, st.decRank);
+            const ps = personStatus(c);
+            h += '<div class="pchip f-' + ps.fresh + (band.key === 'dec' ? ' decider' : '') + '" data-card="' + esc(c.id) + '">' +
+              '<div class="t">' + esc(c.title || '—') + (band.key === 'dec' ? ' ★' : '') + '</div>' +
+              '<div class="n">' + esc(c.name) + '</div>' +
+              '<div class="d">' + FRESH_LABEL[ps.fresh] + '・最終 ' + fmtDate(ps.last) + '</div>' +
+              '</div>';
+          });
+          h += '</div>';
+        }
+
+        if (kids.length) {
+          h += '<div class="org-kids">';
+          kids.forEach(function (k) { h += renderOrg(node.kids[k], depth + 1); });
+          h += '</div>';
+        }
+        h += '</div>';
+        return h;
+      }
+
+      /* ==========================================================
+         画面切り替え
+         ========================================================== */
+      function showView(v) {
+        currentView = v;
+        ['dash', 'companies', 'company', 'cards', 'acts', 'data'].forEach(function (name) {
+          const el = $('v-' + name);
+          if (el) el.classList.toggle('on', name === v);
+        });
+        document.querySelectorAll('.navbtn').forEach(function (b) {
+          b.classList.toggle('on', b.dataset.view === v || (v === 'company' && b.dataset.view === 'companies'));
+        });
+        window.scrollTo(0, 0);
+        render();
+      }
+
+      function openCompany(key) {
+        currentCompanyKey = key;
+        showView('company');
+      }
+
+      /* ==========================================================
+         描画
+         ========================================================== */
+      function render() {
+        const cos = computeCompanies();
+        renderDatalists(cos);
+        if (currentView === 'dash') renderDash(cos);
+        if (currentView === 'companies') renderCompanies(cos);
+        if (currentView === 'company') renderCompanyDetail(cos);
+        if (currentView === 'cards') renderCards();
+        if (currentView === 'acts') renderActs(cos);
+        if (currentView === 'data') renderSettings();
+      }
+
+      function renderDatalists(cos) {
+        $('dl-companies').innerHTML = cos.map(function (c) {
+          return '<option value="' + esc(c.name) + '"></option>';
+        }).join('');
+        const owners = {};
+        state.cards.forEach(function (c) { if (c.owner) owners[c.owner] = 1; });
+        state.acts.forEach(function (a) { if (a.owner) owners[a.owner] = 1; });
+        $('dl-owners').innerHTML = Object.keys(owners).map(function (o) {
+          return '<option value="' + esc(o) + '"></option>';
+        }).join('');
+      }
+
+      /* ---------- ダッシュボード ---------- */
+      function renderDash(cos) {
+        const st = state.settings;
+        const total = cos.length;
+        const withContact = cos.filter(function (c) { return c.fresh === 'fresh'; }).length;
+        const dec = cos.filter(function (c) { return c.hasDecider; }).length;
+        const inPlay = cos.filter(function (c) { return c.stage >= 2; });
+        const follow = inPlay.filter(function (c) { return c.days === null || c.days > st.freshDays / 3; });
+        const avg = total ? Math.round(cos.reduce(function (s, c) { return s + c.score; }, 0) / total) : 0;
+
+        $('dash-kpis').innerHTML = [
+          kpi('企業（箱）', total, '件', '名刺 ' + state.cards.length + '枚から自動生成', 'blue'),
+          kpi('接点が生きている企業', withContact, '件', st.freshDays + '日以内に接点あり', 'good'),
+          kpi('決裁層に到達', dec, '件', RANK_LABELS[st.decRank] + '以上と接点あり', ''),
+          kpi('要フォロー', follow.length, '件', '商談中なのに間が空いている', 'hot'),
+          kpi('平均カバレッジ', avg, '/100', 'どこまで入り込めているか', '')
+        ].join('');
+
+        // ファネル
+        const counts = {};
+        STAGES.forEach(function (s) { counts[s.k] = 0; });
+        cos.forEach(function (c) { counts[c.stage] = (counts[c.stage] || 0) + 1; });
+        $('dash-funnel').innerHTML = total ? STAGES.map(function (s) {
+          const n = counts[s.k] || 0;
+          const w = n ? Math.max(3, Math.round(n / total * 100)) : 0;
+          const color = s.k === 5 ? 'var(--green)' : (s.k === -1 ? 'var(--gray-300)' : 'var(--blue-mid)');
+          return '<div class="funnel-row"><div class="funnel-l">' + esc(s.label) + '</div>' +
+            '<div class="funnel-b"><i style="width:' + w + '%;background:' + color + '"></i></div>' +
+            '<div class="funnel-c">' + n + '</div></div>';
+        }).join('') : emptyBox('まだデータがありません。「名刺」タブから1枚入れてみてください。');
+
+        // 要フォロー
+        follow.sort(function (a, b) { return (b.days === null ? 9999 : b.days) - (a.days === null ? 9999 : a.days); });
+        $('dash-follow').innerHTML = follow.length ? follow.slice(0, 12).map(function (c) {
+          return '<div class="tl-item"><div class="tl-d">' + (c.days === null ? '—' : c.days + '日') + '</div>' +
+            '<div class="tl-b"><div class="tl-t"><span class="lk" data-co="' + esc(c.key) + '">' + esc(c.name) + '</span>' +
+            '<span class="badge b-stage">' + esc(c.stageLabel) + '</span>' +
+            '<span class="badge b-' + c.fresh + '">' + FRESH_LABEL[c.fresh] + '</span></div>' +
+            '<div class="tl-m">最終接点 ' + fmtDate(c.lastAct) + '／名刺 ' + c.cards.length + '枚／カバレッジ ' + c.score + '</div></div></div>';
+        }).join('') : emptyBox('間の空いている商談はありません。');
+
+        // 名刺のみ
+        const cold = cos.filter(function (c) { return c.fresh === 'none'; })
+          .sort(function (a, b) { return b.cards.length - a.cards.length; });
+        $('dash-cold').innerHTML = cold.length ? cold.slice(0, 12).map(function (c) {
+          return '<div class="tl-item"><div class="tl-d">' + c.cards.length + '枚</div>' +
+            '<div class="tl-b"><div class="tl-t"><span class="lk" data-co="' + esc(c.key) + '">' + esc(c.name) + '</span>' +
+            (c.hasDecider ? '<span class="badge b-key">決裁層の名刺あり</span>' : '') + '</div>' +
+            '<div class="tl-m">' + esc(c.deptTops.join('・')) + '</div></div></div>';
+        }).join('') : emptyBox('名刺だけで止まっている企業はありません。');
+
+        // 最近の接点
+        const recent = state.acts.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 15);
+        $('dash-recent').innerHTML = recent.length ? recent.map(actRow).join('') : emptyBox('接点の記録がまだありません。');
+      }
+
+      function kpi(label, val, unit, note, cls) {
+        return '<div class="kpi ' + cls + '"><div class="kpi-l">' + esc(label) + '</div>' +
+          '<div class="kpi-v mono">' + val + '<small>' + esc(unit) + '</small></div>' +
+          '<div class="kpi-n">' + esc(note) + '</div></div>';
+      }
+
+      function emptyBox(msg) {
+        return '<div class="empty">' + esc(msg) + '</div>';
+      }
+
+      // 表記ゆれがあっても、企業の箱の代表名で表示する
+      function coNameOf(key) {
+        const m = state.meta[key];
+        if (m && m.name) return m.name;
+        const c = state.cards.filter(function (x) { return x.companyKey === key; })[0];
+        if (c) return c.company;
+        const a = state.acts.filter(function (x) { return x.companyKey === key; })[0];
+        return a && a.companyName ? a.companyName : key;
+      }
+
+      function actRow(a) {
+        const card = state.cards.filter(function (c) { return c.id === a.cardId; })[0];
+        return '<div class="tl-item"><div class="tl-d">' + fmtDate(a.date) + '</div><div class="tl-b">' +
+          '<div class="tl-t"><span class="badge b-gray">' + esc(a.type) + '</span>' +
+          '<span class="lk" data-co="' + esc(a.companyKey) + '">' + esc(coNameOf(a.companyKey)) + '</span>' +
+          (card ? '<span class="sm">' + esc(card.name) + (card.title ? '（' + esc(card.title) + '）' : '') + '</span>' : '') +
+          (a.owner ? '<span class="sm">担当:' + esc(a.owner) + '</span>' : '') + '</div>' +
+          (a.memo ? '<div class="tl-m">' + esc(a.memo) + '</div>' : '') + '</div></div>';
+      }
+
+      /* ---------- 企業一覧 ---------- */
+      function renderCompanies(cos) {
+        const q = ($('co-q').value || '').trim().toLowerCase();
+        const fs = $('co-stage').value;
+        const ff = $('co-fresh').value;
+        const sort = $('co-sort').value;
+
+        let list = cos.filter(function (c) {
+          if (fs !== '' && String(c.stage) !== fs) return false;
+          if (ff && c.fresh !== ff) return false;
+          if (q) {
+            const hay = (c.name + ' ' + c.industry + ' ' + c.owner + ' ' +
+              c.cards.map(function (x) { return x.name + x.dept + x.title; }).join(' ')).toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+          }
+          return true;
+        });
+
+        const cmp = {
+          'score': function (a, b) { return a.score - b.score; },
+          'score-d': function (a, b) { return b.score - a.score; },
+          'last': function (a, b) { return (a.lastAct || '').localeCompare(b.lastAct || ''); },
+          'last-d': function (a, b) { return (b.lastAct || '').localeCompare(a.lastAct || ''); },
+          'cards': function (a, b) { return b.cards.length - a.cards.length; },
+          'name': function (a, b) { return String(a.name).localeCompare(String(b.name), 'ja'); }
+        }[sort];
+        list.sort(cmp);
+
+        $('co-count').textContent = list.length + ' 件 / 全 ' + cos.length + ' 件';
+        $('co-list').innerHTML = list.length ? list.map(coBox).join('') :
+          emptyBox('該当する企業がありません。');
+      }
+
+      function coBox(c) {
+        return '<div class="cobox s-' + c.fresh + '" data-co="' + esc(c.key) + '">' +
+          '<div class="cobox-h"><div class="cobox-n">' + esc(c.name) + '</div>' +
+          '<div class="badge b-' + c.fresh + '">' + FRESH_LABEL[c.fresh] + '</div></div>' +
+          '<div class="cobox-m"><span>名刺 ' + c.cards.length + '枚</span><span>部署 ' + c.deptCount + '</span>' +
+          '<span>最終接点 ' + fmtDate(c.lastAct) + '</span></div>' +
+          '<div class="cobox-b"><span class="badge b-stage">' + esc(c.stageLabel) + '</span>' +
+          (c.hasDecider ? '<span class="badge b-key">決裁層 ★</span>' :
+            (c.hasManager ? '<span class="badge b-gray">管理層まで</span>' : '<span class="badge b-gray">実務層まで</span>')) +
+          (c.industry ? '<span class="badge b-gray">' + esc(c.industry) + '</span>' : '') + '</div>' +
+          '<div class="bar-l"><span>カバレッジ</span><span class="mono">' + c.score + '/100</span></div>' +
+          '<div class="bar"><i style="width:' + c.score + '%;background:' +
+          (c.score >= 70 ? 'var(--green)' : c.score >= 40 ? 'var(--blue-mid)' : 'var(--orange)') + '"></i></div>' +
+          '</div>';
+      }
+
+      /* ---------- 企業カルテ ---------- */
+      function renderCompanyDetail(cos) {
+        const co = cos.filter(function (c) { return c.key === currentCompanyKey; })[0];
+        if (!co) {
+          $('co-detail').innerHTML = emptyBox('企業が見つかりません。');
+          return;
+        }
+        const st = state.settings;
+
+        // 到達マップ
+        const bands = [
+          { key: 'dec', label: '決裁層（' + RANK_LABELS[st.decRank] + '以上）', test: function (r) { return r <= st.decRank; } },
+          { key: 'mgr', label: '管理層（部長〜課長）', test: function (r) { return r > st.decRank && r <= 10; } },
+          { key: 'stf', label: '実務層（係長・担当）', test: function (r) { return r > 10; } }
+        ];
+        const bandHtml = bands.map(function (b) {
+          const people = co.cards.filter(function (c) { return b.test(titleRank(c.title)); });
+          const live = people.filter(function (c) { return personStatus(c).fresh === 'fresh'; }).length;
+          return '<div class="funnel-row"><div class="funnel-l">' + esc(b.label.split('（')[0]) + '</div>' +
+            '<div class="funnel-b"><i style="width:' + (people.length ? Math.max(8, Math.round(live / Math.max(people.length, 1) * 100)) : 0) +
+            '%;background:' + (people.length ? (live ? 'var(--green)' : 'var(--amber)') : 'var(--gray-200)') + '"></i></div>' +
+            '<div class="funnel-c">' + people.length + '名</div></div>' +
+            '<div class="sm" style="margin:-2px 0 8px 102px">' + esc(b.label) + '：' +
+            (people.length ? '名刺 ' + people.length + '枚 / 生きている接点 ' + live + '件' : 'まだ名刺がありません') + '</div>';
+        }).join('');
+
+        const stageOpts = STAGES.map(function (s) {
+          return '<option value="' + s.k + '"' + (co.stageOverride === s.k ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+        }).join('');
+
+        let h = '';
+        h += '<div class="panel"><div class="row-sb">' +
+          '<div><div class="panel-ttl" style="font-size:19px">' + esc(co.name) + '</div>' +
+          '<div class="sm">' + (co.industry ? esc(co.industry) + '／' : '') + '名刺 ' + co.cards.length + '枚・接点 ' + co.acts.length + '件</div></div>' +
+          '<div class="badge b-' + co.fresh + '" style="font-size:12px;padding:5px 12px">' + FRESH_LABEL[co.fresh] +
+          (co.days === null ? '' : '（' + co.days + '日前）') + '</div></div>';
+
+        h += '<div class="kpis" style="margin-top:12px;margin-bottom:0">' +
+          kpi('カバレッジ', co.score, '/100', 'どこまで入り込めているか', co.score >= 70 ? 'good' : (co.score < 40 ? 'hot' : 'blue')) +
+          kpi('ステージ', '<span style="font-size:17px">' + esc(co.stageLabel) + '</span>', '', co.stageOverride === null ? '接点履歴から自動判定' : '手動で設定中', '') +
+          kpi('到達している最上位', '<span style="font-size:17px">' + esc(RANK_LABELS[co.topRank] || '—') + '</span>', '',
+            co.hasDecider ? '決裁層に届いています' : '決裁層にはまだ未到達', co.hasDecider ? 'good' : '') +
+          kpi('部署の広がり', co.deptCount, '部署', esc(co.deptTops.join('・').slice(0, 40)), '') +
+          '</div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">この会社の設定</div>' +
+          '<div class="grid2">' +
+          '<div><label class="f">業界</label><input class="i" id="m-industry" value="' + esc(co.industry) + '"></div>' +
+          '<div><label class="f">自社の主担当</label><input class="i" id="m-owner" list="dl-owners" value="' + esc(co.owner) + '"></div>' +
+          '<div><label class="f">重要度</label><select class="i" id="m-priority">' +
+          ['', 'A', 'B', 'C'].map(function (p) {
+            return '<option value="' + p + '"' + (co.priority === p ? ' selected' : '') + '>' + (p || '未設定') + '</option>';
+          }).join('') + '</select></div>' +
+          '<div><label class="f">ステージを手で決める</label><select class="i" id="m-stage">' +
+          '<option value=""' + (co.stageOverride === null ? ' selected' : '') + '>自動（' +
+          esc((STAGES.filter(function (s) { return s.k === co.stageAuto; })[0] || STAGES[0]).label) + '）</option>' + stageOpts + '</select></div>' +
+          '</div>' +
+          '<div style="margin-top:10px"><label class="f">メモ</label><textarea class="i" id="m-memo" rows="2">' + esc(co.memo) + '</textarea></div>' +
+          '<div class="btnrow" style="margin-top:10px"><button class="btn" id="m-save">保存</button></div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">どこまで営業できているか（役職の層ごと）</div>' +
+          '<div class="panel-sub">バーは「その層のうち、' + st.freshDays + '日以内に接点がある人の割合」です。</div>' + bandHtml + '</div>';
+
+        h += '<div class="panel"><div class="panel-ttl">組織図（名刺の部署から自動生成）</div>' +
+          '<div class="panel-sub">左の色＝接点の状態（緑：接点あり／黄：冷えかけ／赤：途絶／灰：名刺のみ）。★は決裁層。クリックすると名刺を編集できます。</div>' +
+          '<div class="org">' + renderOrg(buildOrg(co), 0) + '</div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">接点を記録</div>' +
+          '<div class="grid2">' +
+          '<div><label class="f">相手</label><select class="i" id="q-person"><option value="">（会社全体）</option>' +
+          co.cards.map(function (c) {
+            return '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.title ? '（' + esc(c.title) + '）' : '') + '</option>';
+          }).join('') + '</select></div>' +
+          '<div><label class="f">種類</label><select class="i" id="q-type">' +
+          ACT_TYPES.map(function (t) { return '<option value="' + esc(t.t) + '"' + (t.t === '訪問' ? ' selected' : '') + '>' + esc(t.t) + '</option>'; }).join('') +
+          '</select></div>' +
+          '<div><label class="f">日付</label><input class="i" type="date" id="q-date" value="' + todayStr() + '"></div>' +
+          '<div><label class="f">自社担当</label><input class="i" id="q-owner" list="dl-owners" value="' + esc(co.owner) + '"></div>' +
+          '</div>' +
+          '<div style="margin-top:10px"><label class="f">内容</label><textarea class="i" id="q-memo" rows="2"></textarea></div>' +
+          '<div class="btnrow" style="margin-top:10px"><button class="btn" id="q-add">記録する</button></div></div>';
+
+        h += '<div class="panel"><div class="panel-ttl">接点の履歴（' + co.acts.length + '件）</div>' +
+          (co.acts.length ? co.acts.map(function (a) {
+            return actRow(a).replace('</div></div>',
+              '</div><div style="margin-top:4px"><button class="btn mini danger" data-delact="' + esc(a.id) + '">削除</button></div></div>');
+          }).join('') : emptyBox('まだ接点がありません。')) + '</div>';
+
+        h += '<div class="panel"><div class="panel-ttl">この会社の名刺（' + co.cards.length + '枚）</div><div class="tw">' +
+          cardTable(co.cards, false) + '</div></div>';
+
+        $('co-detail').innerHTML = h;
+      }
+
+      /* ---------- 名刺 ---------- */
+      function cardTable(cards, showCompany) {
+        const st = state.settings;
+        let h = '<table class="t"><thead><tr>' +
+          (showCompany ? '<th>会社</th>' : '') +
+          '<th>氏名</th><th>部署</th><th>役職</th><th>層</th><th>接点</th><th>最終</th><th>連絡先</th><th></th></tr></thead><tbody>';
+        cards.forEach(function (c) {
+          const r = titleRank(c.title);
+          const band = rankBand(r, st.decRank);
+          const ps = personStatus(c);
+          h += '<tr>' +
+            (showCompany ? '<td><span class="lk" data-co="' + esc(c.companyKey) + '">' + esc(coNameOf(c.companyKey)) + '</span></td>' : '') +
+            '<td><b>' + esc(c.name) + '</b>' + (c.kana ? '<div class="sm">' + esc(c.kana) + '</div>' : '') + '</td>' +
+            '<td>' + esc(c.dept || '—') + '</td>' +
+            '<td>' + esc(c.title || '—') + '</td>' +
+            '<td><span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label + '</span></td>' +
+            '<td><span class="badge b-' + ps.fresh + '">' + FRESH_LABEL[ps.fresh] + '</span></td>' +
+            '<td class="mono sm">' + fmtDate(ps.last) + '</td>' +
+            '<td class="sm">' + esc(c.email || '') + (c.tel ? '<br>' + esc(c.tel) : '') + (c.mobile ? '<br>' + esc(c.mobile) : '') + '</td>' +
+            '<td style="white-space:nowrap"><button class="btn mini ghost" data-edit="' + esc(c.id) + '">編集</button> ' +
+            '<button class="btn mini danger" data-del="' + esc(c.id) + '">削除</button></td>' +
+            '</tr>';
+        });
+        return h + '</tbody></table>';
+      }
+
+      function renderCards() {
+        const q = ($('card-q').value || '').trim().toLowerCase();
+        let list = state.cards.slice().sort(function (a, b) {
+          return String(a.company).localeCompare(String(b.company), 'ja') || titleRank(a.title) - titleRank(b.title);
+        });
+        if (q) {
+          list = list.filter(function (c) {
+            return (c.name + c.kana + c.company + c.dept + c.title + c.email + c.memo).toLowerCase().indexOf(q) !== -1;
+          });
+        }
+        $('card-count').textContent = '（' + list.length + ' / ' + state.cards.length + '枚）';
+        $('card-table').outerHTML = list.length ?
+          cardTable(list, true).replace('<table class="t">', '<table class="t" id="card-table">') :
+          '<table class="t" id="card-table"><tbody><tr><td>' + emptyBox('名刺がまだありません。') + '</td></tr></tbody></table>';
+      }
+
+      /* ---------- 接点一覧 ---------- */
+      function renderActs(cos) {
+        const q = ($('act-q').value || '').trim().toLowerCase();
+        let list = state.acts.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+        if (q) {
+          list = list.filter(function (a) {
+            const card = state.cards.filter(function (c) { return c.id === a.cardId; })[0];
+            return ((a.companyName || '') + (a.type || '') + (a.memo || '') + (a.owner || '') + (card ? card.name : '')).toLowerCase().indexOf(q) !== -1;
+          });
+        }
+        $('act-count').textContent = '（' + list.length + ' / ' + state.acts.length + '件）';
+        let h = '<thead><tr><th>日付</th><th>会社</th><th>相手</th><th>種類</th><th>内容</th><th>担当</th><th></th></tr></thead><tbody>';
+        if (!list.length) {
+          h += '<tr><td colspan="7">' + emptyBox('接点の記録がありません。') + '</td></tr>';
+        } else {
+          list.forEach(function (a) {
+            const card = state.cards.filter(function (c) { return c.id === a.cardId; })[0];
+            h += '<tr><td class="mono sm">' + fmtDate(a.date) + '</td>' +
+              '<td><span class="lk" data-co="' + esc(a.companyKey) + '">' + esc(a.companyName || a.companyKey) + '</span></td>' +
+              '<td>' + esc(card ? card.name : '—') + '</td>' +
+              '<td><span class="badge b-gray">' + esc(a.type) + '</span></td>' +
+              '<td class="sm">' + esc(a.memo || '') + '</td>' +
+              '<td class="sm">' + esc(a.owner || '') + '</td>' +
+              '<td><button class="btn mini danger" data-delact="' + esc(a.id) + '">削除</button></td></tr>';
+          });
+        }
+        $('act-table').innerHTML = h + '</tbody>';
+      }
+
+      /* ---------- 設定 ---------- */
+      function renderSettings() {
+        $('s-fresh').value = state.settings.freshDays;
+        $('s-stale').value = state.settings.staleDays;
+        const opts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (r) {
+          return '<option value="' + r + '"' + (state.settings.decRank === r ? ' selected' : '') + '>' +
+            RANK_LABELS[r] + '以上</option>';
+        }).join('');
+        $('s-dec').innerHTML = opts;
+      }
+
+      /* ==========================================================
+         データ操作
+         ========================================================== */
+      function addCard(data, opts) {
+        opts = opts || {};
+        const company = String(data.company || '').trim();
+        const name = String(data.name || '').trim();
+        if (!company || !name) return null;
+        const key = companyKey(company);
+
+        if (opts.skipDup) {
+          const dup = state.cards.filter(function (c) {
+            return c.companyKey === key && String(c.name).replace(/[\s　]/g, '') === name.replace(/[\s　]/g, '');
+          })[0];
+          if (dup) return 'dup';
+        }
+
+        const card = {
+          id: uid(), company: company, companyKey: key, name: name,
+          kana: String(data.kana || '').trim(), dept: String(data.dept || '').trim(),
+          title: String(data.title || '').trim(), email: String(data.email || '').trim(),
+          tel: String(data.tel || '').trim(), mobile: String(data.mobile || '').trim(),
+          address: String(data.address || '').trim(), met: normDate(data.met) || todayStr(),
+          owner: String(data.owner || '').trim(), source: String(data.source || '').trim(),
+          memo: String(data.memo || '').trim(), createdAt: todayStr()
+        };
+        state.cards.push(card);
+        if (!state.meta[key]) state.meta[key] = { name: company };
+        // 名刺交換そのものを最初の接点として記録
+        state.acts.push({
+          id: uid(), companyKey: key, companyName: company, cardId: card.id,
+          type: '名刺交換', date: card.met, owner: card.owner, memo: card.source ? 'きっかけ：' + card.source : ''
+        });
+        return card;
+      }
+
+      function updateCard(id, data) {
+        const c = state.cards.filter(function (x) { return x.id === id; })[0];
+        if (!c) return;
+        const oldKey = c.companyKey;
+        c.company = String(data.company || '').trim();
+        c.companyKey = companyKey(c.company);
+        ['name', 'kana', 'dept', 'title', 'email', 'tel', 'mobile', 'address', 'owner', 'source', 'memo'].forEach(function (f) {
+          c[f] = String(data[f] || '').trim();
+        });
+        c.met = normDate(data.met) || c.met;
+        if (!state.meta[c.companyKey]) state.meta[c.companyKey] = { name: c.company };
+        // 名刺交換の記録も追従させる
+        state.acts.forEach(function (a) {
+          if (a.cardId === id) {
+            a.companyKey = c.companyKey;
+            a.companyName = c.company;
+            if (a.type === '名刺交換') a.date = c.met;
+          }
+          if (a.companyKey === oldKey && !a.cardId && oldKey !== c.companyKey) {
+            // 会社全体の接点は元の会社に残す
+          }
+        });
+      }
+
+      function deleteCard(id) {
+        state.cards = state.cards.filter(function (c) { return c.id !== id; });
+        state.acts = state.acts.filter(function (a) { return a.cardId !== id; });
+      }
+
+      function addAct(companyName, cardId, type, date, memo, owner) {
+        const name = String(companyName || '').trim();
+        if (!name) return false;
+        state.acts.push({
+          id: uid(), companyKey: companyKey(name), companyName: name,
+          cardId: cardId || null, type: type, date: normDate(date) || todayStr(),
+          memo: String(memo || '').trim(), owner: String(owner || '').trim()
+        });
+        return true;
+      }
+
+      /* ==========================================================
+         取り込み — CSV
+         ========================================================== */
+      function splitRows(text) {
+        // 引用符に対応した簡易パーサ（区切りは , か タブ）
+        const delim = text.split('\n')[0].indexOf('\t') !== -1 ? '\t' : ',';
+        const rows = [];
+        let row = [], cur = '', inQ = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (inQ) {
+            if (ch === '"') {
+              if (text[i + 1] === '"') { cur += '"'; i++; }
+              else inQ = false;
+            } else cur += ch;
+          } else if (ch === '"') {
+            inQ = true;
+          } else if (ch === delim) {
+            row.push(cur); cur = '';
+          } else if (ch === '\n') {
+            row.push(cur); cur = '';
+            if (row.some(function (x) { return x.trim() !== ''; })) rows.push(row);
+            row = [];
+          } else if (ch !== '\r') {
+            cur += ch;
+          }
+        }
+        row.push(cur);
+        if (row.some(function (x) { return x.trim() !== ''; })) rows.push(row);
+        return rows;
+      }
+
+      const HEADER_RULES = [
+        ['kana', /ふりがな|フリガナ|ふり仮名|振り仮名|かな|カナ|ヨミ|よみ|kana|ruby/i],
+        ['mobile', /携帯|モバイル|mobile|cell/i],
+        ['email', /メール|mail/i],
+        ['tel', /電話|tel|phone|ｔｅｌ/i],
+        ['company', /会社|企業|法人|勤務先|団体|company|organi/i],
+        ['name', /氏名|名前|担当者名|フルネーム|^名$|name/i],
+        ['dept', /部署|部門|所属|department|division/i],
+        ['title', /役職|肩書|title|position/i],
+        ['met', /名刺交換|交換日|取得日|登録日|受領|date/i],
+        ['owner', /自社担当|営業担当|当社担当|弊社|owner/i],
+        ['source', /きっかけ|経路|入手|source|流入/i],
+        ['address', /住所|所在地|address/i],
+        ['memo', /メモ|備考|memo|note/i]
+      ];
+
+      function mapHeaders(headers) {
+        const used = {};
+        return headers.map(function (h) {
+          const hh = String(h || '').trim();
+          for (let i = 0; i < HEADER_RULES.length; i++) {
+            const f = HEADER_RULES[i][0];
+            if (used[f]) continue;
+            if (HEADER_RULES[i][1].test(hh)) { used[f] = 1; return f; }
+          }
+          return null;
+        });
+      }
+
+      function importCsv(text) {
+        const rows = splitRows(text.trim());
+        if (rows.length < 2) return { ok: 0, dup: 0, ng: 0, err: '見出し行とデータ行が必要です。' };
+        const map = mapHeaders(rows[0]);
+        if (map.indexOf('company') === -1 || map.indexOf('name') === -1) {
+          return { ok: 0, dup: 0, ng: 0, err: '見出しに「会社名」と「氏名」が見つかりませんでした。' };
+        }
+        let ok = 0, dup = 0, ng = 0;
+        for (let i = 1; i < rows.length; i++) {
+          const d = {};
+          map.forEach(function (f, j) { if (f) d[f] = (rows[i][j] || '').trim(); });
+          const r = addCard(d, { skipDup: true });
+          if (r === 'dup') dup++;
+          else if (r) ok++;
+          else ng++;
+        }
+        return { ok: ok, dup: dup, ng: ng, err: '' };
+      }
+
+      /* ==========================================================
+         取り込み — 名刺テキストの読み取り
+         ========================================================== */
+      function parseCardText(block) {
+        const lines = block.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+        const d = { company: '', name: '', dept: '', title: '', email: '', tel: '', mobile: '', address: '' };
+        const rest = [];
+
+        lines.forEach(function (line) {
+          const l = toHalf(line);
+          const em = l.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+          if (em) { if (!d.email) d.email = em[0]; return; }
+
+          const isMobile = /携帯|mobile|cell|\b0[789]0[-\s]?\d{4}/i.test(l);
+          const tel = l.match(/0\d{1,4}[-\s(]?\d{1,4}[-\s)]?\d{3,4}/);
+          if (tel && /tel|電話|fax|携帯|mobile|直通|^\s*[\d(]/i.test(l)) {
+            if (/fax/i.test(l)) return;
+            if (isMobile) { if (!d.mobile) d.mobile = tel[0]; }
+            else if (!d.tel) d.tel = tel[0];
+            return;
+          }
+
+          if (/〒|\d{3}-\d{4}/.test(l) || /(都|道|府|県).*(市|区|郡)/.test(line)) {
+            d.address = d.address ? d.address + ' ' + line : line;
+            return;
+          }
+          if (/^(https?:\/\/|www\.)/i.test(l)) return;
+
+          rest.push(line);
+        });
+
+        // 会社名
+        for (let i = 0; i < rest.length; i++) {
+          if (COMPANY_KW.test(rest[i])) { d.company = rest[i]; rest.splice(i, 1); break; }
+        }
+
+        // 役職と氏名（同じ行に同居しがち）
+        for (let i = 0; i < rest.length; i++) {
+          const line = rest[i];
+          let hit = null;
+          for (let j = 0; j < TITLE_PATTERNS.length; j++) {
+            if (line.indexOf(TITLE_PATTERNS[j][0]) !== -1) { hit = TITLE_PATTERNS[j][0]; break; }
+          }
+          if (!hit) continue;
+          d.title = hit;
+          const remain = line.replace(hit, '').replace(/[\/／|｜]/g, ' ').trim();
+          const words = remain.split(/[\s　]+/).filter(Boolean);
+          const deptWords = words.filter(function (w) { return DEPT_KW.test(w); });
+          const nameWords = words.filter(function (w) { return !DEPT_KW.test(w); });
+          if (deptWords.length) d.dept = deptWords.join('/');
+          if (nameWords.length) d.name = nameWords.join(' ');
+          rest.splice(i, 1);
+          break;
+        }
+
+        // 部署
+        for (let i = rest.length - 1; i >= 0; i--) {
+          if (DEPT_KW.test(rest[i])) {
+            d.dept = d.dept ? rest[i].replace(/[\s　]+/g, '/') + '/' + d.dept : rest[i].replace(/[\s　]+/g, '/');
+            rest.splice(i, 1);
+          }
+        }
+
+        // 氏名（残りのうち、記号や数字を含まない短い行）
+        if (!d.name) {
+          for (let i = 0; i < rest.length; i++) {
+            const c = rest[i];
+            if (c.length <= 12 && !/\d/.test(c)) { d.name = c; rest.splice(i, 1); break; }
+          }
+        }
+        if (!d.company && rest.length) d.company = rest.shift();
+        if (rest.length) d.memo = rest.join(' / ');
+        return d;
+      }
+
+      function importText(text) {
+        const blocks = text.split(/\n\s*\n/).map(function (b) { return b.trim(); }).filter(Boolean);
+        let ok = 0, dup = 0, ng = 0;
+        blocks.forEach(function (b) {
+          const d = parseCardText(b);
+          d.met = todayStr();
+          const r = addCard(d, { skipDup: true });
+          if (r === 'dup') dup++;
+          else if (r) ok++;
+          else ng++;
+        });
+        return { ok: ok, dup: dup, ng: ng, err: '' };
+      }
+
+      /* ==========================================================
+         書き出し
+         ========================================================== */
+      function download(filename, content, type) {
+        const blob = new Blob([content], { type: type || 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+
+      function csvCell(v) {
+        const s = String(v == null ? '' : v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }
+
+      function toCsv(rows) {
+        return '﻿' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+      }
+
+      /* ==========================================================
+         サンプルデータ
+         ========================================================== */
+      function demoData() {
+        const d = function (n) {
+          const t = new Date();
+          t.setDate(t.getDate() - n);
+          return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+        };
+        const cards = [
+          { company: '株式会社サンプル製作所', name: '山田 太郎', dept: '営業本部/第一営業部/東京1課', title: '課長', email: 'yamada@sample.co.jp', tel: '03-1234-5678', met: d(120), owner: '自分', source: '展示会' },
+          { company: 'サンプル製作所（株）', name: '鈴木 一郎', dept: '営業本部/第一営業部', title: '部長', email: 'suzuki@sample.co.jp', met: d(110), owner: '自分', source: '紹介' },
+          { company: '株式会社サンプル製作所', name: '田中 花子', dept: '営業本部', title: '本部長', email: 'tanaka@sample.co.jp', met: d(30), owner: '自分', source: '訪問' },
+          { company: '株式会社サンプル製作所', name: '高橋 次郎', dept: '生産技術部/設備課', title: '主任', met: d(100), owner: '同僚A', source: '展示会' },
+          { company: '合同会社ミドリ商事', name: '佐藤 三郎', dept: '購買部', title: '担当', email: 'sato@midori.example', met: d(420), owner: '同僚A', source: '交流会' },
+          { company: 'ミドリ商事', name: '伊藤 良子', dept: '購買部', title: '課長', met: d(400), owner: '同僚A', source: '交流会' },
+          { company: '青空リース株式会社', name: '中村 大輔', dept: '法人営業部/西日本営業課', title: '次長', email: 'nakamura@aozora.example', met: d(15), owner: '自分', source: '問い合わせ' },
+          { company: '青空リース(株)', name: '小林 恵', dept: '経営企画室', title: '室長', met: d(12), owner: '自分', source: '紹介' },
+          { company: '青空リース株式会社', name: '渡辺 修', dept: '', title: '代表取締役社長', met: d(10), owner: '自分', source: '紹介' },
+          { company: '株式会社ひかり工業', name: '松本 剛', dept: '技術部', title: '担当', met: d(200), owner: '同僚B', source: 'セミナー' }
+        ];
+        cards.forEach(function (c) { addCard(c, { skipDup: true }); });
+
+        const byName = function (n) {
+          return (state.cards.filter(function (c) { return c.name === n; })[0] || {}).id || null;
+        };
+        addAct('株式会社サンプル製作所', byName('山田 太郎'), '訪問', d(115), '工場見学。現場の困りごとをヒアリング', '自分');
+        addAct('株式会社サンプル製作所', byName('鈴木 一郎'), 'ヒアリング', d(90), '来期の設備投資計画を確認', '自分');
+        addAct('株式会社サンプル製作所', byName('田中 花子'), '提案', d(28), '本部長へ全社展開の提案書を提出', '自分');
+        addAct('青空リース株式会社', byName('中村 大輔'), '訪問', d(14), '初回訪問。競合A社が既に入っている', '自分');
+        addAct('青空リース株式会社', byName('渡辺 修'), 'ヒアリング', d(9), '社長同席。DX方針を確認', '自分');
+        addAct('青空リース株式会社', byName('中村 大輔'), '見積提出', d(3), '初期費用込みの見積を提出。来週回答予定', '自分');
+        addAct('合同会社ミドリ商事', byName('佐藤 三郎'), '電話', d(390), '担当者が異動したとのこと', '同僚A');
+        state.meta[companyKey('株式会社サンプル製作所')] = Object.assign(state.meta[companyKey('株式会社サンプル製作所')] || {}, { industry: '製造', priority: 'A', owner: '自分' });
+        state.meta[companyKey('青空リース株式会社')] = Object.assign(state.meta[companyKey('青空リース株式会社')] || {}, { industry: '金融', priority: 'A', owner: '自分' });
+        state.meta[companyKey('合同会社ミドリ商事')] = Object.assign(state.meta[companyKey('合同会社ミドリ商事')] || {}, { industry: '商社', priority: 'C' });
+      }
+
+      /* ==========================================================
+         フォーム
+         ========================================================== */
+      function fillForm(c) {
+        $('f-id').value = c ? c.id : '';
+        $('f-company').value = c ? c.company : '';
+        $('f-name').value = c ? c.name : '';
+        $('f-kana').value = c ? c.kana : '';
+        $('f-dept').value = c ? c.dept : '';
+        $('f-title').value = c ? c.title : '';
+        $('f-email').value = c ? c.email : '';
+        $('f-tel').value = c ? c.tel : '';
+        $('f-mobile').value = c ? c.mobile : '';
+        $('f-met').value = c ? c.met : todayStr();
+        $('f-owner').value = c ? c.owner : '';
+        $('f-source').value = c ? c.source : '';
+        $('f-addr').value = c ? c.address : '';
+        $('f-memo').value = c ? c.memo : '';
+        $('card-form-ttl').textContent = c ? '名刺を編集' : '名刺を追加';
+        $('f-submit').textContent = c ? '変更を保存' : 'この名刺を登録';
+      }
+
+      function readForm() {
+        return {
+          company: $('f-company').value, name: $('f-name').value, kana: $('f-kana').value,
+          dept: $('f-dept').value, title: $('f-title').value, email: $('f-email').value,
+          tel: $('f-tel').value, mobile: $('f-mobile').value, met: $('f-met').value,
+          owner: $('f-owner').value, source: $('f-source').value, address: $('f-addr').value,
+          memo: $('f-memo').value
+        };
+      }
+
+      function editCard(id) {
+        const c = state.cards.filter(function (x) { return x.id === id; })[0];
+        if (!c) return;
+        showView('cards');
+        fillForm(c);
+        $('f-company').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      /* ==========================================================
+         イベント
+         ========================================================== */
+      function bind() {
+        document.querySelectorAll('.navbtn').forEach(function (b) {
+          b.addEventListener('click', function () { showView(b.dataset.view); });
+        });
+        $('co-back').addEventListener('click', function () { showView('companies'); });
+
+        // 一覧のフィルタ
+        ['co-q', 'co-stage', 'co-fresh', 'co-sort'].forEach(function (id) {
+          $(id).addEventListener('input', function () { renderCompanies(computeCompanies()); });
+        });
+        $('card-q').addEventListener('input', renderCards);
+        $('act-q').addEventListener('input', function () { renderActs(computeCompanies()); });
+
+        // ステージ絞り込みの選択肢
+        $('co-stage').innerHTML = '<option value="">すべて</option>' +
+          STAGES.map(function (s) { return '<option value="' + s.k + '">' + esc(s.label) + '</option>'; }).join('');
+        $('a-type').innerHTML = ACT_TYPES.map(function (t) {
+          return '<option value="' + esc(t.t) + '"' + (t.t === '訪問' ? ' selected' : '') + '>' + esc(t.t) + '</option>';
+        }).join('');
+
+        // 名刺フォーム
+        $('card-form').addEventListener('submit', function (e) {
+          e.preventDefault();
+          const d = readForm();
+          if (!d.company.trim() || !d.name.trim()) { toast('会社名と氏名は必須です'); return; }
+          const id = $('f-id').value;
+          if (id) { updateCard(id, d); toast('名刺を更新しました'); }
+          else { addCard(d); toast('名刺を登録しました（企業の箱に自動でまとめました）'); }
+          save(); fillForm(null); render();
+        });
+        $('f-clear').addEventListener('click', function () { fillForm(null); });
+
+        // 接点フォーム
+        $('a-company').addEventListener('input', refreshPersonSelect);
+        $('act-form').addEventListener('submit', function (e) {
+          e.preventDefault();
+          const co = $('a-company').value.trim();
+          if (!co) { toast('会社を入れてください'); return; }
+          addAct(co, $('a-person').value || null, $('a-type').value, $('a-date').value, $('a-memo').value, $('a-owner').value);
+          save();
+          $('a-memo').value = '';
+          toast('接点を記録しました');
+          render();
+        });
+
+        // 画面全体のクリック
+        document.addEventListener('click', function (e) {
+          const co = e.target.closest('[data-co]');
+          if (co) { openCompany(co.dataset.co); return; }
+
+          const chip = e.target.closest('[data-card]');
+          if (chip) { editCard(chip.dataset.card); return; }
+
+          const ed = e.target.closest('[data-edit]');
+          if (ed) { editCard(ed.dataset.edit); return; }
+
+          const del = e.target.closest('[data-del]');
+          if (del) {
+            const c = state.cards.filter(function (x) { return x.id === del.dataset.del; })[0];
+            if (c && confirm(c.name + ' さんの名刺を削除します。よろしいですか？（紐づく接点も消えます）')) {
+              deleteCard(del.dataset.del); save(); render(); toast('削除しました');
+            }
+            return;
+          }
+
+          const da = e.target.closest('[data-delact]');
+          if (da) {
+            if (confirm('この接点の記録を削除します。よろしいですか？')) {
+              state.acts = state.acts.filter(function (a) { return a.id !== da.dataset.delact; });
+              save(); render(); toast('削除しました');
+            }
+            return;
+          }
+
+          if (e.target.id === 'm-save') {
+            const k = currentCompanyKey;
+            state.meta[k] = Object.assign(state.meta[k] || {}, {
+              industry: $('m-industry').value.trim(),
+              owner: $('m-owner').value.trim(),
+              priority: $('m-priority').value,
+              stage: $('m-stage').value === '' ? null : Number($('m-stage').value),
+              memo: $('m-memo').value.trim()
+            });
+            save(); render(); toast('保存しました');
+            return;
+          }
+
+          if (e.target.id === 'q-add') {
+            const cos = computeCompanies();
+            const co2 = cos.filter(function (c) { return c.key === currentCompanyKey; })[0];
+            if (!co2) return;
+            addAct(co2.name, $('q-person').value || null, $('q-type').value, $('q-date').value, $('q-memo').value, $('q-owner').value);
+            save(); render(); toast('接点を記録しました');
+            return;
+          }
+        });
+
+        // 取り込み
+        $('imp-csv-run').addEventListener('click', function () {
+          const t = $('imp-csv').value;
+          if (!t.trim()) { toast('貼り付けてから押してください'); return; }
+          const r = importCsv(t);
+          $('imp-csv-res').innerHTML = r.err ? '<span style="color:var(--red)">' + esc(r.err) + '</span>' :
+            '取り込み ' + r.ok + '件／重複スキップ ' + r.dup + '件／会社名か氏名が空で除外 ' + r.ng + '件';
+          if (!r.err) { save(); render(); toast(r.ok + '件を取り込みました'); }
+        });
+        $('imp-csv-tpl').addEventListener('click', function () {
+          $('imp-csv').value = '会社名,氏名,ふりがな,部署,役職,メール,電話,携帯,名刺交換日,自社担当,きっかけ,メモ\n';
+          $('imp-csv').focus();
+        });
+        $('imp-txt-run').addEventListener('click', function () {
+          const t = $('imp-txt').value;
+          if (!t.trim()) { toast('貼り付けてから押してください'); return; }
+          const r = importText(t);
+          $('imp-txt-res').textContent = '取り込み ' + r.ok + '件／重複スキップ ' + r.dup + '件／読み取れず除外 ' + r.ng +
+            '件　※推測で埋めているので「名刺」タブで確認してください';
+          save(); render(); toast(r.ok + '件を取り込みました');
+        });
+
+        // 書き出し
+        $('exp-json').addEventListener('click', function () {
+          download('meishi-coverage-' + todayStr() + '.json', JSON.stringify(state, null, 2), 'application/json');
+        });
+        $('exp-cards').addEventListener('click', function () {
+          const rows = [['会社名', '氏名', 'ふりがな', '部署', '役職', '役職ランク', '層', 'メール', '電話', '携帯', '名刺交換日', '自社担当', 'きっかけ', '住所', 'メモ']];
+          state.cards.forEach(function (c) {
+            const r = titleRank(c.title);
+            rows.push([c.company, c.name, c.kana, c.dept, c.title, r, rankBand(r, state.settings.decRank).label,
+              c.email, c.tel, c.mobile, c.met, c.owner, c.source, c.address, c.memo]);
+          });
+          download('名刺一覧-' + todayStr() + '.csv', toCsv(rows), 'text/csv;charset=utf-8');
+        });
+        $('exp-cov').addEventListener('click', function () {
+          const rows = [['会社名', '業界', '重要度', '主担当', 'ステージ', '接点状態', '最終接点', '経過日数', '名刺枚数', '部署数', '最上位役職', '決裁層到達', 'カバレッジ']];
+          computeCompanies().sort(function (a, b) { return b.score - a.score; }).forEach(function (c) {
+            rows.push([c.name, c.industry, c.priority, c.owner, c.stageLabel, FRESH_LABEL[c.fresh], c.lastAct,
+              c.days === null ? '' : c.days, c.cards.length, c.deptCount, RANK_LABELS[c.topRank] || '', c.hasDecider ? '○' : '', c.score]);
+          });
+          download('企業カバレッジ-' + todayStr() + '.csv', toCsv(rows), 'text/csv;charset=utf-8');
+        });
+        $('imp-json-btn').addEventListener('click', function () { $('imp-json').click(); });
+        $('imp-json').addEventListener('change', function (e) {
+          const f = e.target.files[0];
+          if (!f) return;
+          const fr = new FileReader();
+          fr.onload = function () {
+            try {
+              const d = JSON.parse(fr.result);
+              if (!d || !Array.isArray(d.cards)) throw new Error('形式が違います');
+              if (!confirm('いまのデータを、読み込んだファイルの内容で置き換えます。よろしいですか？')) return;
+              state.cards = d.cards;
+              state.acts = Array.isArray(d.acts) ? d.acts : [];
+              state.meta = d.meta || {};
+              state.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
+              save(); render(); toast('復元しました');
+            } catch (err) {
+              toast('読み込めませんでした：' + err.message);
+            }
+          };
+          fr.readAsText(f);
+          e.target.value = '';
+        });
+
+        // 設定
+        $('s-save').addEventListener('click', function () {
+          const f = Number($('s-fresh').value), s = Number($('s-stale').value);
+          if (!(f > 0) || !(s > f)) { toast('「途絶」は「接点あり」より大きい日数にしてください'); return; }
+          state.settings.freshDays = f;
+          state.settings.staleDays = s;
+          state.settings.decRank = Number($('s-dec').value);
+          save(); render(); toast('保存しました');
+        });
+
+        // お試し・初期化
+        $('demo').addEventListener('click', function () {
+          if (state.cards.length && !confirm('いまのデータに、サンプルの名刺10枚と接点を追加します。よろしいですか？')) return;
+          demoData(); save(); showView('dash'); toast('サンプルデータを入れました');
+        });
+        $('wipe').addEventListener('click', function () {
+          if (!confirm('名刺・接点・企業の設定をすべて削除します。元に戻せません。よろしいですか？')) return;
+          state = { cards: [], acts: [], meta: {}, settings: Object.assign({}, DEFAULT_SETTINGS) };
+          save(); showView('dash'); toast('全部消しました');
+        });
+      }
+
+      function refreshPersonSelect() {
+        const key = companyKey($('a-company').value);
+        const list = state.cards.filter(function (c) { return c.companyKey === key; })
+          .sort(function (a, b) { return titleRank(a.title) - titleRank(b.title); });
+        $('a-person').innerHTML = '<option value="">（会社全体）</option>' + list.map(function (c) {
+          return '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.title ? '（' + esc(c.title) + '）' : '') + '</option>';
+        }).join('');
+      }
+
+      /* ==========================================================
+         起動
+         ========================================================== */
+      load();
+      bind();
+      fillForm(null);
+      $('a-date').value = todayStr();
+      renderSettings();
+      refreshPersonSelect();
+      render();
+
+      // テストから触れるように最小限だけ公開する
+      window.__cc = {
+        companyKey: companyKey, titleRank: titleRank, deptPath: deptPath,
+        coverageScore: coverageScore, freshnessOf: freshnessOf, normDate: normDate,
+        parseCardText: parseCardText, splitRows: splitRows, mapHeaders: mapHeaders,
+        computeCompanies: computeCompanies, state: state
+      };
+    })();
+  </script>
+</body>
+
+</html>
