@@ -1417,6 +1417,48 @@
       background: var(--accent);
     }
 
+    .tagrow {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tagchip {
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      padding: 5px 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      color: var(--ink-2);
+      cursor: pointer;
+    }
+
+    .tagchip:hover {
+      border-color: var(--ink-3);
+      color: var(--ink);
+    }
+
+    .tagchip.on {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tagchip.on[data-tag="決裁者"] {
+      background: var(--purple-lt);
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    .b-tag {
+      background: transparent;
+      color: var(--accent);
+      border-color: var(--accent-line);
+    }
+
     .tick {
       display: inline-block;
       width: 7px;
@@ -1569,6 +1611,15 @@
           </select>
         </div>
         <div>
+          <label class="f">決裁者</label>
+          <select class="i" id="co-dec">
+            <option value="">すべて</option>
+            <option value="tag">タグで特定済み</option>
+            <option value="rank">未特定（役職から推定）</option>
+            <option value="none">決裁層に未到達</option>
+          </select>
+        </div>
+        <div>
           <label class="f">並び替え</label>
           <select class="i" id="co-sort">
             <option value="score">カバレッジが低い順</option>
@@ -1616,6 +1667,15 @@
           <div style="margin-top:10px"><label class="f">メモ</label><textarea class="i" id="f-memo" rows="2"></textarea>
           </div>
           <div style="margin-top:12px">
+            <label class="f">タグ（この人の役割）</label>
+            <div class="tagrow" id="f-tagrow"></div>
+            <input class="i" id="f-tags-free" placeholder="そのほかのタグ（スペース区切り）" style="margin-top:8px"
+              autocomplete="off">
+            <div class="sm" style="margin-top:6px;line-height:1.7">
+              「決裁者」を付けると、その会社は<b>役職からの推定をやめて</b>、タグを付けた人を決裁層として扱います。
+            </div>
+          </div>
+          <div style="margin-top:12px">
             <label class="f">名刺の写真（撮影・画像ファイル）</label>
             <div class="photo-box">
               <div class="photo-pv" id="f-photo-pv">まだありません</div>
@@ -1623,6 +1683,7 @@
                 <input type="file" id="f-photo" accept="image/*" capture="environment" style="display:none">
                 <div class="btnrow">
                   <button type="button" class="btn ghost mini" id="f-photo-pick">写真を選ぶ／撮る</button>
+                  <button type="button" class="btn mini" id="f-ocr">写真から読み取る</button>
                   <button type="button" class="btn danger mini" id="f-photo-del">写真を外す</button>
                 </div>
                 <div class="sm" style="margin-top:6px;line-height:1.7">長辺1000pxまで縮小して保存します。<br>スマホなら「撮る」でそのままカメラが開きます。</div>
@@ -1755,6 +1816,21 @@
       </div>
 
       <div class="panel">
+        <div class="panel-ttl">名刺の写真をまとめて読み取る（AI）</div>
+        <div class="panel-sub">
+          撮った名刺の画像を選ぶと、1枚ずつ読み取って登録します。写真もそのまま名刺に付きます。
+          <b>読み取りはサーバ側の機能なので、ファイルを直接開いた画面では使えません。</b>
+          読み取りは推測を含むので、終わったあと「名刺」タブで確認してください。
+        </div>
+        <input type="file" id="ocr-files" accept="image/*" multiple style="display:none">
+        <div class="btnrow">
+          <button class="btn" id="ocr-pick">画像を選んで読み取る</button>
+        </div>
+        <div id="ocr-progress" class="sm" style="margin-top:10px"></div>
+        <div id="ocr-res" style="margin-top:8px"></div>
+      </div>
+
+      <div class="panel">
         <div class="panel-ttl">名刺の文字起こしから取り込む</div>
         <div class="panel-sub">
           名刺をOCRしたテキストや、メール署名をそのまま貼ってください。<b>空行で1枚の区切り</b>です。
@@ -1804,7 +1880,7 @@
   </main>
 
   <footer>
-    データはブラウザ内（localStorage）にのみ保存されます。キャッシュ削除やシークレットウィンドウでは消えるので、大事なデータはJSON書き出しでバックアップしてください。
+    データはこのブラウザの中（localStorage / IndexedDB）にだけ保存されます。外に出るのは、写真の読み取りを使ったときの画像だけです。キャッシュ削除やシークレットウィンドウでは消えるので、大事なデータはJSON書き出しでバックアップしてください。
   </footer>
 
   <div class="toast" id="toast"></div>
@@ -1854,6 +1930,12 @@
       ];
 
       const DEFAULT_SETTINGS = { freshDays: 90, staleDays: 365, decRank: 7, theme: '' };
+
+      /* 役職ランクは会社をまたいだ「推定」でしかない。
+         誰が決裁者で誰がキーマンかは会社ごとに違うので、タグで上書きできるようにする。 */
+      const TAG_DECIDER = '決裁者';
+      const TAG_KEYMAN = 'キーマン';
+      const ROLE_TAGS = [TAG_DECIDER, TAG_KEYMAN, '窓口', '紹介者', '反対'];
 
       const COMPANY_KW = /株式会社|\(株\)|（株）|㈱|有限会社|\(有\)|㈲|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|独立行政法人|学校法人|医療法人|宗教法人|協同組合|Inc\.|Corp|Co\.,|Co\.|Ltd|LLC|K\.K\.|大学|銀行|信用金庫|病院|市役所|県庁/i;
       const DEPT_KW = /本部|事業部|部$|部\s|課|室|センター|支店|支社|営業所|工場|研究所|グループ|チーム|ユニット|局|科$/;
@@ -2077,6 +2159,39 @@
       }
 
       /* ==========================================================
+         名刺画像の読み取り（AI）
+         読み取りそのものはサーバ側（/api/card-ocr）でやる。APIキーを
+         ブラウザに置かないため。file:// で開いた画面では使えない。
+         ========================================================== */
+      const OCR_ENDPOINT = '/api/card-ocr';
+
+      function ocrAvailable() {
+        return location.protocol === 'http:' || location.protocol === 'https:';
+      }
+
+      function ocrRead(dataUrl) {
+        if (!ocrAvailable()) {
+          return Promise.reject(new Error('この画面では読み取りが使えません（サーバ上で開いたときだけ動きます）'));
+        }
+        return fetch(OCR_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (body) {
+            if (!res.ok) {
+              if (res.status === 404) throw new Error('読み取り機能が見つかりません（この画面では使えません）');
+              throw new Error(body.error || '読み取りに失敗しました');
+            }
+            if (!body.card) throw new Error('読み取り結果が空でした');
+            return body.card;
+          });
+        }, function () {
+          throw new Error('読み取りサーバに繋がりませんでした');
+        });
+      }
+
+      /* ==========================================================
          会社名の正規化 — 表記ゆれを吸収して同じ箱に入れる
          ========================================================== */
       function companyKey(name) {
@@ -2105,6 +2220,47 @@
         if (rank <= decRank) return { key: 'dec', label: '決裁層' };
         if (rank <= 10) return { key: 'mgr', label: '管理層' };
         return { key: 'stf', label: '実務層' };
+      }
+
+      /* ==========================================================
+         タグ
+         ========================================================== */
+      function cardTags(c) {
+        return Array.isArray(c && c.tags) ? c.tags : [];
+      }
+
+      function hasTag(c, t) {
+        return cardTags(c).indexOf(t) !== -1;
+      }
+
+      function parseTags(s) {
+        return String(s || '').split(/[,、;；\/\s　]+/).map(function (x) { return x.trim(); })
+          .filter(Boolean).filter(function (x, i, a) { return a.indexOf(x) === i; }).slice(0, 12);
+      }
+
+      function toggleTag(c, t) {
+        const list = cardTags(c).slice();
+        const i = list.indexOf(t);
+        if (i === -1) list.push(t); else list.splice(i, 1);
+        c.tags = list;
+      }
+
+      // その会社に「決裁者」タグの名刺が1枚でもあるか
+      function coHasDeciderTag(key) {
+        return state.cards.some(function (c) {
+          return c.companyKey === key && hasTag(c, TAG_DECIDER);
+        });
+      }
+
+      /* 層の判定。タグがある会社ではタグが役職ランクより優先される。
+         （役職から決裁層と推定されていた人も、タグ運用中の会社では管理層に落ちる） */
+      function effectiveBand(card) {
+        if (hasTag(card, TAG_DECIDER)) return { key: 'dec', label: '決裁層' };
+        const r = titleRank(card.title);
+        if (coHasDeciderTag(card.companyKey)) {
+          return r <= 10 ? { key: 'mgr', label: '管理層' } : { key: 'stf', label: '実務層' };
+        }
+        return rankBand(r, state.settings.decRank);
       }
 
       /* ==========================================================
@@ -2168,10 +2324,14 @@
           co.stage = co.stageOverride === null ? co.stageAuto : co.stageOverride;
           co.stageLabel = (STAGES.filter(function (s) { return s.k === co.stage; })[0] || STAGES[0]).label;
 
-          // 到達している役職の層
+          // 到達している役職の層。タグで指定があればそれが優先
           co.ranks = co.cards.map(function (c) { return titleRank(c.title); });
           co.topRank = co.ranks.length ? Math.min.apply(null, co.ranks) : 99;
-          co.hasDecider = co.topRank <= st.decRank;
+          co.deciderCards = co.cards.filter(function (c) { return hasTag(c, TAG_DECIDER); });
+          co.keyCards = co.cards.filter(function (c) { return hasTag(c, TAG_KEYMAN); });
+          co.decMode = co.deciderCards.length ? 'tag' : 'rank';
+          co.hasDecider = co.decMode === 'tag' || co.topRank <= st.decRank;
+          co.hasKeyman = co.keyCards.length > 0;
           co.hasManager = co.topRank <= 10;
 
           // 部署の広がり（第1階層で数える）
@@ -2204,7 +2364,8 @@
         let s = 0;
         s += Math.min(co.cards.length, 3) / 3 * 25;                 // 人の数
         s += Math.min(co.deptCount, 3) / 3 * 15;                    // 部署の広がり
-        s += co.hasDecider ? 25 : (co.hasManager ? 10 : 0);          // 上への到達
+        // 上への到達（決裁者 > キーマン > 管理層）
+        s += co.hasDecider ? 25 : (co.hasKeyman ? 18 : (co.hasManager ? 10 : 0));
         s += co.fresh === 'fresh' ? 15 : (co.fresh === 'warm' ? 7 : 0); // 鮮度
         s += co.stage > 0 ? co.stage / 5 * 20 : 0;                   // 進捗
         return Math.round(Math.max(0, Math.min(100, s)));
@@ -2256,11 +2417,12 @@
         if (people.length) {
           h += '<div class="org-people">';
           people.forEach(function (c) {
-            const r = titleRank(c.title);
-            const band = rankBand(r, st.decRank);
+            const band = effectiveBand(c);
             const ps = personStatus(c);
             h += '<div class="pchip f-' + ps.fresh + (band.key === 'dec' ? ' decider' : '') + '" data-person="' + esc(c.id) + '">' +
-              '<div class="t">' + esc(c.title || '—') + (band.key === 'dec' ? ' ★' : '') + '</div>' +
+              '<div class="t">' + esc(c.title || '—') +
+              (hasTag(c, TAG_DECIDER) ? ' ★決裁' : (band.key === 'dec' ? ' ★' : '')) +
+              (hasTag(c, TAG_KEYMAN) ? ' ◆キーマン' : '') + '</div>' +
               '<div class="n">' + esc(c.name) + '</div>' +
               '<div class="d">' + FRESH_LABEL[ps.fresh] + '・最終 ' + fmtDate(ps.last) + '</div>' +
               '</div>';
@@ -2339,6 +2501,7 @@
         const total = cos.length;
         const withContact = cos.filter(function (c) { return c.fresh === 'fresh'; }).length;
         const dec = cos.filter(function (c) { return c.hasDecider; }).length;
+        const decTagged = cos.filter(function (c) { return c.decMode === 'tag'; }).length;
         const inPlay = cos.filter(function (c) { return c.stage >= 2; });
         const follow = inPlay.filter(function (c) { return c.days === null || c.days > st.freshDays / 3; });
         const avg = total ? Math.round(cos.reduce(function (s, c) { return s + c.score; }, 0) / total) : 0;
@@ -2346,7 +2509,7 @@
         $('dash-kpis').innerHTML = [
           kpi('企業（箱）', total, '件', '名刺 ' + state.cards.length + '枚から自動生成', 'blue'),
           kpi('接点が生きている企業', withContact, '件', st.freshDays + '日以内に接点あり', 'good'),
-          kpi('決裁層に到達', dec, '件', RANK_LABELS[st.decRank] + '以上と接点あり', ''),
+          kpi('決裁層に到達', dec, '件', decTagged + '件はタグで特定済み', ''),
           kpi('要フォロー', follow.length, '件', '商談中なのに間が空いている', 'hot'),
           kpi('平均カバレッジ', avg, '/100', 'どこまで入り込めているか', '')
         ].join('');
@@ -2429,14 +2592,18 @@
         const q = ($('co-q').value || '').trim().toLowerCase();
         const fs = $('co-stage').value;
         const ff = $('co-fresh').value;
+        const fd = $('co-dec').value;
         const sort = $('co-sort').value;
 
         let list = cos.filter(function (c) {
           if (fs !== '' && String(c.stage) !== fs) return false;
           if (ff && c.fresh !== ff) return false;
+          if (fd === 'tag' && c.decMode !== 'tag') return false;
+          if (fd === 'rank' && !(c.decMode === 'rank' && c.hasDecider)) return false;
+          if (fd === 'none' && c.hasDecider) return false;
           if (q) {
             const hay = (c.name + ' ' + c.industry + ' ' + c.owner + ' ' +
-              c.cards.map(function (x) { return x.name + x.dept + x.title; }).join(' ')).toLowerCase();
+              c.cards.map(function (x) { return x.name + x.dept + x.title + cardTags(x).join(' '); }).join(' ')).toLowerCase();
             if (hay.indexOf(q) === -1) return false;
           }
           return true;
@@ -2464,8 +2631,10 @@
           '<div class="cobox-m"><span>名刺 ' + c.cards.length + '枚</span><span>部署 ' + c.deptCount + '</span>' +
           '<span>最終接点 ' + fmtDate(c.lastAct) + '</span></div>' +
           '<div class="cobox-b"><span class="badge b-stage">' + esc(c.stageLabel) + '</span>' +
-          (c.hasDecider ? '<span class="badge b-key">決裁層 ★</span>' :
-            (c.hasManager ? '<span class="badge b-gray">管理層まで</span>' : '<span class="badge b-gray">実務層まで</span>')) +
+          (c.decMode === 'tag' ? '<span class="badge b-key">決裁者 ' + esc(c.deciderCards[0].name) + '</span>' :
+            (c.hasDecider ? '<span class="badge b-key">決裁層 ★</span>' :
+              (c.hasManager ? '<span class="badge b-gray">管理層まで</span>' : '<span class="badge b-gray">実務層まで</span>'))) +
+          (c.hasKeyman ? '<span class="badge b-tag">キーマン ' + esc(c.keyCards[0].name) + '</span>' : '') +
           (c.industry ? '<span class="badge b-gray">' + esc(c.industry) + '</span>' : '') + '</div>' +
           '<div class="bar-l"><span>カバレッジ</span><span class="mono">' + c.score + '/100</span></div>' +
           '<div class="bar"><i style="width:' + c.score + '%;background:' +
@@ -2499,12 +2668,15 @@
 
         // 到達マップ
         const bands = [
-          { key: 'dec', label: '決裁層（' + RANK_LABELS[st.decRank] + '以上）', test: function (r) { return r <= st.decRank; } },
-          { key: 'mgr', label: '管理層（部長〜課長）', test: function (r) { return r > st.decRank && r <= 10; } },
-          { key: 'stf', label: '実務層（係長・担当）', test: function (r) { return r > 10; } }
+          {
+            key: 'dec',
+            label: co.decMode === 'tag' ? '決裁層（タグで指定した人）' : '決裁層（' + RANK_LABELS[st.decRank] + '以上と推定）'
+          },
+          { key: 'mgr', label: '管理層（部長〜課長）' },
+          { key: 'stf', label: '実務層（係長・担当）' }
         ];
         const bandHtml = bands.map(function (b) {
-          const people = co.cards.filter(function (c) { return b.test(titleRank(c.title)); });
+          const people = co.cards.filter(function (c) { return effectiveBand(c).key === b.key; });
           const live = people.filter(function (c) { return personStatus(c).fresh === 'fresh'; }).length;
           return '<div class="funnel-row"><div class="funnel-l">' + esc(b.label.split('（')[0]) + '</div>' +
             '<div class="funnel-b"><i style="width:' + (people.length ? Math.max(8, Math.round(live / Math.max(people.length, 1) * 100)) : 0) +
@@ -2521,15 +2693,26 @@
         let h = '';
         h += '<div class="panel"><div class="row-sb">' +
           '<div><div class="panel-ttl" style="font-size:19px">' + esc(co.name) + '</div>' +
-          '<div class="sm">' + (co.industry ? esc(co.industry) + '／' : '') + '名刺 ' + co.cards.length + '枚・接点 ' + co.acts.length + '件</div></div>' +
+          '<div class="sm">' + (co.industry ? esc(co.industry) + '／' : '') + '名刺 ' + co.cards.length + '枚・接点 ' + co.acts.length + '件</div>' +
+          '<div class="cobox-b" style="margin-top:8px">' +
+          (co.decMode === 'tag'
+            ? co.deciderCards.map(function (c) {
+              return '<span class="badge b-key" data-person="' + esc(c.id) + '" style="cursor:pointer">決裁者 ' + esc(c.name) + '</span>';
+            }).join('')
+            : '<span class="badge b-gray">決裁者は未指定（役職から推定中）</span>') +
+          co.keyCards.map(function (c) {
+            return '<span class="badge b-tag" data-person="' + esc(c.id) + '" style="cursor:pointer">キーマン ' + esc(c.name) + '</span>';
+          }).join('') + '</div></div>' +
           '<div class="badge b-' + co.fresh + '" style="font-size:12px;padding:5px 12px">' + FRESH_LABEL[co.fresh] +
           (co.days === null ? '' : '（' + co.days + '日前）') + '</div></div>';
 
         h += '<div class="kpis" style="margin-top:12px;margin-bottom:0">' +
           kpi('カバレッジ', co.score, '/100', 'どこまで入り込めているか', co.score >= 70 ? 'good' : (co.score < 40 ? 'hot' : 'blue')) +
           kpi('ステージ', '<span style="font-size:17px">' + esc(co.stageLabel) + '</span>', '', co.stageOverride === null ? '接点履歴から自動判定' : '手動で設定中', '') +
-          kpi('到達している最上位', '<span style="font-size:17px">' + esc(RANK_LABELS[co.topRank] || '—') + '</span>', '',
-            co.hasDecider ? '決裁層に届いています' : '決裁層にはまだ未到達', co.hasDecider ? 'good' : '') +
+          kpi(co.decMode === 'tag' ? '決裁者（タグ指定）' : '到達している最上位',
+            '<span style="font-size:17px">' + esc(co.decMode === 'tag' ? co.deciderCards[0].name : (RANK_LABELS[co.topRank] || '—')) + '</span>', '',
+            co.decMode === 'tag' ? 'タグで決裁者を指定済み' : (co.hasDecider ? '役職から決裁層と推定' : '決裁層にはまだ未到達'),
+            co.hasDecider ? 'good' : '') +
           kpi('部署の広がり', co.deptCount, '部署', esc(co.deptTops.join('・').slice(0, 40)), '') +
           '</div></div>';
 
@@ -2552,7 +2735,8 @@
           '<div class="panel-sub">バーは「その層のうち、' + st.freshDays + '日以内に接点がある人の割合」です。</div>' + bandHtml + '</div>';
 
         h += '<div class="panel"><div class="panel-ttl">組織図（名刺の部署から自動生成）</div>' +
-          '<div class="panel-sub">左の色＝接点の状態（緑：接点あり／黄：冷えかけ／赤：途絶／灰：名刺のみ）。★は決裁層。クリックすると名刺を編集できます。</div>' +
+          '<div class="panel-sub">左の色＝接点の状態（緑：接点あり／黄：冷えかけ／赤：途絶／灰：名刺のみ）。' +
+          '★決裁＝タグで指定した決裁者、◆キーマン＝タグ、★のみ＝役職からの推定。押すとその人のページに移ります。</div>' +
           '<div class="org">' + renderOrg(buildOrg(co), 0) + '</div></div>';
 
         h += '<div class="panel"><div class="panel-ttl">接点を記録</div>' +
@@ -2586,10 +2770,9 @@
         const st = state.settings;
         let h = '<table class="t"><thead><tr>' +
           (showCompany ? '<th>会社</th>' : '') +
-          '<th>氏名</th><th>部署</th><th>役職</th><th>層</th><th>接点</th><th>最終</th><th>連絡先</th><th></th></tr></thead><tbody>';
+          '<th>氏名</th><th>部署</th><th>役職</th><th>層</th><th>タグ</th><th>接点</th><th>最終</th><th>連絡先</th><th></th></tr></thead><tbody>';
         cards.forEach(function (c) {
-          const r = titleRank(c.title);
-          const band = rankBand(r, st.decRank);
+          const band = effectiveBand(c);
           const ps = personStatus(c);
           h += '<tr>' +
             (showCompany ? '<td><span class="lk" data-co="' + esc(c.companyKey) + '">' + esc(coNameOf(c.companyKey)) + '</span></td>' : '') +
@@ -2598,6 +2781,9 @@
             '<td>' + esc(c.dept || '—') + '</td>' +
             '<td>' + esc(c.title || '—') + '</td>' +
             '<td><span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label + '</span></td>' +
+            '<td>' + (cardTags(c).length ? cardTags(c).map(function (t) {
+              return '<span class="badge ' + (t === TAG_DECIDER ? 'b-key' : 'b-tag') + '">' + esc(t) + '</span>';
+            }).join(' ') : '<span class="sm">—</span>') + '</td>' +
             '<td><span class="badge b-' + ps.fresh + '">' + FRESH_LABEL[ps.fresh] + '</span></td>' +
             '<td class="mono sm">' + fmtDate(ps.last) + '</td>' +
             '<td class="sm">' + esc(c.email || '') + (c.tel ? '<br>' + esc(c.tel) : '') + (c.mobile ? '<br>' + esc(c.mobile) : '') + '</td>' +
@@ -2626,7 +2812,7 @@
         const st = state.settings;
         return '<div class="mgrid">' + list.map(function (c) {
           const ps = personStatus(c);
-          const band = rankBand(titleRank(c.title), st.decRank);
+          const band = effectiveBand(c);
           const hasPhoto = !!photoCache[c.id];
           return '<div class="mcard" data-person="' + esc(c.id) + '">' + cardFace(c) +
             '<div class="mbody">' +
@@ -2650,7 +2836,8 @@
         });
         if (q) {
           list = list.filter(function (c) {
-            return (c.name + c.kana + c.company + c.dept + c.title + c.email + c.memo).toLowerCase().indexOf(q) !== -1;
+            return (c.name + c.kana + c.company + c.dept + c.title + c.email + c.memo + cardTags(c).join(' '))
+              .toLowerCase().indexOf(q) !== -1;
           });
         }
         $('card-count').textContent = '（' + list.length + ' / ' + state.cards.length + '枚）';
@@ -2668,7 +2855,7 @@
         const st = state.settings;
         const ps = personStatus(c);
         const rank = titleRank(c.title);
-        const band = rankBand(rank, st.decRank);
+        const band = effectiveBand(c);
         const mine = state.acts.filter(function (a) { return a.cardId === c.id; })
           .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
         const peers = state.cards.filter(function (x) { return x.companyKey === c.companyKey && x.id !== c.id; })
@@ -2684,8 +2871,16 @@
           esc(coNameOf(c.companyKey)) + '</span></div>' +
           '<div class="cobox-b"><span class="badge b-' + ps.fresh + '">' + FRESH_LABEL[ps.fresh] + '</span>' +
           '<span class="badge ' + (band.key === 'dec' ? 'b-key' : 'b-gray') + '">' + band.label +
-          '（' + esc(RANK_LABELS[rank]) + '相当）</span>' +
-          (c.source ? '<span class="badge b-gray">' + esc(c.source) + '</span>' : '') + '</div>' +
+          (hasTag(c, TAG_DECIDER) ? '（タグで指定）' : '（' + esc(RANK_LABELS[rank]) + '相当）') + '</span>' +
+          (c.source ? '<span class="badge b-gray">' + esc(c.source) + '</span>' : '') +
+          cardTags(c).filter(function (t) { return ROLE_TAGS.indexOf(t) === -1; }).map(function (t) {
+            return '<span class="badge b-tag">' + esc(t) + '</span>';
+          }).join('') + '</div>' +
+          '<div class="tagrow" style="margin:10px 0 5px">' + ROLE_TAGS.map(function (t) {
+            return '<button type="button" class="tagchip' + (hasTag(c, t) ? ' on' : '') +
+              '" data-tag="' + esc(t) + '" data-ptag="' + esc(t) + '" data-pcard="' + esc(c.id) + '">' + esc(t) + '</button>';
+          }).join('') + '</div>' +
+          '<div class="sm" style="margin-bottom:8px">タグは押すとすぐ保存されます</div>' +
           '<div class="prof-ct">' +
           (c.email ? '<div><span class="ct-l">MAIL</span><a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></div>' : '') +
           (c.tel ? '<div><span class="ct-l">TEL</span><a href="tel:' + esc(c.tel.replace(/[^\d+]/g, '')) + '">' + esc(c.tel) + '</a></div>' : '') +
@@ -2717,7 +2912,7 @@
         h += '<div class="panel"><div class="panel-ttl">同じ会社の人（' + peers.length + '名）</div>' +
           (peers.length ? '<div class="peers">' + peers.map(function (p) {
             const s2 = personStatus(p);
-            const b2 = rankBand(titleRank(p.title), st.decRank);
+            const b2 = effectiveBand(p);
             return '<div class="pchip f-' + s2.fresh + (b2.key === 'dec' ? ' decider' : '') + '" data-person="' + esc(p.id) + '">' +
               '<div class="t">' + esc(p.title || '—') + '</div><div class="n">' + esc(p.name) + '</div>' +
               '<div class="d">' + esc(p.dept || '') + '</div></div>';
@@ -2755,26 +2950,27 @@
         }
 
         const bands = [
-          { label: '決裁層', test: function (r) { return r <= st.decRank; } },
-          { label: '管理層', test: function (r) { return r > st.decRank && r <= 10; } },
-          { label: '実務層', test: function (r) { return r > 10; } }
+          { key: 'dec', label: '決裁層' },
+          { key: 'mgr', label: '管理層' },
+          { key: 'stf', label: '実務層' }
         ];
         const order = { fresh: 0, warm: 1, stale: 2, none: 3 };
         const sorted = cos.slice().sort(function (a, b) { return b.score - a.score; });
 
         let mx = '<table class="mx"><thead><tr><th class="l">企業</th>' +
           bands.map(function (b) { return '<th>' + b.label + '</th>'; }).join('') +
-          '<th>ステージ</th><th>カバレッジ</th></tr></thead><tbody>';
+          '<th>決裁者</th><th>ステージ</th><th>カバレッジ</th></tr></thead><tbody>';
         sorted.forEach(function (co) {
           mx += '<tr><td class="l"><span class="lk" data-co="' + esc(co.key) + '">' + esc(co.name) + '</span></td>';
           bands.forEach(function (b) {
-            const people = co.cards.filter(function (c) { return b.test(titleRank(c.title)); });
+            const people = co.cards.filter(function (c) { return effectiveBand(c).key === b.key; });
             if (!people.length) { mx += '<td class="cell-empty">—</td>'; return; }
             const best = people.map(function (p) { return personStatus(p).fresh; })
               .sort(function (x, y) { return order[x] - order[y]; })[0];
             mx += '<td class="cell-' + best + '">' + people.length + '名</td>';
           });
-          mx += '<td>' + esc(co.stageLabel) + '</td><td class="mono">' + co.score + '</td></tr>';
+          mx += '<td>' + (co.decMode === 'tag' ? '<span class="badge b-key">タグ</span>' : '<span class="sm">推定</span>') + '</td>' +
+            '<td>' + esc(co.stageLabel) + '</td><td class="mono">' + co.score + '</td></tr>';
         });
         $('map-matrix').innerHTML = mx + '</tbody></table>';
 
@@ -2888,7 +3084,9 @@
           tel: String(data.tel || '').trim(), mobile: String(data.mobile || '').trim(),
           address: String(data.address || '').trim(), met: normDate(data.met) || todayStr(),
           owner: String(data.owner || '').trim(), source: String(data.source || '').trim(),
-          memo: String(data.memo || '').trim(), createdAt: todayStr()
+          memo: String(data.memo || '').trim(),
+          tags: Array.isArray(data.tags) ? data.tags.slice(0, 12) : parseTags(data.tags),
+          createdAt: todayStr()
         };
         state.cards.push(card);
         if (!state.meta[key]) state.meta[key] = { name: company };
@@ -2910,6 +3108,7 @@
           c[f] = String(data[f] || '').trim();
         });
         c.met = normDate(data.met) || c.met;
+        c.tags = Array.isArray(data.tags) ? data.tags.slice(0, 12) : parseTags(data.tags);
         if (!state.meta[c.companyKey]) state.meta[c.companyKey] = { name: c.company };
         // 名刺交換の記録も追従させる
         state.acts.forEach(function (a) {
@@ -2986,7 +3185,8 @@
         ['owner', /自社担当|営業担当|当社担当|弊社|owner/i],
         ['source', /きっかけ|経路|入手|source|流入/i],
         ['address', /住所|所在地|address/i],
-        ['memo', /メモ|備考|memo|note/i]
+        ['memo', /メモ|備考|memo|note/i],
+        ['tags', /タグ|役割|ラベル|tag|label/i]
       ];
 
       function mapHeaders(headers) {
@@ -3143,14 +3343,14 @@
         };
         const cards = [
           { company: '株式会社サンプル製作所', name: '山田 太郎', dept: '営業本部/第一営業部/東京1課', title: '課長', email: 'yamada@sample.co.jp', tel: '03-1234-5678', met: d(120), owner: '自分', source: '展示会' },
-          { company: 'サンプル製作所（株）', name: '鈴木 一郎', dept: '営業本部/第一営業部', title: '部長', email: 'suzuki@sample.co.jp', met: d(110), owner: '自分', source: '紹介' },
+          { company: 'サンプル製作所（株）', name: '鈴木 一郎', dept: '営業本部/第一営業部', title: '部長', email: 'suzuki@sample.co.jp', met: d(110), owner: '自分', source: '紹介', tags: ['決裁者'] },
           { company: '株式会社サンプル製作所', name: '田中 花子', dept: '営業本部', title: '本部長', email: 'tanaka@sample.co.jp', met: d(30), owner: '自分', source: '訪問' },
-          { company: '株式会社サンプル製作所', name: '高橋 次郎', dept: '生産技術部/設備課', title: '主任', met: d(100), owner: '同僚A', source: '展示会' },
+          { company: '株式会社サンプル製作所', name: '高橋 次郎', dept: '生産技術部/設備課', title: '主任', met: d(100), owner: '同僚A', source: '展示会', tags: ['キーマン'] },
           { company: '合同会社ミドリ商事', name: '佐藤 三郎', dept: '購買部', title: '担当', email: 'sato@midori.example', met: d(420), owner: '同僚A', source: '交流会' },
           { company: 'ミドリ商事', name: '伊藤 良子', dept: '購買部', title: '課長', met: d(400), owner: '同僚A', source: '交流会' },
-          { company: '青空リース株式会社', name: '中村 大輔', dept: '法人営業部/西日本営業課', title: '次長', email: 'nakamura@aozora.example', met: d(15), owner: '自分', source: '問い合わせ' },
+          { company: '青空リース株式会社', name: '中村 大輔', dept: '法人営業部/西日本営業課', title: '次長', email: 'nakamura@aozora.example', met: d(15), owner: '自分', source: '問い合わせ', tags: ['窓口'] },
           { company: '青空リース(株)', name: '小林 恵', dept: '経営企画室', title: '室長', met: d(12), owner: '自分', source: '紹介' },
-          { company: '青空リース株式会社', name: '渡辺 修', dept: '', title: '代表取締役社長', met: d(10), owner: '自分', source: '紹介' },
+          { company: '青空リース株式会社', name: '渡辺 修', dept: '', title: '代表取締役社長', met: d(10), owner: '自分', source: '紹介', tags: ['決裁者'] },
           { company: '株式会社ひかり工業', name: '松本 剛', dept: '技術部', title: '担当', met: d(200), owner: '同僚B', source: 'セミナー' }
         ];
         cards.forEach(function (c) { addCard(c, { skipDup: true }); });
@@ -3174,6 +3374,14 @@
          フォーム
          ========================================================== */
       let formPhoto = { url: null, changed: false };
+      let formTags = [];
+
+      function renderTagChips() {
+        $('f-tagrow').innerHTML = ROLE_TAGS.map(function (t) {
+          return '<button type="button" class="tagchip' + (formTags.indexOf(t) !== -1 ? ' on' : '') +
+            '" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
+        }).join('');
+      }
 
       function renderPhotoPreview() {
         $('f-photo-pv').innerHTML = formPhoto.url ?
@@ -3183,6 +3391,10 @@
       function fillForm(c) {
         formPhoto = { url: c ? (photoCache[c.id] || null) : null, changed: false };
         renderPhotoPreview();
+        const tags = c ? cardTags(c) : [];
+        formTags = tags.filter(function (t) { return ROLE_TAGS.indexOf(t) !== -1; });
+        $('f-tags-free').value = tags.filter(function (t) { return ROLE_TAGS.indexOf(t) === -1; }).join(' ');
+        renderTagChips();
         $('f-id').value = c ? c.id : '';
         $('f-company').value = c ? c.company : '';
         $('f-name').value = c ? c.name : '';
@@ -3207,8 +3419,74 @@
           dept: $('f-dept').value, title: $('f-title').value, email: $('f-email').value,
           tel: $('f-tel').value, mobile: $('f-mobile').value, met: $('f-met').value,
           owner: $('f-owner').value, source: $('f-source').value, address: $('f-addr').value,
-          memo: $('f-memo').value
+          memo: $('f-memo').value,
+          tags: formTags.concat(parseTags($('f-tags-free').value))
+            .filter(function (t, i, a) { return a.indexOf(t) === i; })
         };
+      }
+
+      // 読み取り結果は「空いている欄」にだけ入れる（手で書いたものを消さない）
+      function fillEmptyFields(card) {
+        const map = {
+          company: 'f-company', name: 'f-name', kana: 'f-kana', dept: 'f-dept', title: 'f-title',
+          email: 'f-email', tel: 'f-tel', mobile: 'f-mobile', address: 'f-addr'
+        };
+        const labels = {
+          company: '会社名', name: '氏名', kana: 'ふりがな', dept: '部署', title: '役職',
+          email: 'メール', tel: '電話', mobile: '携帯', address: '住所'
+        };
+        const filled = [];
+        Object.keys(map).forEach(function (k) {
+          const el = $(map[k]);
+          const v = String(card[k] || '').trim();
+          if (v && !el.value.trim()) { el.value = v; filled.push(labels[k]); }
+        });
+        return filled;
+      }
+
+      function runBulkOcr(files) {
+        const prog = $('ocr-progress');
+        const res = $('ocr-res');
+        res.innerHTML = '';
+        if (!ocrAvailable()) {
+          prog.textContent = '';
+          res.innerHTML = '<div class="warn">この画面では読み取りが使えません。サーバ上で開いた画面（Vercelなど）でだけ動きます。' +
+            '手元では「名刺の文字起こしから取り込む」をお使いください。</div>';
+          return;
+        }
+        $('ocr-pick').disabled = true;
+        const done = [];
+        let ok = 0, ng = 0;
+
+        function step(i) {
+          if (i >= files.length) {
+            prog.textContent = '完了：' + ok + '枚を登録、' + ng + '枚は読み取れず';
+            $('ocr-pick').disabled = false;
+            save(); render();
+            res.innerHTML = done.length ? '<div class="tw">' + cardTable(done, true) + '</div>' : '';
+            if (ok) toast(ok + '枚を読み取って登録しました');
+            return Promise.resolve();
+          }
+          prog.textContent = (i + 1) + ' / ' + files.length + ' 枚目を読み取り中…';
+          return fileToDataUrl(files[i], 1000, 0.75).then(function (url) {
+            return ocrRead(url).then(function (parsed) {
+              parsed.met = todayStr();
+              parsed.source = '写真から読み取り';
+              const card = addCard(parsed, { skipDup: true });
+              if (card && card !== 'dup') {
+                ok++;
+                done.push(card);
+                return photoSave(card.id, url).catch(function () { });
+              }
+              ng++;
+            });
+          }).catch(function (err) {
+            ng++;
+            res.innerHTML += '<div class="sm">' + esc(files[i].name) + '：' + esc(err.message) + '</div>';
+          }).then(function () { return step(i + 1); });
+        }
+
+        step(0);
       }
 
       function editCard(id) {
@@ -3252,8 +3530,33 @@
           renderPhotoPreview();
         });
 
+        // 1枚だけその場で読み取ってフォームに流し込む
+        $('f-ocr').addEventListener('click', function () {
+          if (!formPhoto.url) { toast('先に写真を選んでください'); return; }
+          const btn = $('f-ocr');
+          btn.disabled = true;
+          btn.textContent = '読み取り中…';
+          ocrRead(formPhoto.url).then(function (card) {
+            const filled = fillEmptyFields(card);
+            toast(filled.length ? '読み取りました（' + filled.join('・') + '）' : '空欄に入れられる項目がありませんでした');
+          }).catch(function (err) {
+            toast(err.message);
+          }).then(function () {
+            btn.disabled = false;
+            btn.textContent = '写真から読み取る';
+          });
+        });
+
+        // 画像をまとめて読み取って登録する
+        $('ocr-pick').addEventListener('click', function () { $('ocr-files').click(); });
+        $('ocr-files').addEventListener('change', function (e) {
+          const files = Array.prototype.slice.call(e.target.files || []);
+          e.target.value = '';
+          if (files.length) runBulkOcr(files);
+        });
+
         // 一覧のフィルタ
-        ['co-q', 'co-stage', 'co-fresh', 'co-sort'].forEach(function (id) {
+        ['co-q', 'co-stage', 'co-fresh', 'co-dec', 'co-sort'].forEach(function (id) {
           $(id).addEventListener('input', function () { renderCompanies(computeCompanies()); });
         });
         $('card-q').addEventListener('input', renderCards);
@@ -3302,6 +3605,27 @@
 
         // 画面全体のクリック
         document.addEventListener('click', function (e) {
+          // 人物ページのタグは押した時点で保存する
+          const pt = e.target.closest('[data-ptag]');
+          if (pt) {
+            const c = state.cards.filter(function (x) { return x.id === pt.dataset.pcard; })[0];
+            if (!c) return;
+            toggleTag(c, pt.dataset.ptag);
+            save(); render();
+            toast(hasTag(c, pt.dataset.ptag) ? pt.dataset.ptag + ' を付けました' : pt.dataset.ptag + ' を外しました');
+            return;
+          }
+
+          // 入力フォームのタグは登録ボタンを押すまで保存しない
+          const tc = e.target.closest('.tagchip[data-tag]');
+          if (tc) {
+            const t = tc.dataset.tag;
+            const i = formTags.indexOf(t);
+            if (i === -1) formTags.push(t); else formTags.splice(i, 1);
+            renderTagChips();
+            return;
+          }
+
           const co = e.target.closest('[data-co]');
           if (co) { openCompany(co.dataset.co); return; }
 
@@ -3378,7 +3702,7 @@
           if (!r.err) { save(); render(); toast(r.ok + '件を取り込みました'); }
         });
         $('imp-csv-tpl').addEventListener('click', function () {
-          $('imp-csv').value = '会社名,氏名,ふりがな,部署,役職,メール,電話,携帯,名刺交換日,自社担当,きっかけ,メモ\n';
+          $('imp-csv').value = '会社名,氏名,ふりがな,部署,役職,メール,電話,携帯,名刺交換日,自社担当,きっかけ,タグ,メモ\n';
           $('imp-csv').focus();
         });
         $('imp-txt-run').addEventListener('click', function () {
@@ -3398,19 +3722,21 @@
           toast('写真も含めて書き出しました');
         });
         $('exp-cards').addEventListener('click', function () {
-          const rows = [['会社名', '氏名', 'ふりがな', '部署', '役職', '役職ランク', '層', 'メール', '電話', '携帯', '名刺交換日', '自社担当', 'きっかけ', '住所', 'メモ']];
+          const rows = [['会社名', '氏名', 'ふりがな', '部署', '役職', '役職ランク', '層', 'タグ', 'メール', '電話', '携帯', '名刺交換日', '自社担当', 'きっかけ', '住所', 'メモ']];
           state.cards.forEach(function (c) {
             const r = titleRank(c.title);
-            rows.push([c.company, c.name, c.kana, c.dept, c.title, r, rankBand(r, state.settings.decRank).label,
-              c.email, c.tel, c.mobile, c.met, c.owner, c.source, c.address, c.memo]);
+            rows.push([c.company, c.name, c.kana, c.dept, c.title, r, effectiveBand(c).label,
+              cardTags(c).join(' '), c.email, c.tel, c.mobile, c.met, c.owner, c.source, c.address, c.memo]);
           });
           download('名刺一覧-' + todayStr() + '.csv', toCsv(rows), 'text/csv;charset=utf-8');
         });
         $('exp-cov').addEventListener('click', function () {
-          const rows = [['会社名', '業界', '重要度', '主担当', 'ステージ', '接点状態', '最終接点', '経過日数', '名刺枚数', '部署数', '最上位役職', '決裁層到達', 'カバレッジ']];
+          const rows = [['会社名', '業界', '重要度', '主担当', 'ステージ', '接点状態', '最終接点', '経過日数', '名刺枚数', '部署数', '最上位役職', '決裁層到達', '決裁者', 'キーマン', 'カバレッジ']];
           computeCompanies().sort(function (a, b) { return b.score - a.score; }).forEach(function (c) {
             rows.push([c.name, c.industry, c.priority, c.owner, c.stageLabel, FRESH_LABEL[c.fresh], c.lastAct,
-              c.days === null ? '' : c.days, c.cards.length, c.deptCount, RANK_LABELS[c.topRank] || '', c.hasDecider ? '○' : '', c.score]);
+              c.days === null ? '' : c.days, c.cards.length, c.deptCount, RANK_LABELS[c.topRank] || '', c.hasDecider ? '○' : '',
+              c.deciderCards.map(function (x) { return x.name; }).join(' '),
+              c.keyCards.map(function (x) { return x.name; }).join(' '), c.score]);
           });
           download('企業カバレッジ-' + todayStr() + '.csv', toCsv(rows), 'text/csv;charset=utf-8');
         });
@@ -3494,7 +3820,8 @@
         coverageScore: coverageScore, freshnessOf: freshnessOf, normDate: normDate,
         parseCardText: parseCardText, splitRows: splitRows, mapHeaders: mapHeaders,
         computeCompanies: computeCompanies, state: state,
-        photos: function () { return photoCache; }, lastMonths: lastMonths, monthCounts: monthCounts
+        photos: function () { return photoCache; }, lastMonths: lastMonths, monthCounts: monthCounts,
+        effectiveBand: effectiveBand, parseTags: parseTags, cardTags: cardTags, ocrAvailable: ocrAvailable
       };
     })();
   </script>

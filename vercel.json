@@ -2,6 +2,9 @@
   "functions": {
     "api/ai-report.js": {
       "maxDuration": 60
+    },
+    "api/card-ocr.js": {
+      "maxDuration": 60
     }
   }
 }

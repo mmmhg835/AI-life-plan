@@ -1,5 +1,44 @@
 const { chromium } = require('playwright');
 const path = require('path');
+const http = require('http');
+const fs = require('fs');
+
+// 読み取りAPIを差し替えた簡易サーバ。file:// では読み取りが動かないので、
+// クライアント側の流れを通しで見るために http で配る。
+let ocrCalls = 0;
+function startServer() {
+  return new Promise((resolve) => {
+    const srv = http.createServer((req, res) => {
+      if (req.method === 'POST' && req.url === '/api/card-ocr') {
+        let body = '';
+        req.on('data', (c) => { body += c; });
+        req.on('end', () => {
+          const okImage = /"image":"data:image\/jpeg;base64,/.test(body);
+          ocrCalls++;
+          res.writeHead(okImage ? 200 : 400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(okImage ? {
+            card: {
+              company: '株式会社テスト読取', name: ocrCalls === 1 ? '読取 太郎' : '読取 次郎',
+              kana: '', dept: '情報システム部', title: '課長',
+              email: 'yomitori@example.com', tel: '03-5555-0000', mobile: '', address: '東京都テスト区1-1',
+            },
+          } : { error: '画像の形式が読めません' }));
+        });
+        return;
+      }
+      const rel = (req.url === '/' ? '/index.html' : req.url).split('?')[0];
+      try {
+        const data = fs.readFileSync(path.resolve(__dirname, '..', '.' + rel));
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(data);
+      } catch {
+        res.writeHead(404);
+        res.end('not found');
+      }
+    });
+    srv.listen(0, '127.0.0.1', () => resolve(srv));
+  });
+}
 
 const FILE = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let pass = 0, fail = 0;
@@ -121,7 +160,7 @@ function ok(name, cond, extra) {
   const detail = await page.textContent('#co-detail');
   ok('カルテが開く', /青空リース/.test(detail));
   ok('ステージが見積提出', /見積提出/.test(detail), detail.slice(0, 200));
-  ok('決裁層に到達している', /決裁層に届いています/.test(detail));
+  ok('決裁者がタグで指定されている', /タグで決裁者を指定済み/.test(detail), detail.slice(0, 200));
   const depts = await page.$$eval('#co-detail .org-dept', els => els.map(e => e.textContent));
   ok('組織図に法人営業部の階層', depts.some(d => /法人営業部/.test(d)) && depts.some(d => /西日本営業課/.test(d)), depts);
   ok('組織図の根は会社名', /青空リース/.test(depts[0]), depts[0]);
@@ -283,7 +322,100 @@ function ok(name, cond, extra) {
   });
   ok('月別集計が当月2件', mc[11] === 2 && mc.reduce((s, n) => s + n, 0) === 2, mc);
 
-  console.log('\n[13] 設定の反映');
+  console.log('\n[13] 決裁者・キーマンのタグ');
+  await page.click('.navbtn[data-view="companies"]');
+  await page.fill('#co-q', '');
+  await page.waitForTimeout(200);
+  const decInfo = await page.evaluate(() => window.__cc.computeCompanies().map((c) => ({
+    name: c.name, mode: c.decMode, dec: c.deciderCards.map((x) => x.name), key: c.keyCards.map((x) => x.name),
+  })));
+  const sample = decInfo.filter((c) => /サンプル製作所/.test(c.name))[0];
+  ok('タグのある会社はタグ運用になる', sample.mode === 'tag', sample);
+  ok('決裁者は部長の鈴木一郎', sample.dec.join() === '鈴木 一郎', sample);
+  ok('キーマンも拾える', sample.key.join() === '高橋 次郎', sample);
+  const hikari = decInfo.filter((c) => /ひかり/.test(c.name))[0];
+  ok('タグの無い会社は役職から推定', hikari.mode === 'rank', hikari);
+
+  const bands = await page.evaluate(() => {
+    const s = window.__cc.state;
+    const pick = (n) => s.cards.filter((c) => c.name === n)[0];
+    return {
+      bucho: window.__cc.effectiveBand(pick('鈴木 一郎')).label,
+      honbu: window.__cc.effectiveBand(pick('田中 花子')).label,
+      shacho: window.__cc.effectiveBand(pick('渡辺 修')).label,
+      matsu: window.__cc.effectiveBand(pick('松本 剛')).label,
+    };
+  });
+  ok('タグを付けた部長が決裁層になる', bands.bucho === '決裁層', bands);
+  ok('同じ会社の本部長は管理層に落ちる', bands.honbu === '管理層', bands);
+  ok('タグを付けた社長は決裁層のまま', bands.shacho === '決裁層', bands);
+  ok('タグ運用外の会社は役職どおり', bands.matsu === '実務層', bands);
+
+  await page.selectOption('#co-dec', 'tag');
+  await page.waitForTimeout(200);
+  const tagCos = await page.$$eval('.cobox .cobox-n', (els) => els.map((e) => e.textContent));
+  ok('「タグで特定済み」で絞れる', tagCos.length === 2, tagCos);
+  await page.selectOption('#co-dec', 'none');
+  await page.waitForTimeout(200);
+  const noneCos = await page.$$eval('.cobox .cobox-n', (els) => els.map((e) => e.textContent));
+  ok('「決裁層に未到達」で絞れる', noneCos.length >= 1 && noneCos.every((n) => !/サンプル製作所|青空/.test(n)), noneCos);
+  await page.selectOption('#co-dec', '');
+  await page.waitForTimeout(200);
+  ok('企業ボックスに決裁者名が出る', /決裁者 鈴木 一郎/.test(await page.textContent('#co-list')));
+
+  await page.click('.navbtn[data-view="map"]');
+  await page.waitForTimeout(250);
+  const mapHead = await page.$$eval('#map-matrix thead th', (els) => els.map((e) => e.textContent));
+  ok('到達マップに決裁者の列', mapHead.includes('決裁者'), mapHead);
+  ok('タグ運用の会社に「タグ」表示', (await page.$$('#map-matrix tbody .b-key')).length >= 2);
+
+  console.log('\n[14] タグの付け外しと保存');
+  await page.click('.navbtn[data-view="cards"]');
+  await page.fill('#card-q', '松本');
+  await page.waitForTimeout(250);
+  await page.click('#card-body .mcard');
+  await page.waitForTimeout(250);
+  await page.click('#p-detail [data-ptag="決裁者"]');
+  await page.waitForTimeout(300);
+  const afterTag = await page.evaluate(() => {
+    const c = window.__cc.state.cards.filter((x) => x.name === '松本 剛')[0];
+    return { tags: c.tags, band: window.__cc.effectiveBand(c).label };
+  });
+  ok('プロフィールからタグを付けられる', afterTag.tags.indexOf('決裁者') !== -1, afterTag);
+  ok('付けた瞬間に層が変わる', afterTag.band === '決裁層', afterTag);
+  await page.reload();
+  await page.waitForTimeout(500);
+  const persisted = await page.evaluate(() =>
+    window.__cc.state.cards.filter((x) => x.name === '松本 剛')[0].tags);
+  ok('タグはリロードしても残る', persisted.indexOf('決裁者') !== -1, persisted);
+  await page.click('.navbtn[data-view="cards"]');
+  await page.fill('#card-q', '松本');
+  await page.waitForTimeout(250);
+  await page.click('#card-body .mcard');
+  await page.waitForTimeout(250);
+  await page.click('#p-detail [data-ptag="決裁者"]');
+  await page.waitForTimeout(300);
+  const removed = await page.evaluate(() =>
+    window.__cc.state.cards.filter((x) => x.name === '松本 剛')[0].tags);
+  ok('もう一度押すと外れる', removed.indexOf('決裁者') === -1, removed);
+
+  console.log('\n[15] タグの取り込みと書き出し');
+  const tagParse = await page.evaluate(() => window.__cc.parseTags('決裁者, キーマン 窓口/決裁者'));
+  ok('タグ文字列の分解と重複除去', JSON.stringify(tagParse) === JSON.stringify(['決裁者', 'キーマン', '窓口']), tagParse);
+  const hdrTags = await page.evaluate(() => window.__cc.mapHeaders(['会社名', '氏名', '役職', 'タグ']));
+  ok('CSV見出しのタグを見分ける', hdrTags[3] === 'tags', hdrTags);
+  await page.click('.navbtn[data-view="data"]');
+  await page.fill('#imp-csv', '会社名,氏名,役職,タグ\n株式会社タグ試験,試験 花子,主任,決裁者 キーマン');
+  await page.click('#imp-csv-run');
+  await page.waitForTimeout(300);
+  const imported = await page.evaluate(() => {
+    const c = window.__cc.state.cards.filter((x) => x.name === '試験 花子')[0];
+    return { tags: c.tags, band: window.__cc.effectiveBand(c).label };
+  });
+  ok('CSVからタグを取り込める', imported.tags.join() === '決裁者,キーマン', imported);
+  ok('取り込んだタグが層に効く', imported.band === '決裁層', imported);
+
+  console.log('\n[16] 設定の反映');
   await page.click('.navbtn[data-view="data"]');
   await page.fill('#s-fresh', '10');
   await page.click('#s-save');
@@ -293,21 +425,21 @@ function ok(name, cond, extra) {
   const kpi2 = await page.$$eval('#dash-kpis .kpi-n', els => els.map(e => e.textContent));
   ok('設定した日数がKPI注記に出る', kpi2.some(t => /10日以内/.test(t)), kpi2);
 
-  console.log('\n[14] 保存の永続化');
+  console.log('\n[17] 保存の永続化');
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('meishi-coverage-v1')).cards.length);
   await page.reload();
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => window.__cc.state.cards.length);
   ok('リロードしても残る', before === after && after > 0, [before, after]);
 
-  console.log('\n[15] 全削除');
+  console.log('\n[18] 全削除');
   await page.click('.navbtn[data-view="data"]');
   await page.click('#wipe');
   await page.waitForTimeout(250);
   const emptyKpi = await page.$$eval('#dash-kpis .kpi-v', els => els.map(e => e.textContent.trim()));
   ok('削除後は0件', emptyKpi[0].startsWith('0'), emptyKpi);
 
-  console.log('\n[16] JSエラー');
+  console.log('\n[19] JSエラー');
   ok('コンソールエラーなし', errors.length === 0, errors.slice(0, 5));
 
   await page.setViewportSize({ width: 390, height: 800 });
@@ -316,6 +448,65 @@ function ok(name, cond, extra) {
   await page.waitForTimeout(300);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   ok('スマホ幅で横スクロールしない', overflow <= 1, overflow);
+
+  console.log('\n[20] 写真の読み取り（file:// では使えない）');
+  ok('file:// では読み取り不可と分かる', (await page.evaluate(() => window.__cc.ocrAvailable())) === false);
+  await page.click('.navbtn[data-view="data"]');
+  await page.waitForTimeout(200);
+  await page.setInputFiles('#ocr-files', { name: 'a.png', mimeType: 'image/png', buffer: png });
+  await page.waitForTimeout(400);
+  ok('使えない画面ではその旨を出す', /この画面では読み取りが使えません/.test(await page.textContent('#ocr-res')));
+
+  console.log('\n[21] 写真の読み取り（サーバ経由）');
+  const srv = await startServer();
+  const base = 'http://127.0.0.1:' + srv.address().port;
+  const ctx = await browser.newContext();
+  const p2 = await ctx.newPage();
+  const errors2 = [];
+  p2.on('pageerror', (e) => errors2.push(String(e)));
+  p2.on('dialog', (d) => d.accept());
+  await p2.goto(base + '/index.html');
+  await p2.waitForTimeout(400);
+  ok('サーバ経由なら読み取りが使える', (await p2.evaluate(() => window.__cc.ocrAvailable())) === true);
+
+  await p2.click('.navbtn[data-view="data"]');
+  await p2.setInputFiles('#ocr-files', [
+    { name: 'card1.png', mimeType: 'image/png', buffer: png },
+    { name: 'card2.png', mimeType: 'image/png', buffer: png },
+  ]);
+  await p2.waitForTimeout(2500);
+  const prog = await p2.textContent('#ocr-progress');
+  ok('2枚とも登録される', /完了：2枚を登録/.test(prog), prog);
+  const madeCards = await p2.evaluate(() => window.__cc.state.cards.map((c) => ({
+    company: c.company, name: c.name, dept: c.dept, title: c.title, email: c.email, source: c.source,
+  })));
+  ok('読み取った項目が名刺になる',
+    madeCards.length === 2 && madeCards[0].company === '株式会社テスト読取' &&
+    madeCards[0].dept === '情報システム部' && madeCards[0].email === 'yomitori@example.com', madeCards);
+  ok('きっかけに読み取りと残る', madeCards.every((c) => c.source === '写真から読み取り'), madeCards);
+  ok('同じ会社は1つの箱にまとまる',
+    (await p2.evaluate(() => window.__cc.computeCompanies().length)) === 1);
+  const shots = await p2.evaluate(() => Object.keys(window.__cc.photos()).length);
+  ok('読み取った写真も名刺に付く', shots === 2, shots);
+
+  await p2.click('.navbtn[data-view="cards"]');
+  await p2.waitForTimeout(300);
+  await p2.fill('#f-company', '手で入れた会社');
+  await p2.setInputFiles('#f-photo', { name: 'c.png', mimeType: 'image/png', buffer: png });
+  await p2.waitForTimeout(400);
+  await p2.click('#f-ocr');
+  await p2.waitForTimeout(2000);
+  const formVals = await p2.evaluate(() => ({
+    company: document.getElementById('f-company').value,
+    name: document.getElementById('f-name').value,
+    title: document.getElementById('f-title').value,
+  }));
+  ok('1枚読み取りで空欄が埋まる', formVals.name === '読取 次郎' && formVals.title === '課長', formVals);
+  ok('手で入れた欄は上書きしない', formVals.company === '手で入れた会社', formVals);
+  ok('サーバ経由でもJSエラーなし', errors2.length === 0, errors2.slice(0, 3));
+
+  await ctx.close();
+  srv.close();
 
   console.log('\n=== ' + pass + ' pass / ' + fail + ' fail ===');
   await browser.close();
