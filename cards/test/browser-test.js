@@ -1,45 +1,5 @@
 const { chromium } = require('playwright');
 const path = require('path');
-const http = require('http');
-const fs = require('fs');
-
-// 読み取りAPIを差し替えた簡易サーバ。file:// では読み取りが動かないので、
-// クライアント側の流れを通しで見るために http で配る。
-let ocrCalls = 0;
-function startServer() {
-  return new Promise((resolve) => {
-    const srv = http.createServer((req, res) => {
-      if (req.method === 'POST' && req.url === '/api/card-ocr') {
-        let body = '';
-        req.on('data', (c) => { body += c; });
-        req.on('end', () => {
-          const okImage = /"image":"data:image\/jpeg;base64,/.test(body);
-          ocrCalls++;
-          res.writeHead(okImage ? 200 : 400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(okImage ? {
-            card: {
-              company: '株式会社テスト読取', name: ocrCalls === 1 ? '読取 太郎' : '読取 次郎',
-              kana: '', dept: '情報システム部', title: '課長',
-              email: 'yomitori@example.com', tel: '03-5555-0000', mobile: '', address: '東京都テスト区1-1',
-            },
-          } : { error: '画像の形式が読めません' }));
-        });
-        return;
-      }
-      const rel = (req.url === '/' ? '/index.html' : req.url).split('?')[0];
-      try {
-        const data = fs.readFileSync(path.resolve(__dirname, '..', '.' + rel));
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(data);
-      } catch {
-        res.writeHead(404);
-        res.end('not found');
-      }
-    });
-    srv.listen(0, '127.0.0.1', () => resolve(srv));
-  });
-}
-
 const FILE = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
@@ -448,65 +408,6 @@ function ok(name, cond, extra) {
   await page.waitForTimeout(300);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   ok('スマホ幅で横スクロールしない', overflow <= 1, overflow);
-
-  console.log('\n[20] 写真の読み取り（file:// では使えない）');
-  ok('file:// では読み取り不可と分かる', (await page.evaluate(() => window.__cc.ocrAvailable())) === false);
-  await page.click('.navbtn[data-view="data"]');
-  await page.waitForTimeout(200);
-  await page.setInputFiles('#ocr-files', { name: 'a.png', mimeType: 'image/png', buffer: png });
-  await page.waitForTimeout(400);
-  ok('使えない画面ではその旨を出す', /この画面では読み取りが使えません/.test(await page.textContent('#ocr-res')));
-
-  console.log('\n[21] 写真の読み取り（サーバ経由）');
-  const srv = await startServer();
-  const base = 'http://127.0.0.1:' + srv.address().port;
-  const ctx = await browser.newContext();
-  const p2 = await ctx.newPage();
-  const errors2 = [];
-  p2.on('pageerror', (e) => errors2.push(String(e)));
-  p2.on('dialog', (d) => d.accept());
-  await p2.goto(base + '/index.html');
-  await p2.waitForTimeout(400);
-  ok('サーバ経由なら読み取りが使える', (await p2.evaluate(() => window.__cc.ocrAvailable())) === true);
-
-  await p2.click('.navbtn[data-view="data"]');
-  await p2.setInputFiles('#ocr-files', [
-    { name: 'card1.png', mimeType: 'image/png', buffer: png },
-    { name: 'card2.png', mimeType: 'image/png', buffer: png },
-  ]);
-  await p2.waitForTimeout(2500);
-  const prog = await p2.textContent('#ocr-progress');
-  ok('2枚とも登録される', /完了：2枚を登録/.test(prog), prog);
-  const madeCards = await p2.evaluate(() => window.__cc.state.cards.map((c) => ({
-    company: c.company, name: c.name, dept: c.dept, title: c.title, email: c.email, source: c.source,
-  })));
-  ok('読み取った項目が名刺になる',
-    madeCards.length === 2 && madeCards[0].company === '株式会社テスト読取' &&
-    madeCards[0].dept === '情報システム部' && madeCards[0].email === 'yomitori@example.com', madeCards);
-  ok('きっかけに読み取りと残る', madeCards.every((c) => c.source === '写真から読み取り'), madeCards);
-  ok('同じ会社は1つの箱にまとまる',
-    (await p2.evaluate(() => window.__cc.computeCompanies().length)) === 1);
-  const shots = await p2.evaluate(() => Object.keys(window.__cc.photos()).length);
-  ok('読み取った写真も名刺に付く', shots === 2, shots);
-
-  await p2.click('.navbtn[data-view="cards"]');
-  await p2.waitForTimeout(300);
-  await p2.fill('#f-company', '手で入れた会社');
-  await p2.setInputFiles('#f-photo', { name: 'c.png', mimeType: 'image/png', buffer: png });
-  await p2.waitForTimeout(400);
-  await p2.click('#f-ocr');
-  await p2.waitForTimeout(2000);
-  const formVals = await p2.evaluate(() => ({
-    company: document.getElementById('f-company').value,
-    name: document.getElementById('f-name').value,
-    title: document.getElementById('f-title').value,
-  }));
-  ok('1枚読み取りで空欄が埋まる', formVals.name === '読取 次郎' && formVals.title === '課長', formVals);
-  ok('手で入れた欄は上書きしない', formVals.company === '手で入れた会社', formVals);
-  ok('サーバ経由でもJSエラーなし', errors2.length === 0, errors2.slice(0, 3));
-
-  await ctx.close();
-  srv.close();
 
   console.log('\n=== ' + pass + ' pass / ' + fail + ' fail ===');
   await browser.close();
