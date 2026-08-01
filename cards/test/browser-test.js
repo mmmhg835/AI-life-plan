@@ -1,5 +1,34 @@
 const { chromium } = require('playwright');
 const path = require('path');
+const http = require('http');
+const fs = require('fs');
+
+// Service Worker は file:// では動かないので、PWAの確認だけ簡易サーバから配る。
+// 127.0.0.1 は「安全なオリジン」として扱われるため https でなくても登録できる。
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.png': 'image/png',
+};
+function startServer() {
+  return new Promise((resolve) => {
+    const srv = http.createServer((req, res) => {
+      const rel = (req.url === '/' ? '/index.html' : req.url).split('?')[0];
+      const ext = path.extname(rel);
+      try {
+        const data = fs.readFileSync(path.resolve(__dirname, '..', '.' + rel));
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.end(data);
+      } catch {
+        res.writeHead(404);
+        res.end('not found');
+      }
+    });
+    srv.listen(0, '127.0.0.1', () => resolve(srv));
+  });
+}
+
 const FILE = 'file://' + path.resolve(__dirname, '..', 'index.html');
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
@@ -408,6 +437,93 @@ function ok(name, cond, extra) {
   await page.waitForTimeout(300);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   ok('スマホ幅で横スクロールしない', overflow <= 1, overflow);
+
+  console.log('\n[20] アプリ化（ブラウザで開いた状態）');
+  ok('file:// ではオフライン対応にできない', (await page.evaluate(() => window.__cc.canServiceWorker())) === false);
+  ok('アプリ表示ではない', (await page.evaluate(() => window.__cc.isStandalone())) === false);
+  await page.click('.navbtn[data-view="data"]');
+  await page.waitForTimeout(250);
+  ok('入れられない事情を画面に出す', /ホーム画面には入れられません/.test(await page.textContent('#install-how')));
+
+  console.log('\n[21] アプリ化（サーバから開いた状態）');
+  const srv = await startServer();
+  const base = 'http://127.0.0.1:' + srv.address().port;
+  const ctx = await browser.newContext();
+  const p2 = await ctx.newPage();
+  const errors2 = [];
+  p2.on('pageerror', (e) => errors2.push(String(e)));
+  p2.on('dialog', (d) => d.accept());
+  await p2.goto(base + '/index.html');
+  await p2.waitForTimeout(400);
+
+  const mf = await p2.evaluate(async () => {
+    const href = document.querySelector('link[rel="manifest"]').getAttribute('href');
+    const res = await fetch(href);
+    return { status: res.status, json: await res.json() };
+  });
+  ok('マニフェストが読める', mf.status === 200, mf.status);
+  ok('全画面で開く指定', mf.json.display === 'standalone', mf.json.display);
+  ok('起動先とスコープが同じ場所', mf.json.start_url === './' && mf.json.scope === './', mf.json);
+  ok('アイコンは192と512とmaskable',
+    mf.json.icons.length === 3 && mf.json.icons.some((i) => i.purpose === 'maskable'), mf.json.icons);
+
+  const icons = await p2.evaluate(async () => {
+    const out = {};
+    for (const n of ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png']) {
+      const r = await fetch('./' + n);
+      out[n] = r.status;
+    }
+    return out;
+  });
+  ok('アイコンの実体がある', Object.values(icons).every((v) => v === 200), icons);
+  ok('Appleのアイコン指定がある', (await p2.$$('link[rel="apple-touch-icon"]')).length === 1);
+  ok('テーマ色が入っている',
+    (await p2.getAttribute('meta[name="theme-color"]', 'content')) === '#0b0e12');
+
+  const swReady = await p2.evaluate(() =>
+    navigator.serviceWorker.ready.then((r) => !!r.active).catch(() => false));
+  ok('Service Workerが動き出す', swReady === true);
+
+  await p2.click('.navbtn[data-view="data"]');
+  await p2.click('#demo');
+  await p2.waitForTimeout(500);
+  const beforeOffline = await p2.evaluate(() => window.__cc.state.cards.length);
+
+  await ctx.setOffline(true);
+  await p2.reload();
+  await p2.waitForTimeout(700);
+  const offlineCards = await p2.evaluate(() => window.__cc.state.cards.length);
+  ok('圏外でも画面が開く', (await p2.$$('.navbtn')).length === 6);
+  ok('圏外でもデータが残る', offlineCards === beforeOffline && beforeOffline > 0, [beforeOffline, offlineCards]);
+  await ctx.setOffline(false);
+
+  await p2.goto(base + '/index.html?view=acts');
+  await p2.waitForTimeout(400);
+  ok('ショートカットから接点タブが開く', await p2.isVisible('#v-acts'));
+  ok('サーバ経由でもJSエラーなし', errors2.length === 0, errors2.slice(0, 3));
+  await ctx.close();
+
+  console.log('\n[22] iPhone から開いた場合の案内');
+  const ios = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    viewport: { width: 390, height: 844 },
+  });
+  const p3 = await ios.newPage();
+  p3.on('dialog', (d) => d.accept());
+  await p3.goto(base + '/index.html');
+  await p3.waitForTimeout(400);
+  ok('iPhoneと判定する', (await p3.evaluate(() => window.__cc.isIOS())) === true);
+  ok('ヘッダに入れるボタンが出る', await p3.isVisible('#install-btn'));
+  await p3.click('.navbtn[data-view="data"]');
+  await p3.waitForTimeout(250);
+  const iosHow = await p3.textContent('#install-how');
+  ok('共有→ホーム画面に追加の手順を出す',
+    /共有ボタン/.test(iosHow) && /ホーム画面に追加/.test(iosHow), iosHow.slice(0, 80));
+  const overflow2 = await p3.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  ok('iPhone幅で横スクロールしない', overflow2 <= 1, overflow2);
+  await ios.close();
+  srv.close();
 
   console.log('\n=== ' + pass + ' pass / ' + fail + ' fail ===');
   await browser.close();

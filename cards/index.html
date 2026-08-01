@@ -3,8 +3,17 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>名刺カバレッジ｜企業別 接点・組織図・営業進捗</title>
+  <meta name="description" content="名刺を入れると企業ごとに箱ができ、接点・組織図・営業カバレッジが自動でつく管理ツール">
+  <meta name="theme-color" content="#0b0e12">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="名刺カバレッジ">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap"
@@ -223,6 +232,7 @@
       color: #fff;
       letter-spacing: .04em;
       line-height: 1.1;
+      white-space: nowrap;
     }
 
     .hdr-ttl span {
@@ -259,6 +269,10 @@
     .theme-btn:hover {
       color: #fff;
       border-color: #46536a;
+    }
+
+    .theme-btn .narrow {
+      display: none;
     }
 
     /* ===== NAV ===== */
@@ -1511,9 +1525,92 @@
       color: var(--paper);
     }
 
+    /* ホーム画面から開いたときのノッチ・ホームバーを避ける */
+    .hdr {
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+    }
+
+    .nav-in {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    main {
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    footer {
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      padding-bottom: calc(48px + env(safe-area-inset-bottom));
+    }
+
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+    }
+
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 0 0 0 30px;
+      margin-bottom: 9px;
+      font-size: 12.5px;
+      line-height: 1.75;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 1px;
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
+      font-family: var(--mono);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-2);
+    }
+
     @media (max-width: 560px) {
       .hdr-note {
         display: none;
+      }
+
+      /* 画面が狭いときはボタンを詰めて、題名を折り返さない */
+      .hdr {
+        gap: 8px;
+      }
+
+      .hdr-r {
+        gap: 6px;
+      }
+
+      .theme-btn {
+        padding: 6px 8px;
+        letter-spacing: .04em;
+      }
+
+      .theme-btn .wide {
+        display: none;
+      }
+
+      .theme-btn .narrow {
+        display: inline;
+      }
+
+      main {
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
       }
 
       nav {
@@ -1544,6 +1641,8 @@
       </div>
       <div class="hdr-r">
         <div class="hdr-note">名刺を入れると企業ごとに箱ができ、<br>接点・組織図・営業進捗が自動でつきます</div>
+        <button class="theme-btn" id="install-btn" type="button" style="display:none">＋<span class="wide">
+            ホーム画面に入れる</span><span class="narrow">アプリ</span></button>
         <button class="theme-btn" id="theme-btn" type="button">DARK</button>
       </div>
     </div>
@@ -1799,6 +1898,16 @@
 
     <!-- ============ DATA ============ -->
     <section class="view" id="v-data">
+      <div class="panel">
+        <div class="panel-ttl">アプリとして使う</div>
+        <div class="panel-sub">
+          ホーム画面に入れると、ブラウザの枠が消えて全画面になり、圏外でも開けます。
+          アプリストアは通りません（審査も課金もありません）。中身は同じもので、データもそのまま引き継がれます。
+        </div>
+        <div id="install-how"></div>
+        <div id="install-state" class="sm" style="margin-top:12px"></div>
+      </div>
+
       <div class="panel">
         <div class="panel-ttl">名刺をまとめて取り込む（CSV / タブ区切り）</div>
         <div class="panel-sub">
@@ -2144,6 +2253,101 @@
       }
 
       /* ==========================================================
+         アプリとして使う（PWA）
+         同じ1ファイルのまま、ホーム画面に入れて全画面・オフラインで動かす。
+         アプリストアは経由しない（審査も年会費も無い代わりに、
+         ストアの一覧には出ない）。
+         ========================================================== */
+      let installPrompt = null;
+
+      function isStandalone() {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          navigator.standalone === true;
+      }
+
+      function isIOS() {
+        const ua = navigator.userAgent || '';
+        return /iPhone|iPad|iPod/.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      }
+
+      function canServiceWorker() {
+        return 'serviceWorker' in navigator &&
+          (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+      }
+
+      function registerServiceWorker() {
+        if (!canServiceWorker()) return;
+        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function () {
+          /* 登録できなくても通常の画面としては動く */
+        });
+      }
+
+      // 端末側の掃除でデータが消されないように、保存領域の固定を頼む
+      let persistAsked = false;
+      function requestPersist() {
+        if (persistAsked || !navigator.storage || !navigator.storage.persist) return;
+        persistAsked = true;
+        navigator.storage.persist().catch(function () { });
+      }
+
+      function updateInstallUI() {
+        const btn = $('install-btn');
+        const standalone = isStandalone();
+        btn.style.display = (!standalone && (installPrompt || isIOS())) ? '' : 'none';
+
+        const how = $('install-how');
+        if (!how) return;
+
+        if (standalone) {
+          how.innerHTML = '<div class="hint">いまアプリとして開いています。</div>';
+        } else if (isIOS()) {
+          how.innerHTML = '<div class="sm" style="font-weight:700;color:var(--ink-2)">iPhone・iPad（Safariで開いてください）</div>' +
+            '<ol class="steps"><li>画面下の<b>共有ボタン</b>（□に↑）を押す</li>' +
+            '<li>メニューを下にたどって<b>「ホーム画面に追加」</b>を押す</li>' +
+            '<li>右上の<b>「追加」</b>を押す</li></ol>' +
+            '<div class="sm" style="margin-top:8px">Chromeなど他のブラウザからは追加できません（iOSの制限です）。</div>';
+        } else if (installPrompt) {
+          how.innerHTML = '<div class="btnrow"><button class="btn" id="install-now">ホーム画面に入れる</button></div>' +
+            '<div class="sm" style="margin-top:8px">上のボタンか、ブラウザのメニューにある「アプリをインストール」から入れられます。</div>';
+        } else {
+          how.innerHTML = '<div class="sm" style="font-weight:700;color:var(--ink-2)">Android・パソコン</div>' +
+            '<ol class="steps"><li>ChromeまたはEdgeでこのページを開く</li>' +
+            '<li>アドレスバーの<b>インストールのアイコン</b>、またはメニューの<b>「アプリをインストール」</b>を押す</li></ol>' +
+            (canServiceWorker() ? '' :
+              '<div class="warn" style="margin-top:10px">いまはファイルを直接開いているため、ホーム画面には入れられません。' +
+              'Vercelなどに載せた <b>https</b> のページから入れてください。</div>');
+        }
+      }
+
+      function renderInstallState() {
+        const el = $('install-state');
+        if (!el) return;
+        const bits = [];
+        bits.push(isStandalone() ? 'いまの表示：アプリ' : 'いまの表示：ブラウザ');
+        bits.push(canServiceWorker() ? 'オフライン対応：有効' : 'オフライン対応：無効（httpsが必要）');
+        el.textContent = bits.join('　/　');
+        if (navigator.storage && navigator.storage.persisted) {
+          navigator.storage.persisted().then(function (p) {
+            el.textContent = bits.concat(p ? '保存領域：端末に固定済み' : '保存領域：未固定（端末の掃除で消える可能性）').join('　/　');
+          }).catch(function () { });
+        }
+      }
+
+      function doInstall() {
+        if (!installPrompt) {
+          showView('data');
+          toast(isIOS() ? '共有ボタンから「ホーム画面に追加」を選んでください' : '入れ方を下に出しました');
+          return;
+        }
+        installPrompt.prompt();
+        installPrompt.userChoice.then(function () {
+          installPrompt = null;
+          updateInstallUI();
+        }).catch(function () { });
+      }
+
+      /* ==========================================================
          会社名の正規化 — 表記ゆれを吸収して同じ箱に入れる
          ========================================================== */
       function companyKey(name) {
@@ -2432,7 +2636,7 @@
         if (currentView === 'person') renderPerson();
         if (currentView === 'acts') renderActs(cos);
         if (currentView === 'map') renderMap(cos);
-        if (currentView === 'data') renderSettings();
+        if (currentView === 'data') { renderSettings(); updateInstallUI(); renderInstallState(); }
       }
 
       function renderDatalists(cos) {
@@ -3041,6 +3245,7 @@
           createdAt: todayStr()
         };
         state.cards.push(card);
+        requestPersist();
         if (!state.meta[key]) state.meta[key] = { name: company };
         // 名刺交換そのものを最初の接点として記録
         state.acts.push({
@@ -3393,6 +3598,19 @@
           b.addEventListener('click', function () { showView(b.dataset.view); });
         });
         $('theme-btn').addEventListener('click', toggleTheme);
+        $('install-btn').addEventListener('click', doInstall);
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          installPrompt = e;
+          updateInstallUI();
+        });
+        window.addEventListener('appinstalled', function () {
+          installPrompt = null;
+          updateInstallUI();
+          renderInstallState();
+          toast('ホーム画面に入れました');
+        });
         $('co-back').addEventListener('click', function () { showView('companies'); });
         $('p-back').addEventListener('click', function () { showView(backFrom === 'person' ? 'cards' : backFrom); });
 
@@ -3538,6 +3756,8 @@
             return;
           }
 
+          if (e.target.id === 'install-now') { doInstall(); return; }
+
           if (e.target.id === 'pq-add') {
             const c = state.cards.filter(function (x) { return x.id === currentCardId; })[0];
             if (!c) return;
@@ -3669,12 +3889,25 @@
          ========================================================== */
       load();
       applyTheme();
+      registerServiceWorker();
       bind();
       fillForm(null);
       $('a-date').value = todayStr();
       renderSettings();
       refreshPersonSelect();
-      render();
+      // ホーム画面のショートカットから開いたときに、その画面を出す
+      (function () {
+        try {
+          const v = new URLSearchParams(location.search).get('view');
+          if (v && ['dash', 'companies', 'cards', 'acts', 'map', 'data'].indexOf(v) !== -1) currentView = v;
+        } catch (e) { /* 無視 */ }
+      })();
+
+      showView(currentView);
+      updateInstallUI();
+      renderInstallState();
+      if (state.cards.length) requestPersist();
+
       // 写真は非同期に読み込んで、揃ったところで描き直す
       photoLoadAll().then(function () { render(); }).catch(function () { });
 
@@ -3685,7 +3918,8 @@
         parseCardText: parseCardText, splitRows: splitRows, mapHeaders: mapHeaders,
         computeCompanies: computeCompanies, state: state,
         photos: function () { return photoCache; }, lastMonths: lastMonths, monthCounts: monthCounts,
-        effectiveBand: effectiveBand, parseTags: parseTags, cardTags: cardTags
+        effectiveBand: effectiveBand, parseTags: parseTags, cardTags: cardTags,
+        isStandalone: isStandalone, isIOS: isIOS, canServiceWorker: canServiceWorker
       };
     })();
   </script>
