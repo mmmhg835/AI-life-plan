@@ -191,6 +191,33 @@ canvas.drag{cursor:grabbing}
 .note{font-size:10.5px; color:var(--ink-3); line-height:1.7; padding:0 2px}
 .note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px; color:var(--ink-2)}
 
+/* ---------- スマホ ----------
+   縦画面では見出しが場所を食いすぎて町が画面外に落ちるので、上を詰めて町を大きくする。 */
+@media (max-width:640px){
+  .app{padding:12px 12px 20px; gap:10px}
+  .crest{font-size:9px; letter-spacing:.16em; gap:6px}
+  .head{gap:10px}
+  .head h1{font-size:26px; margin-top:2px}
+  .lead{font-size:11.5px; max-width:none; margin-top:4px}
+  .figures{margin-left:0; width:100%}
+  .fig{flex:1; padding:0 4px}
+  .fig .n,.fig.clock .n{font-size:19px}
+  .fig .k{font-size:9px; letter-spacing:.02em; white-space:nowrap}
+  .stage-bar{padding:7px 8px; gap:5px}
+  .tab{padding:4px 8px; font-size:10.5px}
+  .spd{margin-left:0; width:100%; justify-content:flex-end}
+  .spd .lbl{display:none}
+  canvas{height:58vh; min-height:300px}
+  .hint{display:none}                     /* ドラッグ・ホイールの案内は指では意味がない */
+  .stamp{font-size:9px}
+  .order{padding:8px}
+  .order input{font-size:16px}            /* 16px 未満だと iOS が勝手に拡大する */
+  .order button{padding:0 14px; letter-spacing:.06em}
+  .samples button{font-size:10px}
+  .roster,.board{max-height:none}
+  .log{max-height:150px}
+}
+
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:#d8d0be; border-radius:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -1093,17 +1120,19 @@ const VIEWS = [
   { id:'park',   name:'公園',           cx:32, cy:11, z:1.15, color:'#5f7d4d' },
   ...CLIENTS.map(c => ({ id:c.id, name:c.short, cx:c.spot.x + 1, cy:c.spot.y + 4, z:1.3, color:c.color })),
 ];
-let view = 'all';
+/* 縦画面で町ぜんぶを映すと小さすぎて誰が誰だか分からないので、会社から始める。
+   画面が狭いぶん寄りも控えめにしないと、端の名札が切れる。 */
+const narrow = () => window.innerWidth < 640;
+let view = narrow() ? 'office' : 'all';
+function goView(id) {
+  const v = VIEWS.find(x => x.id === id) || VIEWS[0];
+  focus(v.cx, v.cy, narrow() ? v.z * 0.7 : v.z);
+}
 function paintTabs() {
   $('tabs').innerHTML = VIEWS.map(v =>
     '<button class="tab" data-v="' + v.id + '" aria-selected="' + (v.id === view) + '">' +
     (v.color ? '<i class="dot" style="background:' + v.color + '"></i>' : '') + v.name + '</button>').join('');
-  [...$('tabs').children].forEach(b => b.onclick = () => {
-    view = b.dataset.v;
-    const v = VIEWS.find(x => x.id === view);
-    focus(v.cx, v.cy, v.z);
-    paintTabs();
-  });
+  [...$('tabs').children].forEach(b => b.onclick = () => { view = b.dataset.v; goView(view); paintTabs(); });
 }
 
 function selectAgent(id) {
@@ -1148,13 +1177,44 @@ const SAMPLES = [
 $('samples').innerHTML = SAMPLES.map((s, i) => '<button data-i="' + i + '">' + esc(s) + '</button>').join('');
 [...$('samples').children].forEach(b => b.onclick = () => submitOrder(SAMPLES[+b.dataset.i]));
 
-/* 視点操作 */
-let drag = null;
+/* 視点操作。指一本で移動、二本でつまんで拡大縮小 */
+let drag = null, pinch = null;
+const ptrs = new Map();
+const ZMIN = 0.45, ZMAX = 2.4;
+
+function pinchNow() {
+  const [a, b] = [...ptrs.values()];
+  const r = cv.getBoundingClientRect();
+  return { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+           mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top };
+}
+function endPointer(e) {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+}
+
 cv.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  cv.setPointerCapture(e.pointerId);
+  if (ptrs.size === 2) {
+    drag = null; cv.classList.remove('drag');
+    pinch = Object.assign(pinchNow(), { z:cam.z, cx:cam.x, cy:cam.y });
+    return;
+  }
   drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y, moved:false };
-  cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+  cv.classList.add('drag');
 });
 cv.addEventListener('pointermove', e => {
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (pinch && ptrs.size === 2) {
+    const s = pinchNow();
+    const nz = Math.max(ZMIN, Math.min(ZMAX, pinch.z * (s.d / pinch.d)));
+    const f = nz / pinch.z;
+    cam.z = camT.z = nz;
+    cam.x = camT.x = pinch.mx - (pinch.mx - pinch.cx) * f;
+    cam.y = camT.y = pinch.my - (pinch.my - pinch.cy) * f;
+    return;
+  }
   const r = cv.getBoundingClientRect();
   hover(e.clientX - r.left, e.clientY - r.top);
   if (!drag) return;
@@ -1163,13 +1223,18 @@ cv.addEventListener('pointermove', e => {
   cam.x = camT.x = drag.cx + dx; cam.y = camT.y = drag.cy + dy;
 });
 cv.addEventListener('pointerup', e => {
-  if (drag && !drag.moved) {
+  const pinching = !!pinch;
+  endPointer(e);
+  if (!pinching && drag && !drag.moved) {
     const r = cv.getBoundingClientRect();
     const hit = pickAgent(e.clientX - r.left, e.clientY - r.top);
     if (hit) { selectAgent(hit.id); say(hit, pick(who(hit).says), 24); }
     else selected = null, dirty.roster = true;
   }
   drag = null; cv.classList.remove('drag');
+});
+cv.addEventListener('pointercancel', e => {
+  endPointer(e); drag = null; cv.classList.remove('drag');
 });
 cv.addEventListener('wheel', e => {
   e.preventDefault();
@@ -1346,9 +1411,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-window.addEventListener('resize', () => { resize(); const v = VIEWS.find(x => x.id === view); focus(v.cx, v.cy, v.z); });
+window.addEventListener("resize", () => { resize(); goView(view); });
 resize();
-focus(22, 22, 0.72);
+goView(view);
 cam.x = camT.x; cam.y = camT.y; cam.z = camT.z;
 paintTabs(); paintHead(); paintRoster(); paintClients(); paintBoard();
 log('朝礼', '本日の業務を開始しました');
