@@ -479,8 +479,12 @@ const agents = STAFF.map((s, i) => ({
   task: null, workLeft: 0, workTotal: 0,
   bubble: null, bubbleLeft: 0, rest: false,
   goal: null, place: 'office', lane: (i * 2) % 3,
+  disp: null, liveName: null, liveWork: false,
 }));
 const agentById = {}; agents.forEach(a => agentById[a.id] = a);
+
+/* 実況中はその席に座っている本物のエージェントの肩書きで表示する */
+function who(a) { return a.disp || a.def; }
 
 /* ============================================================
    6. 仕事
@@ -579,8 +583,8 @@ function begin(a, t) {
 
   if (t.place === 'office') {
     a.place = 'office'; a.state = 'work'; a.goal = null;
-    say(a, pick(a.def.says));
-    log(a.def.name, t.label + '（自席）');
+    say(a, pick(who(a).says));
+    log(who(a).name, t.label + '（自席）');
   } else {
     const c = clientById[t.place];
     a.place = t.place;
@@ -589,7 +593,7 @@ function begin(a, t) {
     a.step = 0;
     a.state = a.path.length ? 'walk' : 'work';
     say(a, c.short + 'へ出ます', 26);
-    log(a.def.name, c.short + 'へ出張（' + t.label + '）');
+    log(who(a).name, c.short + 'へ出張（' + t.label + '）');
   }
 }
 
@@ -612,7 +616,7 @@ function finish(a) {
     if (t.place !== 'office') clientById[t.place].count = (clientById[t.place].count || 0) + 1;
     dirty.board = true;
   }
-  a.task = null;
+  a.task = null; a.liveWork = false;
   say(a, pick(['あがりました', '出しときました', '終わりました', 'できました']), 20);
 
   /* 席へ帰る */
@@ -644,7 +648,7 @@ function simulate(dtMin) {
 
   /* 折を見て社内の仕事が湧く */
   ambientTimer -= dtMin;
-  if (ambientTimer <= 0) {
+  if (ambientTimer <= 0 && !LIVE.on) {   /* 実況が来ているときは作り話を混ぜない */
     ambientTimer = 5 + Math.random() * 12;
     const idle = agents.filter(a => a.state === 'idle' && !a.task);
     if (idle.length > 2 && tasks.filter(t => t.status !== 'done').length < 9) {
@@ -653,12 +657,12 @@ function simulate(dtMin) {
         const c = pick(CLIENTS);
         const a = pick(idle);
         tasks.unshift({ id: ++taskSeq * 100, order: 0, orderText: pick(c.jobs),
-          staff: a.id, place: c.id, label: a.def.verb, minutes: 10 + Math.floor(Math.random() * 16) , status:'queued' });
+          staff: a.id, place: c.id, label: who(a).verb, minutes: 10 + Math.floor(Math.random() * 16) , status:'queued' });
       } else {
         const j = pick(AMBIENT);
         const a = idle.find(x => x.id === j.s) || pick(idle);
         tasks.unshift({ id: ++taskSeq * 100, order: 0, orderText: j.t,
-          staff: a.id, place: 'office', label: a.def.verb, minutes: 6 + Math.floor(Math.random() * 12), status:'queued' });
+          staff: a.id, place: 'office', label: who(a).verb, minutes: 6 + Math.floor(Math.random() * 12), status:'queued' });
       }
       dirty.board = true;
     }
@@ -681,10 +685,11 @@ function simulate(dtMin) {
       }
       if (a.step >= a.path.length) {
         a.path = []; a.step = 0;
-        if (a.state === 'walk') { a.state = 'work'; say(a, pick(a.def.says), 24); }
+        if (a.state === 'walk') { a.state = 'work'; say(a, pick(who(a).says), 24); }
         else { a.state = 'idle'; a.place = 'office'; a.x = a.seat.x; a.y = a.seat.y; }
       }
     } else if (a.state === 'work') {
+      if (a.liveWork) continue;          /* 終わりは実況が知らせてくれるまで待つ */
       a.workLeft -= dtMin;
       if (a.workLeft <= 0) {
         if (a.rest) {                       /* 息抜きが済んだら黙って帰る */
@@ -842,7 +847,7 @@ function drawAgent(a) {
   ctx.beginPath(); ctx.ellipse(p.sx, p.sy, 7 * z, 3.4 * z, 0, 0, 6.284); ctx.fill();
 
   /* 胴 */
-  const c = a.def.color;
+  const c = who(a).color;
   ctx.fillStyle = c;
   roundRect(p.sx - w / 2, base - bodyH, w, bodyH, 3 * z); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.16)';
@@ -855,11 +860,16 @@ function drawAgent(a) {
 
   /* 作業中は頭上に進み具合 */
   if (a.state === 'work' && a.workTotal > 0) {
-    const r = Math.max(0, Math.min(1, 1 - a.workLeft / a.workTotal));
     const bw = 22 * z, bx = p.sx - bw / 2, by = base - bodyH - headR * 2 - 9 * z;
     ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(bx, by, bw, 3.4 * z);
     ctx.fillStyle = a.place === 'office' ? '#5f7d4d' : '#b03a2e';
-    ctx.fillRect(bx, by, bw * r, 3.4 * z);
+    if (a.liveWork) {
+      /* 実況中は残り時間が分からないので、行ったり来たりさせる */
+      const w = bw * 0.34, t = (Math.sin(a.bob * 1.6) + 1) / 2;
+      ctx.fillRect(bx + (bw - w) * t, by, w, 3.4 * z);
+    } else {
+      ctx.fillRect(bx, by, bw * Math.max(0, Math.min(1, 1 - a.workLeft / a.workTotal)), 3.4 * z);
+    }
   }
   return { p, base, bodyH, headR };
 }
@@ -948,9 +958,9 @@ function render() {
     const top = m.base - m.bodyH - m.headR * 2 - lane - (a.state === 'work' ? 14 * cam.z : 5 * cam.z);
     if (a.bubble) {
       label(m.p.sx, top - 12 * cam.z, a.bubble, 'rgba(43,39,35,.92)', '#f6f2e8', Math.max(9, 10 * cam.z));
-      label(m.p.sx, top, a.def.name, 'rgba(255,255,255,.9)', '#3a352e', Math.max(8.5, 9.5 * cam.z));
+      label(m.p.sx, top, who(a).name, 'rgba(255,255,255,.9)', '#3a352e', Math.max(8.5, 9.5 * cam.z));
     } else if (busy || zoomed || a.id === selected) {
-      label(m.p.sx, top, a.def.name,
+      label(m.p.sx, top, who(a).name,
         a.id === selected ? '#b03a2e' : 'rgba(255,255,255,.88)',
         a.id === selected ? '#fff' : '#3a352e', Math.max(8.5, 9.5 * cam.z));
     }
@@ -1023,9 +1033,9 @@ function paintRoster() {
   [...el.children].forEach((r, i) => {
     const a = agents[i], s = stateOf(a);
     r.classList.toggle('sel', a.id === selected);
-    r.querySelector('.pin').style.background = a.state === 'idle' ? '#cdc5b6' : a.def.color;
-    r.querySelector('.nm').textContent = a.def.name;
-    r.querySelector('.rl').textContent = a.def.role;
+    r.querySelector('.pin').style.background = a.state === 'idle' ? '#cdc5b6' : who(a).color;
+    r.querySelector('.nm').textContent = who(a).name;
+    r.querySelector('.rl').textContent = who(a).role;
     r.querySelector('.job').textContent = a.task ? (a.task.orderText.length > 14
       ? a.task.orderText.slice(0, 14) + '…' : a.task.orderText) : '';
     const st = r.querySelector('.st');
@@ -1043,7 +1053,7 @@ function paintClients() {
     d.innerHTML =
       '<i class="mk" style="background:' + c.color + '"></i>' +
       '<div><div class="cn">' + c.name + '</div><div class="cd">' + c.desc +
-      (here.length ? ' ／ ' + here.map(a => a.def.name).join('、') + ' 出張中' : '') + '</div></div>' +
+      (here.length ? ' ／ ' + here.map(a => who(a).name).join('、') + ' 出張中' : '') + '</div></div>' +
       '<div class="cnt"><b>' + (c.count || 0) + '</b><span>本日</span></div>';
     el.appendChild(d);
   });
@@ -1059,11 +1069,11 @@ function paintBoard() {
   if (!list.length) { el.innerHTML = '<div class="empty">仕事はまだありません。下の欄から発注してください。</div>'; return; }
   el.innerHTML = list.map(t => {
     const s = t.status === 'doing' ? ['doing', '着手'] : t.status === 'done' ? ['done', '完了'] : ['', '待ち'];
-    const who = byId[t.staff];
+    const nm = agentById[t.staff] ? who(agentById[t.staff]).name : (byId[t.staff] || {}).name || '';
     const where = t.place === 'office' ? '自席' : clientById[t.place].short;
     return '<div class="task"><span class="chip ' + s[0] + '">' + s[1] + '</span>' +
            '<div class="tx"><div class="t">' + esc(t.orderText) + '</div>' +
-           '<div class="m">' + who.name + '／' + t.label + '／' + where + '</div></div></div>';
+           '<div class="m">' + esc(nm) + '／' + t.label + '／' + where + '</div></div></div>';
   }).join('');
   paintClients();
 }
@@ -1156,7 +1166,7 @@ cv.addEventListener('pointerup', e => {
   if (drag && !drag.moved) {
     const r = cv.getBoundingClientRect();
     const hit = pickAgent(e.clientX - r.left, e.clientY - r.top);
-    if (hit) { selectAgent(hit.id); say(hit, pick(hit.def.says), 24); }
+    if (hit) { selectAgent(hit.id); say(hit, pick(who(hit).says), 24); }
     else selected = null, dirty.roster = true;
   }
   drag = null; cv.classList.remove('drag');
@@ -1187,15 +1197,124 @@ function hover(mx, my) {
   if (!a) { tip.classList.remove('on'); return; }
   const p = iso(a.x + 0.5, a.y + 0.5, 0);
   const s = stateOf(a);
-  tip.innerHTML = '<b>' + esc(a.def.name) + '</b>　' + s.t +
-    '<div class="r">' + a.def.role + '担当（' + a.def.agent + '）</div>' +
+  tip.innerHTML = '<b>' + esc(who(a).name) + '</b>　' + s.t +
+    '<div class="r">' + who(a).role + "担当（" + who(a).agent + '）</div>' +
     (a.task ? '<div class="r">' + esc(a.task.orderText) + '</div>' : '');
   tip.style.left = p.sx + 'px'; tip.style.top = (p.sy - 34 * cam.z) + 'px';
   tip.classList.add('on');
 }
 
 /* ============================================================
-   11. まわす
+   11. 実況
+   Claude Code のフックが書き出した events.jsonl を読んで、
+   本物のサブエージェントの動きをそのまま町に映す。
+   ファイルが無ければ静かに模擬のまま動き続ける。
+   ============================================================ */
+const LIVE = { on:false, url:'events.jsonl', seen:0, bound:new Map(), miss:0 };
+
+function trim(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+/* エージェント名に空いている席をあてがう。同じ名前は同じ席に座り続ける */
+function bindLive(name) {
+  if (LIVE.bound.has(name)) return LIVE.bound.get(name);
+  let a = agents.find(x => !x.liveName && x.state === 'idle')
+       || agents.find(x => !x.liveName);
+  if (!a) {                                   /* 10席が埋まったら手の空いた人と交代 */
+    a = agents.find(x => x.state === 'idle') || agents[0];
+    LIVE.bound.delete(a.liveName);
+  }
+  a.liveName = name;
+  a.disp = {
+    name: trim(name, 12), role: '実況', agent: name, color: a.def.color,
+    says: a.def.says, verb: '対応する',
+  };
+  LIVE.bound.set(name, a);
+  dirty.roster = true;
+  return a;
+}
+
+function startLive() {
+  LIVE.on = true;
+  tasks.length = 0; orders.length = 0; doneToday = 0;
+  agents.forEach(a => {
+    a.task = null; a.liveWork = false; a.rest = false;
+    a.state = 'idle'; a.place = 'office'; a.path = []; a.step = 0;
+    a.x = a.seat.x; a.y = a.seat.y;
+    a.bubble = null; a.bubbleLeft = 0;      /* 模擬中の言葉を残さない */
+  });
+  logs.length = 0;
+  log('接続', 'Claude Code の実況につながりました');
+  $('q').disabled = true;
+  $('q').placeholder = '実況中。仕事は Claude Code 側から流れてきます';
+  $('send').disabled = true; $('send').style.opacity = .35;
+  $('samples').style.display = 'none';
+  dirty.board = dirty.roster = dirty.log = true;
+}
+
+function applyLive(e) {
+  switch (e.ev) {
+    case 'session_start':
+      log('朝礼', '本日の業務を開始しました'); break;
+
+    case 'prompt':
+      log('社長', e.desc ? trim(e.desc, 24) : '指示を出しました'); break;
+
+    case 'subagent_start': {
+      const a = bindLive(e.agent || '担当');
+      const t = {
+        id: ++taskSeq * 100, order: 0, seq: 0,
+        orderText: e.desc || (who(a).name + ' が動いています'),
+        staff: a.id, place: 'office', label: '対応する', minutes: 0, status: 'doing',
+      };
+      tasks.unshift(t);
+      a.task = t; a.liveWork = true; a.workTotal = 1; a.workLeft = 1;
+      a.state = 'work'; a.place = 'office';
+      say(a, trim(e.desc || '着手します', 18), 60);
+      log(who(a).name, trim(e.desc || '着手しました', 22));
+      dirty.board = true;
+      break;
+    }
+
+    case 'subagent_stop': {
+      const a = LIVE.bound.get(e.agent);
+      if (a && a.state === 'work') { a.liveWork = false; a.workLeft = 0; finish(a); }
+      break;
+    }
+
+    case 'tool': {
+      /* 手を動かしている人の頭上に、いま触っている道具を出す */
+      const a = [...LIVE.bound.values()].find(x => x.state === 'work');
+      if (a && e.tool) say(a, e.tool, 14);
+      break;
+    }
+
+    case 'stop':        log('報告', '一区切りつきました'); break;
+    case 'session_end': log('終業', '本日の業務を終了しました'); break;
+  }
+}
+
+async function pollLive() {
+  let text;
+  try {
+    const r = await fetch(LIVE.url + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    text = await r.text();
+  } catch { return; }              /* file:// で開いた場合などは黙って模擬のまま */
+
+  const lines = text.split('\n').filter(Boolean);
+  if (!lines.length) return;
+  if (!LIVE.on) startLive();
+  if (lines.length < LIVE.seen) LIVE.seen = 0;   /* ログが切り詰められたら読み直す */
+  for (let i = LIVE.seen; i < lines.length; i++) {
+    try { applyLive(JSON.parse(lines[i])); } catch { /* 壊れた行は飛ばす */ }
+  }
+  LIVE.seen = lines.length;
+}
+setInterval(pollLive, 2000);
+pollLive();
+
+/* ============================================================
+   12. まわす
    ============================================================ */
 let last = performance.now(), acc = 0;
 function frame(now) {
@@ -1221,7 +1340,8 @@ function frame(now) {
     if (dirty.roster){ paintRoster(); dirty.roster = false; }
     if (dirty.board) { paintBoard(); dirty.board = false; }
     if (dirty.log)   { paintLog();   dirty.log = false; }
-    $('stamp').textContent = 'MINAMO-CHO ／ ' + clockText() + ' ／ ' + agents.filter(a => a.state !== 'idle').length + ' ACTIVE';
+    $('stamp').textContent = (LIVE.on ? '● LIVE ／ ' : 'MINAMO-CHO ／ ') +
+      clockText() + ' ／ ' + agents.filter(a => a.state !== 'idle').length + ' ACTIVE';
   }
   requestAnimationFrame(frame);
 }
@@ -1233,8 +1353,10 @@ cam.x = camT.x; cam.y = camT.y; cam.z = camT.z;
 paintTabs(); paintHead(); paintRoster(); paintClients(); paintBoard();
 log('朝礼', '本日の業務を開始しました');
 
-/* 開始直後から町が動いているように、朝一の仕事を積んでおく */
+/* 開始直後から町が動いているように、朝一の仕事を積んでおく。
+   実況がつながった時点で startLive() が全部片づける。 */
 (() => {
+  if (LIVE.on) return;
   const seed = [
     { s:'tanda',    t:'古い書き方が残っていないか探す', p:'office' },
     { s:'kotani',   t:'ゆうべ届いた差分に目を通す',     p:'office' },

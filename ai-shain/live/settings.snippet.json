@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs session_start", "async": true }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs prompt", "async": true }] }
+    ],
+    "SubagentStart": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs subagent_start", "async": true }] }
+    ],
+    "SubagentStop": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs subagent_stop", "async": true }] }
+    ],
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs tool", "async": true }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs stop", "async": true }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node ~/.claude/ai-shain/record.mjs session_end", "async": true }] }
+    ]
+  }
+}
