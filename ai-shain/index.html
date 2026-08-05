@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI社員、働いてます。／ CLAUDE WORKS INC.</title>
+<style>
+/* ============================================================
+   配色は生成り・墨・弁柄の三色を基調にする。
+   画面の主役は町なので、UIは主張させない。
+   ============================================================ */
+:root{
+  --paper:#f2ede1;        /* 生成り（背景） */
+  --paper-2:#faf7ef;      /* 紙（カード） */
+  --line:#ddd5c4;         /* 罫 */
+  --line-2:#c9bfab;       /* 濃い罫 */
+  --ink:#2b2723;          /* 墨 */
+  --ink-2:#6d655a;        /* 薄墨 */
+  --ink-3:#9a9184;        /* さらに薄い */
+  --red:#b03a2e;          /* 弁柄（強調） */
+  --green:#5f7d4d;        /* 稼働中 */
+  --blue:#3f5a7a;         /* 出張中 */
+  --mincho:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  --gothic:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--gothic); font-size:13px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit; color:inherit; cursor:pointer}
+
+/* ---------- 全体レイアウト ---------- */
+.app{
+  max-width:1240px; margin:0 auto; padding:18px 20px 24px;
+  display:flex; flex-direction:column; gap:14px; min-height:100%;
+}
+
+/* ---------- 社標（ヘッダ） ---------- */
+.crest{
+  display:flex; align-items:center; gap:10px;
+  font-size:10px; letter-spacing:.34em; color:var(--ink-3);
+}
+.crest .sq{width:5px;height:5px;background:var(--red);transform:rotate(45deg)}
+.crest .sep{color:var(--line-2)}
+
+.head{display:flex; align-items:flex-end; gap:28px; flex-wrap:wrap}
+.head h1{
+  font-family:var(--mincho); font-weight:600; font-size:38px; line-height:1.15;
+  margin:6px 0 0; letter-spacing:.02em;
+}
+.head h1 em{font-style:normal; color:var(--red)}
+.lead{margin:6px 0 0; max-width:34em; color:var(--ink-2); font-size:12px}
+.lead b{color:var(--ink); font-weight:600}
+
+.figures{display:flex; gap:0; margin-left:auto; align-items:flex-end}
+.fig{padding:0 18px; text-align:center; border-left:1px solid var(--line)}
+.fig:first-child{border-left:0}
+.fig .n{font-family:var(--mincho); font-size:26px; line-height:1.1; letter-spacing:.02em}
+.fig .n.on{color:var(--red)}
+.fig .k{font-size:10px; color:var(--ink-3); letter-spacing:.14em; margin-top:2px}
+.fig.clock .n{font-variant-numeric:tabular-nums; font-size:28px}
+
+/* ---------- 本体 ---------- */
+.body{display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:14px; align-items:start}
+@media (max-width:940px){ .body{grid-template-columns:minmax(0,1fr)} }
+
+.card{background:var(--paper-2); border:1px solid var(--line); border-radius:3px}
+.card > h2{
+  margin:0; padding:9px 12px; font-size:11px; font-weight:600; letter-spacing:.16em;
+  color:var(--ink-2); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.card > h2 .sub{font-weight:400; letter-spacing:.04em; color:var(--ink-3)}
+
+/* ---------- 舞台 ---------- */
+.stage{position:relative; overflow:hidden}
+.stage-bar{
+  display:flex; gap:6px; align-items:center; padding:8px 10px;
+  border-bottom:1px solid var(--line); flex-wrap:wrap;
+}
+.tab{
+  border:1px solid var(--line); background:transparent; border-radius:2px;
+  padding:4px 10px; font-size:11px; color:var(--ink-2); letter-spacing:.06em;
+}
+.tab:hover{border-color:var(--line-2)}
+.tab[aria-selected="true"]{background:var(--ink); border-color:var(--ink); color:var(--paper-2)}
+.tab .dot{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.spd{margin-left:auto; display:flex; gap:4px; align-items:center}
+.spd .lbl{font-size:10px;color:var(--ink-3);letter-spacing:.12em;margin-right:4px}
+.spd button{
+  border:1px solid var(--line); background:transparent; border-radius:2px;
+  padding:3px 9px; font-size:11px; color:var(--ink-2); min-width:34px;
+}
+.spd button[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--paper-2)}
+
+.canvas-wrap{position:relative; background:#e8e0cf}
+canvas{display:block; width:100%; height:520px; touch-action:none; cursor:grab}
+canvas.drag{cursor:grabbing}
+@media (max-width:940px){ canvas{height:420px} }
+
+.hint{
+  position:absolute; left:10px; bottom:8px; font-size:10px; color:#8b8172;
+  letter-spacing:.08em; pointer-events:none; text-shadow:0 1px 0 rgba(255,255,255,.55);
+}
+.stamp{
+  position:absolute; right:10px; bottom:8px; font-size:9.5px; color:#9c9384;
+  letter-spacing:.16em; pointer-events:none; font-variant-numeric:tabular-nums;
+}
+.tip{
+  position:absolute; pointer-events:none; z-index:5; transform:translate(-50%,-100%);
+  background:rgba(43,39,35,.94); color:#f5f1e6; border-radius:3px; padding:6px 9px;
+  font-size:11px; line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .12s;
+}
+.tip.on{opacity:1}
+.tip .r{color:#c7bda9; font-size:10px}
+
+/* ---------- 発注 ---------- */
+.order{display:flex; gap:8px; padding:10px; border-top:1px solid var(--line)}
+.order input{
+  flex:1; min-width:0; border:1px solid var(--line-2); border-radius:2px; background:#fff;
+  padding:9px 11px; font-family:inherit; font-size:12.5px; color:var(--ink);
+}
+.order input:focus{outline:none; border-color:var(--ink-2)}
+.order button{
+  border:1px solid var(--ink); background:var(--ink); color:var(--paper-2);
+  border-radius:2px; padding:0 20px; font-size:12px; letter-spacing:.14em; white-space:nowrap;
+}
+.order button:hover{background:#3b3630}
+.samples{display:flex; gap:6px; flex-wrap:wrap; padding:0 10px 10px}
+.samples button{
+  border:1px dashed var(--line-2); background:transparent; border-radius:2px;
+  padding:3px 8px; font-size:10.5px; color:var(--ink-3);
+}
+.samples button:hover{color:var(--ink-2); border-style:solid}
+
+/* ---------- 右段 ---------- */
+.rail{display:flex; flex-direction:column; gap:14px}
+.roster{max-height:420px; overflow:auto}
+.row{
+  display:flex; align-items:center; gap:8px; padding:7px 12px;
+  border-bottom:1px solid #ece5d7; cursor:pointer;
+}
+.row:last-child{border-bottom:0}
+.row:hover{background:#f4efe2}
+.row.sel{background:#ece5d5}
+.row .pin{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink-3)}
+.row .nm{font-family:var(--mincho); font-size:13.5px; letter-spacing:.04em; flex:none}
+.row .rl{font-size:10px; color:var(--ink-3); flex:none}
+.row .st{margin-left:auto; font-size:10px; color:var(--ink-3); white-space:nowrap}
+.row .st.on{color:var(--green)}
+.row .st.trip{color:var(--blue)}
+.row .job{
+  flex:1; min-width:0; font-size:10.5px; color:var(--ink-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;
+}
+
+.client{display:flex; align-items:center; gap:9px; padding:8px 12px; border-bottom:1px solid #ece5d7}
+.client:last-child{border-bottom:0}
+.client .mk{width:8px;height:8px;flex:none;transform:rotate(45deg)}
+.client .cn{font-size:12px}
+.client .cd{font-size:10px; color:var(--ink-3)}
+.client .cnt{margin-left:auto; text-align:right}
+.client .cnt b{font-family:var(--mincho); font-size:17px; font-weight:400}
+.client .cnt span{display:block; font-size:9px; color:var(--ink-3); letter-spacing:.1em}
+
+.board{max-height:250px; overflow:auto}
+.task{padding:7px 12px; border-bottom:1px solid #ece5d7; display:flex; gap:8px; align-items:flex-start}
+.task:last-child{border-bottom:0}
+.task .chip{
+  flex:none; font-size:9px; letter-spacing:.08em; padding:2px 5px; border-radius:2px;
+  border:1px solid var(--line-2); color:var(--ink-3); margin-top:2px; min-width:38px; text-align:center;
+}
+.task .chip.doing{background:var(--red); border-color:var(--red); color:#fff}
+.task .chip.done{background:#e6e0d0; border-color:#e6e0d0}
+.task .tx{flex:1; min-width:0}
+.task .tx .t{font-size:11.5px; line-height:1.45}
+.task .tx .m{font-size:10px; color:var(--ink-3); margin-top:1px}
+.empty{padding:14px 12px; font-size:11px; color:var(--ink-3)}
+
+.log{max-height:170px; overflow:auto; padding:6px 0}
+.log div{
+  padding:2px 12px; font-size:10.5px; color:var(--ink-2);
+  font-variant-numeric:tabular-nums; display:flex; gap:8px;
+}
+.log div span{color:var(--ink-3); flex:none}
+.log div b{font-weight:600; font-family:var(--mincho); flex:none}
+
+.note{font-size:10.5px; color:var(--ink-3); line-height:1.7; padding:0 2px}
+.note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px; color:var(--ink-2)}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d8d0be; border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="crest">
+    <span class="sq"></span><span>CLAUDE WORKS INC.</span>
+    <span class="sep">／</span><span>みなも町 3丁目</span>
+    <span class="sep">／</span><span>稼働中</span>
+  </div>
+
+  <header class="head">
+    <div>
+      <h1>AI社員、<em>働いてます</em>。</h1>
+      <p class="lead">
+        ここで動いている10名は、あなたの <b>Claude Code</b> で実際に呼び出せるサブエージェントです。
+        社内の仕事は自席で、客先の仕事は<b>町を歩いて出張</b>します。
+      </p>
+    </div>
+    <div class="figures">
+      <div class="fig clock"><div class="n" id="f-clock">09:00</div><div class="k">社内時刻</div></div>
+      <div class="fig"><div class="n on" id="f-work">0</div><div class="k">稼働中</div></div>
+      <div class="fig"><div class="n" id="f-trip">0</div><div class="k">出張中</div></div>
+      <div class="fig"><div class="n" id="f-idle">10</div><div class="k">待機</div></div>
+      <div class="fig"><div class="n" id="f-done">0</div><div class="k">本日完了</div></div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- ================= 左：町 ================= -->
+    <section class="card stage">
+      <div class="stage-bar">
+        <div id="tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div class="spd">
+          <span class="lbl">速度</span>
+          <button id="btn-pause">一時停止</button>
+          <button data-spd="1" aria-pressed="true">×1</button>
+          <button data-spd="2">×2</button>
+          <button data-spd="4">×4</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="cv"></canvas>
+        <div class="hint">ドラッグで移動／ホイールで拡大・縮小／社員をクリックで名指し</div>
+        <div class="stamp" id="stamp">MINAMO-CHO</div>
+        <div class="tip" id="tip"></div>
+      </div>
+
+      <div class="order">
+        <input id="q" maxlength="120" placeholder="社内の仕事を投げる（例：認証まわりがどこにあるか探して、直し方の方針まで出して）">
+        <button id="send">発 注 す る</button>
+      </div>
+      <div class="samples" id="samples"></div>
+    </section>
+
+    <!-- ================= 右：名簿など ================= -->
+    <aside class="rail">
+      <div class="card">
+        <h2>社員の様子 <span class="sub" id="staff-count">10名</span></h2>
+        <div class="roster" id="roster"></div>
+      </div>
+
+      <div class="card">
+        <h2>取引先 <span class="sub">出張先</span></h2>
+        <div id="clients"></div>
+      </div>
+
+      <div class="card">
+        <h2>タスクボード <span class="sub" id="board-sub">着手 0 ／ 待ち 0</span></h2>
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="card">
+        <h2>日報</h2>
+        <div class="log" id="log"></div>
+      </div>
+
+      <p class="note">
+        町のできごとはすべてこのページ内の模擬です。実際に Claude Code を動かしてはいません。
+        社員の名前は <code>Explore</code> <code>Plan</code> <code>general-purpose</code> などのサブエージェントに対応しています。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================================================
+   1. 社員名簿
+   Claude Code のサブエージェントを、そのまま町の住人にしている。
+   ============================================================ */
+const STAFF = [
+  { id:'kenbe',  name:'建部 設',  kana:'たてべ せつ',     role:'設計',     agent:'Plan',
+    color:'#3f5a7a', keys:['設計','方針','計画','構成','どう作','アーキ','段取り','進め方'],
+    verb:'設計を起こす', says:['設計はこうです','段取りを引きます','まず全体像から'] },
+  { id:'nakahara',name:'中原 汎太',kana:'なかはら はんた', role:'なんでも',  agent:'general-purpose',
+    color:'#6b6257', keys:['やって','対応','お願い','いい感じ','まとめ'],
+    verb:'一式まとめる', says:['やっときます','こちらで巻き取ります','了解です'] },
+  { id:'tanda',  name:'探田 索',  kana:'たんだ さく',     role:'調査',     agent:'Explore',
+    color:'#5f7d4d', keys:['探','どこ','調べ','見つけ','洗い出','把握','使われ','影響'],
+    verb:'ありかを探す', says:['ここにありました','三か所で使われてます','洗い出します'] },
+  { id:'bandai', name:'万代 汎',  kana:'ばんだい ひろし', role:'遊軍',     agent:'claude',
+    color:'#8a7a5e', keys:['ついで','雑','その他','手伝'],
+    verb:'手を貸す',  says:['空いてるので入ります','手伝います','こっち持ちます'] },
+  { id:'isho',   name:'意匠 彩',  kana:'いしょう あや',   role:'意匠',     agent:'artifact-design',
+    color:'#a4503c', keys:['デザイン','見た目','UI','画面','配色','レイアウト','きれい','図'],
+    verb:'見た目を整える', says:['余白を足しました','配色を締めます','ここは静かに'] },
+  { id:'annai',  name:'案内 導',  kana:'あんない みちる', role:'案内',     agent:'claude-code-guide',
+    color:'#4a7b7d', keys:['使い方','設定','できる','claude','フック','コマンド','mcp'],
+    verb:'使い方を案内する', says:['設定はこちらです','その機能あります','手順を書きます'] },
+  { id:'kuramoto',name:'蔵本 収', kana:'くらもと おさむ', role:'台帳',     agent:'repo',
+    color:'#7a6d94', keys:['履歴','コミット','ブランチ','pr','差分','記録','棚卸'],
+    verb:'台帳を当たる', says:['履歴を追いました','差分はこれだけです','記録に残します'] },
+  { id:'kotani', name:'校谷 正',  kana:'こうたに ただし', role:'校閲',     agent:'code-review',
+    color:'#2f4858', keys:['レビュー','確認','チェック','おかしく','品質','抜け'],
+    verb:'目を通す',  says:['二点だけ気になります','ここは通せません','問題ありません'] },
+  { id:'kyujima',name:'救島 助',  kana:'きゅうじま たすく',role:'救援',    agent:'debug',
+    color:'#c1873b', keys:['バグ','エラー','落ち','動かな','直し','壊れ','失敗','再現'],
+    verb:'原因を追う', says:['再現しました','原因はここです','直しを当てます'] },
+  { id:'seino',  name:'整野 備',  kana:'せいの そなえ',   role:'整備',     agent:'setup',
+    color:'#6d7b52', keys:['環境','セットアップ','ビルド','テスト','導入','依存','デプロイ'],
+    verb:'環境を整える', says:['通るようにしました','依存を揃えます','土台を作ります'] },
+];
+const byId = {}; STAFF.forEach(s => byId[s.id] = s);
+
+/* ============================================================
+   2. 取引先（＝出張先）
+   ============================================================ */
+const CLIENTS = [
+  { id:'minamo', name:'みなも堂菓子舗', short:'みなも堂',   desc:'和菓子の製造小売',      color:'#b03a2e', spot:{x:9,y:24},  jobs:[
+      '通販の注文が二重に入る件、原因を見に行く','贈答用の掛け紙を選べるようにする','売上の締め処理を自動にする','季節商品のページを整える'] },
+  { id:'ryogan', name:'緑岸精密板金',   short:'緑岸精密',   desc:'金属加工・板金',        color:'#4a7b7d', spot:{x:30,y:24}, jobs:[
+      '見積書の自動作成をつなぎ込む','図面の受け渡しをまとめる','工程表の画面を作り直す','在庫の数が合わない件を追う'] },
+  { id:'mukaida',name:'向井田社会保険労務士事務所', short:'向井田社労士', desc:'社会保険・労務', color:'#7a6d94', spot:{x:9,y:34}, jobs:[
+      '入退社の書類作成をまとめる','年度更新の手順を書き起こす','顧問先ごとの台帳を整理する','算定基礎の計算を検算する'] },
+];
+const clientById = {}; CLIENTS.forEach(c => clientById[c.id] = c);
+
+/* ============================================================
+   3. 町をつくる
+   ============================================================ */
+const MAP_W = 44, MAP_H = 44;
+const T = { DIRT:0, GRASS:1, ROAD:2, FLOOR:3, PATH:4, WATER:5 };
+const tiles = [], walk = [];
+for (let y = 0; y < MAP_H; y++) {
+  tiles.push(new Array(MAP_W).fill(T.DIRT));
+  walk.push(new Array(MAP_W).fill(false));
+}
+const buildings = [], props = [], signs = [];
+
+function fill(x0, y0, w, h, t, canWalk) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) continue;
+    tiles[y][x] = t; walk[y][x] = canWalk;
+  }
+}
+function block(x0, y0, w, h) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (x >= 0 && y >= 0 && x < MAP_W && y < MAP_H) walk[y][x] = false;
+  }
+}
+function building(o) { buildings.push(o); block(o.x, o.y, o.w, o.h); return o; }
+
+/* --- 地面 --- */
+fill(4, 4, 16, 16, T.FLOOR, true);     // 会社（開けた社屋の床）
+fill(25, 4, 16, 16, T.GRASS, true);    // 公園
+fill(4, 24, 16, 17, T.DIRT, false);    // 南西の区画
+fill(24, 24, 17, 17, T.DIRT, false);   // 南東の区画
+
+/* --- 道 --- */
+fill(2, 21, 40, 2, T.ROAD, true);      // 大通り（東西）
+fill(2, 32, 40, 2, T.ROAD, true);      // 二番通り（東西）
+fill(21, 2, 2, 40, T.ROAD, true);      // 縦の通り
+
+/* --- 敷地への引き込み --- */
+fill(12, 20, 2, 1, T.PATH, true);      // 会社の正面
+fill(23, 10, 2, 1, T.PATH, true);      // 公園の西口
+fill(30, 20, 1, 1, T.PATH, true);      // 公園の南口
+fill(9, 23, 1, 2, T.PATH, true);       // みなも堂の前
+fill(30, 23, 1, 2, T.PATH, true);      // 緑岸の前
+fill(9, 34, 1, 1, T.PATH, true);       // 向井田の前
+
+/* --- 社屋まわり --- */
+building({ x:15, y:5, w:4, h:4, z:1.5, kind:'room', label:'会議室' });
+building({ x:5,  y:5, w:3, h:3, z:1.2, kind:'room', label:'サーバー室' });
+building({ x:16, y:17, w:3, h:1, z:0.5, kind:'counter' });
+signs.push({ x:12, y:4,  text:'CLAUDE WORKS INC.', sub:'本社', big:true });
+
+/* --- 自席（机10台・上下2列） --- */
+const SEATS = [];
+STAFF.forEach((s, i) => {
+  const row = i < 5 ? 0 : 1;
+  const dx = 5 + (i % 5) * 3;
+  const dy = row === 0 ? 12 : 16;
+  props.push({ type:'desk', x:dx, y:dy, color:s.color });
+  block(dx, dy, 1, 1);
+  SEATS.push({ x:dx, y:dy + 1 });        // 椅子は机の手前
+});
+
+/* --- 取引先の建屋 --- */
+building({ x:6,  y:25, w:8,  h:6, z:1.6, kind:'client', client:'minamo' });
+building({ x:26, y:25, w:10, h:6, z:1.3, kind:'client', client:'ryogan' });
+building({ x:6,  y:35, w:8,  h:5, z:1.5, kind:'client', client:'mukaida' });
+signs.push({ x:10, y:25, text:'みなも堂菓子舗', color:'#b03a2e' });
+signs.push({ x:31, y:25, text:'緑岸精密板金',   color:'#4a7b7d' });
+signs.push({ x:10, y:35, text:'向井田社労士',   color:'#7a6d94' });
+
+/* --- 公園 --- */
+fill(32, 13, 5, 4, T.WATER, false);     // 池
+signs.push({ x:32, y:4, text:'みなも公園', color:'#5f7d4d' });
+const TREE_POS = [
+  [26,5],[29,4],[34,5],[38,6],[40,10],[39,15],[26,9],[25,14],[27,17],[31,18],
+  [36,18],[38,13],[30,7],[33,9],[37,9],[24,6],[40,17],[35,4],[28,12],[25,19],
+];
+TREE_POS.forEach(([x, y]) => { props.push({ type:'tree', x, y }); block(x, y, 1, 1); });
+[[29,15],[30,16],[37,12]].forEach(([x, y]) => props.push({ type:'bench', x, y }));
+
+/* --- 街路樹と街灯 --- */
+[[4,20],[8,20],[17,20],[26,20],[34,20],[39,20],[4,31],[17,31],[24,31],[38,31],
+ [19,25],[19,36],[38,35],[24,10],[20,6],[20,14]].forEach(([x, y]) => {
+  if (walk[y][x]) return;
+  props.push({ type:'tree', x, y, small:true }); block(x, y, 1, 1);
+});
+[[20,21],[23,21],[20,32],[23,32],[12,21],[30,21],[12,32],[30,32]].forEach(([x, y]) =>
+  props.push({ type:'lamp', x, y }));
+
+/* --- 公園で息抜きをする場所 --- */
+const REST_SPOT = { x:28, y:8 };
+
+/* ============================================================
+   4. 経路探索（幅優先）
+   ============================================================ */
+const pathCache = new Map();
+function findPath(sx, sy, tx, ty) {
+  if (sx === tx && sy === ty) return [];
+  const key = sx + ',' + sy + '>' + tx + ',' + ty;
+  const hit = pathCache.get(key);
+  if (hit) return hit.slice();
+
+  const prev = new Int32Array(MAP_W * MAP_H).fill(-1);
+  const seen = new Uint8Array(MAP_W * MAP_H);
+  const q = [sy * MAP_W + sx];
+  seen[sy * MAP_W + sx] = 1;
+  const goal = ty * MAP_W + tx;
+  let found = false;
+
+  for (let head = 0; head < q.length; head++) {
+    const cur = q[head];
+    if (cur === goal) { found = true; break; }
+    const cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
+    const nb = [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
+    for (const [nx, ny] of nb) {
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const ni = ny * MAP_W + nx;
+      if (seen[ni]) continue;
+      if (!walk[ny][nx] && ni !== goal) continue;   // 目的地だけは壁でも許す
+      seen[ni] = 1; prev[ni] = cur; q.push(ni);
+    }
+  }
+  if (!found) return [];
+
+  const out = [];
+  for (let cur = goal; cur !== -1 && cur !== sy * MAP_W + sx; cur = prev[cur]) {
+    out.push({ x: cur % MAP_W, y: (cur / MAP_W) | 0 });
+  }
+  out.reverse();
+  if (pathCache.size < 400) pathCache.set(key, out.slice());
+  return out;
+}
+
+/* ============================================================
+   5. 社員の実体
+   ============================================================ */
+const agents = STAFF.map((s, i) => ({
+  def: s, id: s.id,
+  x: SEATS[i].x, y: SEATS[i].y, seat: SEATS[i],
+  state: 'idle',            // idle / walk / work / back
+  path: [], step: 0,
+  face: 0.6, bob: Math.random() * 6.28,
+  task: null, workLeft: 0, workTotal: 0,
+  bubble: null, bubbleLeft: 0, rest: false,
+  goal: null, place: 'office', lane: (i * 2) % 3,
+}));
+const agentById = {}; agents.forEach(a => agentById[a.id] = a);
+
+/* ============================================================
+   6. 仕事
+   ============================================================ */
+let taskSeq = 0;
+const tasks = [];          // 新しいものが先頭
+const orders = [];         // 案件（工程の束）
+let doneToday = 0;
+const logs = [];
+
+const AMBIENT = [
+  { t:'先週のコミットを棚卸しする', s:'kuramoto' },
+  { t:'テストが落ちる件を追う',       s:'kyujima' },
+  { t:'画面の余白を詰める',           s:'isho' },
+  { t:'依存の更新を当てる',           s:'seino' },
+  { t:'設定まわりの手順を書く',       s:'annai' },
+  { t:'差分に目を通す',               s:'kotani' },
+  { t:'次の作りの当たりをつける',     s:'kenbe' },
+  { t:'古い書き方が残っていないか探す',s:'tanda' },
+  { t:'細かい直しをまとめて片づける', s:'nakahara' },
+  { t:'手の空いた分を巻き取る',       s:'bandai' },
+];
+
+function say(a, text, len) {
+  a.bubble = text; a.bubbleLeft = len || 22;
+}
+function log(name, text) {
+  logs.unshift({ time: clockText(), name, text });
+  if (logs.length > 60) logs.pop();
+  dirty.log = true;
+}
+
+/* 発注文から工程を組み立てる */
+function planOrder(text) {
+  const low = text.toLowerCase();
+  const client = CLIENTS.find(c => low.includes(c.short.toLowerCase()) || low.includes(c.name.toLowerCase())
+                                || low.includes(c.id));
+  /* 語からの当たり付け */
+  const scored = STAFF.map(s => {
+    let sc = 0;
+    s.keys.forEach(k => { if (low.includes(k)) sc += 2; });
+    return { s, sc };
+  }).filter(o => o.sc > 0).sort((a, b) => b.sc - a.sc);
+
+  const steps = [];
+  const push = (id, label) => {
+    if (steps.some(st => st.staff === id)) return;
+    steps.push({ staff:id, label, place: client ? client.id : 'office' });
+  };
+
+  const wantsFix = /直|修正|実装|作|変更|足|追加|消|置き換/.test(text);
+  const wantsFind = /探|どこ|調べ|洗い出|見つけ|把握|影響/.test(text);
+
+  if (wantsFind || scored.length === 0) push('tanda', 'ありかを探す');
+  scored.slice(0, 2).forEach(o => push(o.s.id, o.s.verb));
+  if (steps.length === 0) push('nakahara', '一式まとめる');
+  if (wantsFix && steps.length < 3) push('kotani', '直しに目を通す');
+
+  return { steps: steps.slice(0, 3), client };
+}
+
+function submitOrder(text) {
+  text = (text || '').trim();
+  if (!text) return;
+  const { steps, client } = planOrder(text);
+  const order = { id: ++taskSeq, text, steps, at: 0, client, done: false };
+  orders.push(order);
+
+  steps.forEach((st, i) => {
+    tasks.unshift({
+      id: taskSeq * 100 + i, order: order.id, seq: i, orderText: text,
+      staff: st.staff, place: st.place, label: st.label,
+      status: i === 0 ? 'queued' : 'wait', minutes: 6 + Math.floor(Math.random() * 14),
+    });
+  });
+  log('発注', text.length > 26 ? text.slice(0, 26) + '…' : text);
+  dirty.board = true;
+  return order;
+}
+
+/* 手が空いた社員に、着手可能な仕事を配る */
+function dispatch() {
+  for (const a of agents) {
+    if (a.state !== 'idle' || a.task) continue;
+    const t = tasks.slice().reverse().find(t => t.status === 'queued' && t.staff === a.id);
+    if (!t) continue;
+    begin(a, t);
+  }
+}
+
+function begin(a, t) {
+  t.status = 'doing';
+  a.task = t;
+  a.workTotal = a.workLeft = t.minutes;
+  dirty.board = true;
+
+  if (t.place === 'office') {
+    a.place = 'office'; a.state = 'work'; a.goal = null;
+    say(a, pick(a.def.says));
+    log(a.def.name, t.label + '（自席）');
+  } else {
+    const c = clientById[t.place];
+    a.place = t.place;
+    a.goal = c.spot;
+    a.path = findPath(Math.round(a.x), Math.round(a.y), c.spot.x, c.spot.y);
+    a.step = 0;
+    a.state = a.path.length ? 'walk' : 'work';
+    say(a, c.short + 'へ出ます', 26);
+    log(a.def.name, c.short + 'へ出張（' + t.label + '）');
+  }
+}
+
+function finish(a) {
+  const t = a.task;
+  if (t) {
+    t.status = 'done'; doneToday++;
+    const order = orders.find(o => o.id === t.order);
+    if (order) {
+      order.at++;
+      /* 工程は組んだ順に流す（tasks は新しい順に積まれているので seq で拾う） */
+      const next = tasks.filter(x => x.order === order.id && x.status === 'wait')
+                        .sort((p, q) => p.seq - q.seq)[0];
+      if (next) next.status = 'queued';
+      else if (!order.done) {
+        order.done = true;
+        log('納品', (order.text.length > 22 ? order.text.slice(0, 22) + '…' : order.text) + ' 一件あがり');
+      }
+    }
+    if (t.place !== 'office') clientById[t.place].count = (clientById[t.place].count || 0) + 1;
+    dirty.board = true;
+  }
+  a.task = null;
+  say(a, pick(['あがりました', '出しときました', '終わりました', 'できました']), 20);
+
+  /* 席へ帰る */
+  const back = findPath(Math.round(a.x), Math.round(a.y), a.seat.x, a.seat.y);
+  if (back.length) { a.path = back; a.step = 0; a.state = 'back'; }
+  else { a.state = 'idle'; a.place = 'office'; }
+}
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+/* ============================================================
+   7. 時計とシミュレーション
+   ============================================================ */
+let simMin = 9 * 60;             // 社内時刻（分）
+let speed = 1, paused = false;
+const MIN_PER_SEC = 2;           // 実時間1秒 ＝ 社内2分（×1のとき）
+const WALK_SPEED = 3.2;          // タイル／社内分
+
+function clockText() {
+  const h = Math.floor(simMin / 60) % 24, m = Math.floor(simMin % 60);
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+let ambientTimer = 3;
+function simulate(dtMin) {
+  const prevDay = Math.floor(simMin / 1440);
+  simMin += dtMin;
+  if (Math.floor(simMin / 1440) !== prevDay) { doneToday = 0; }
+
+  /* 折を見て社内の仕事が湧く */
+  ambientTimer -= dtMin;
+  if (ambientTimer <= 0) {
+    ambientTimer = 5 + Math.random() * 12;
+    const idle = agents.filter(a => a.state === 'idle' && !a.task);
+    if (idle.length > 2 && tasks.filter(t => t.status !== 'done').length < 9) {
+      if (Math.random() < 0.42) {
+        /* 客先の仕事 */
+        const c = pick(CLIENTS);
+        const a = pick(idle);
+        tasks.unshift({ id: ++taskSeq * 100, order: 0, orderText: pick(c.jobs),
+          staff: a.id, place: c.id, label: a.def.verb, minutes: 10 + Math.floor(Math.random() * 16) , status:'queued' });
+      } else {
+        const j = pick(AMBIENT);
+        const a = idle.find(x => x.id === j.s) || pick(idle);
+        tasks.unshift({ id: ++taskSeq * 100, order: 0, orderText: j.t,
+          staff: a.id, place: 'office', label: a.def.verb, minutes: 6 + Math.floor(Math.random() * 12), status:'queued' });
+      }
+      dirty.board = true;
+    }
+  }
+
+  dispatch();
+
+  for (const a of agents) {
+    if (a.bubbleLeft > 0) { a.bubbleLeft -= dtMin; if (a.bubbleLeft <= 0) a.bubble = null; }
+    a.bob += dtMin * 0.5;
+
+    if (a.state === 'walk' || a.state === 'back') {
+      let move = WALK_SPEED * dtMin;
+      while (move > 0 && a.step < a.path.length) {
+        const n = a.path[a.step];
+        const dx = n.x - a.x, dy = n.y - a.y;
+        const d = Math.hypot(dx, dy);
+        if (d <= move) { a.x = n.x; a.y = n.y; move -= d; a.step++; }
+        else { a.x += dx / d * move; a.y += dy / d * move; a.face = dx - dy; move = 0; }
+      }
+      if (a.step >= a.path.length) {
+        a.path = []; a.step = 0;
+        if (a.state === 'walk') { a.state = 'work'; say(a, pick(a.def.says), 24); }
+        else { a.state = 'idle'; a.place = 'office'; a.x = a.seat.x; a.y = a.seat.y; }
+      }
+    } else if (a.state === 'work') {
+      a.workLeft -= dtMin;
+      if (a.workLeft <= 0) {
+        if (a.rest) {                       /* 息抜きが済んだら黙って帰る */
+          a.rest = false;
+          const back = findPath(Math.round(a.x), Math.round(a.y), a.seat.x, a.seat.y);
+          if (back.length) { a.path = back; a.step = 0; a.state = 'back'; }
+          else { a.state = 'idle'; a.place = 'office'; }
+        } else finish(a);
+      }
+    } else if (a.state === 'idle') {
+      /* たまに公園へ息抜き */
+      if (!a.task && Math.random() < dtMin * 0.004) {
+        const p = findPath(a.seat.x, a.seat.y, REST_SPOT.x + Math.floor(Math.random() * 3) - 1, REST_SPOT.y);
+        if (p.length) {
+          a.path = p; a.step = 0; a.state = 'walk'; a.place = 'office';
+          a.rest = true; a.workTotal = a.workLeft = 8;
+          say(a, pick(['ちょっと息抜き', '外の空気を', '一服してきます']), 20);
+        }
+      }
+    }
+  }
+  dirty.head = true; dirty.roster = true;
+}
+
+/* ============================================================
+   8. 描画
+   ============================================================ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let VW = 0, VH = 0, dpr = 1;
+const TWH = 17, THH = 8.5, ZH = 22;      // タイル半幅・半高・高さ単位
+let cam = { x:0, y:0, z:1 }, camT = { x:0, y:0, z:1 };
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  VW = cv.clientWidth; VH = cv.clientHeight;
+  cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function iso(x, y, z) {
+  return {
+    sx: (x - y) * TWH * cam.z + cam.x,
+    sy: (x + y) * THH * cam.z - (z || 0) * ZH * cam.z + cam.y,
+  };
+}
+function focus(cx, cy, zoom) {
+  camT.z = zoom;
+  camT.x = VW / 2 - (cx - cy) * TWH * zoom;
+  camT.y = VH / 2 - (cx + cy) * THH * zoom + 40 * zoom;
+}
+
+const GROUND = {
+  [T.DIRT] :['#dcd3bf','#d7cdb8'],
+  [T.GRASS]:['#b9c8a0','#b2c299'],
+  [T.ROAD] :['#cbc4b5','#c6bfaf'],
+  [T.FLOOR]:['#e9e2d2','#e4ddcc'],
+  [T.PATH] :['#ded6c3','#d8d0bc'],
+  [T.WATER]:['#a3bcc0','#9ab4b9'],
+};
+function tilePath(x, y) {
+  const a = iso(x, y, 0), b = iso(x + 1, y, 0), c = iso(x + 1, y + 1, 0), d = iso(x, y + 1, 0);
+  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy);
+  ctx.lineTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.closePath();
+}
+function box(x, y, w, h, z, top, right, left) {
+  const t0 = iso(x, y, z), t1 = iso(x + w, y, z), t2 = iso(x + w, y + h, z), t3 = iso(x, y + h, z);
+  const b1 = iso(x + w, y, 0),  b2 = iso(x + w, y + h, 0), b3 = iso(x, y + h, 0);
+  /* 右面 */
+  ctx.fillStyle = right;
+  ctx.beginPath(); ctx.moveTo(t1.sx, t1.sy); ctx.lineTo(t2.sx, t2.sy);
+  ctx.lineTo(b2.sx, b2.sy); ctx.lineTo(b1.sx, b1.sy); ctx.closePath(); ctx.fill();
+  /* 左面 */
+  ctx.fillStyle = left;
+  ctx.beginPath(); ctx.moveTo(t3.sx, t3.sy); ctx.lineTo(t2.sx, t2.sy);
+  ctx.lineTo(b2.sx, b2.sy); ctx.lineTo(b3.sx, b3.sy); ctx.closePath(); ctx.fill();
+  /* 上面 */
+  ctx.fillStyle = top;
+  ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy);
+  ctx.lineTo(t2.sx, t2.sy); ctx.lineTo(t3.sx, t3.sy); ctx.closePath(); ctx.fill();
+}
+
+function drawTree(p, small) {
+  const z = cam.z, s = small ? 0.72 : 1;
+  ctx.fillStyle = 'rgba(70,62,50,.13)';
+  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, 11 * z * s, 5.5 * z * s, 0, 0, 6.284); ctx.fill();
+  ctx.fillStyle = '#8b7357';
+  ctx.fillRect(p.sx - 1.6 * z * s, p.sy - 16 * z * s, 3.2 * z * s, 16 * z * s);
+  const cy = p.sy - 22 * z * s, r = 10 * z * s;
+  ctx.fillStyle = '#6f8f5b';
+  ctx.beginPath(); ctx.arc(p.sx, cy, r, 0, 6.284); ctx.fill();
+  ctx.fillStyle = '#88a771';
+  ctx.beginPath(); ctx.arc(p.sx - r * 0.28, cy - r * 0.3, r * 0.72, 0, 6.284); ctx.fill();
+}
+function drawDesk(x, y, color) {
+  box(x + 0.12, y + 0.12, 0.76, 0.76, 0.42, '#efe9dc', '#cfc7b6', '#ddd5c4');
+  const p = iso(x + 0.5, y + 0.35, 0.42);
+  ctx.fillStyle = color;                                     // 天板の書類
+  ctx.fillRect(p.sx - 4 * cam.z, p.sy - 4 * cam.z, 8 * cam.z, 4 * cam.z);
+  ctx.fillStyle = '#3a3630';                                 // 画面
+  ctx.fillRect(p.sx - 5 * cam.z, p.sy - 12 * cam.z, 10 * cam.z, 7 * cam.z);
+  ctx.fillStyle = '#7f8b8e';
+  ctx.fillRect(p.sx - 4.2 * cam.z, p.sy - 11.3 * cam.z, 8.4 * cam.z, 5.6 * cam.z);
+}
+function drawBench(x, y) {
+  box(x + 0.15, y + 0.3, 0.7, 0.4, 0.28, '#c2a682', '#a98d6c', '#b59878');
+}
+function drawLamp(x, y) {
+  const b = iso(x + 0.5, y + 0.5, 0), z = cam.z;
+  ctx.strokeStyle = '#8f8778'; ctx.lineWidth = 1.6 * z;
+  ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(b.sx, b.sy - 26 * z); ctx.stroke();
+  ctx.fillStyle = '#e7dfcb';
+  ctx.beginPath(); ctx.arc(b.sx, b.sy - 28 * z, 3 * z, 0, 6.284); ctx.fill();
+}
+
+function drawBuilding(b) {
+  if (b.kind === 'client') {
+    const c = clientById[b.client];
+    box(b.x, b.y, b.w, b.h, b.z, '#f0eade', '#c8bfad', '#dcd3c1');
+    /* 屋根の帯 */
+    const t0 = iso(b.x, b.y, b.z), t1 = iso(b.x + b.w, b.y, b.z),
+          t2 = iso(b.x + b.w, b.y + b.h, b.z), t3 = iso(b.x, b.y + b.h, b.z);
+    ctx.fillStyle = c.color + '22';
+    ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy);
+    ctx.lineTo(t2.sx, t2.sy); ctx.lineTo(t3.sx, t3.sy); ctx.closePath(); ctx.fill();
+    /* 入口（北面） */
+    const d = iso(b.x + b.w / 2, b.y, 0), z = cam.z;
+    ctx.fillStyle = '#4a443b';
+    ctx.fillRect(d.sx - 5 * z, d.sy - 15 * z, 10 * z, 15 * z);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(d.sx - 9 * z, d.sy - 20 * z, 18 * z, 3 * z);
+    /* 窓 */
+    for (let i = 1; i < b.w; i++) {
+      const w = iso(b.x + i, b.y + b.h, 0.55);
+      ctx.fillStyle = '#b9c3c4';
+      ctx.fillRect(w.sx - 3 * z, w.sy - 8 * z, 6 * z, 8 * z);
+    }
+  } else if (b.kind === 'counter') {
+    box(b.x, b.y, b.w, b.h, b.z, '#e6dfcd', '#c7bfad', '#d6cebb');
+  } else {
+    box(b.x, b.y, b.w, b.h, b.z, '#efe9db', '#c6bdab', '#d9d1bf');
+    const p = iso(b.x + b.w / 2, b.y + b.h / 2, b.z);
+    ctx.fillStyle = '#8d8474'; ctx.font = Math.max(8, 9 * cam.z) + 'px ' + UI_FONT;
+    ctx.textAlign = 'center'; ctx.fillText(b.label, p.sx, p.sy + 3 * cam.z);
+  }
+}
+
+function drawAgent(a) {
+  const z = cam.z;
+  const p = iso(a.x + 0.5, a.y + 0.5, 0);
+  const moving = a.state === 'walk' || a.state === 'back';
+  const bob = moving ? Math.abs(Math.sin(a.bob * 3)) * 2.2 * z : Math.sin(a.bob * 0.7) * 0.6 * z;
+  const bodyH = 15 * z, headR = 4.6 * z, w = 8.6 * z;
+  const base = p.sy - bob;
+
+  ctx.fillStyle = 'rgba(70,62,50,.16)';
+  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, 7 * z, 3.4 * z, 0, 0, 6.284); ctx.fill();
+
+  /* 胴 */
+  const c = a.def.color;
+  ctx.fillStyle = c;
+  roundRect(p.sx - w / 2, base - bodyH, w, bodyH, 3 * z); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  roundRect(p.sx - w / 2, base - bodyH, w * 0.42, bodyH, 3 * z); ctx.fill();
+  /* 頭 */
+  ctx.fillStyle = '#efe2cd';
+  ctx.beginPath(); ctx.arc(p.sx, base - bodyH - headR + 1 * z, headR, 0, 6.284); ctx.fill();
+  ctx.fillStyle = '#3a3128';
+  ctx.beginPath(); ctx.arc(p.sx, base - bodyH - headR - 0.6 * z, headR, Math.PI * 1.06, Math.PI * 1.94); ctx.fill();
+
+  /* 作業中は頭上に進み具合 */
+  if (a.state === 'work' && a.workTotal > 0) {
+    const r = Math.max(0, Math.min(1, 1 - a.workLeft / a.workTotal));
+    const bw = 22 * z, bx = p.sx - bw / 2, by = base - bodyH - headR * 2 - 9 * z;
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(bx, by, bw, 3.4 * z);
+    ctx.fillStyle = a.place === 'office' ? '#5f7d4d' : '#b03a2e';
+    ctx.fillRect(bx, by, bw * r, 3.4 * z);
+  }
+  return { p, base, bodyH, headR };
+}
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+const UI_FONT = '"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif';
+function label(sx, sy, text, bg, fg, size) {
+  ctx.font = '600 ' + size + 'px ' + UI_FONT;
+  const w = ctx.measureText(text).width + 10, h = size + 7;
+  ctx.fillStyle = bg;
+  roundRect(sx - w / 2, sy - h, w, h, 2.5); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, sx, sy - 5);
+}
+
+/* 町全体を模型の台に載せる（外周の厚みを描く） */
+function drawBase() {
+  const th = 16 * cam.z;
+  const t1 = iso(MAP_W, 0, 0), t2 = iso(MAP_W, MAP_H, 0), t3 = iso(0, MAP_H, 0);
+  ctx.fillStyle = '#bdb29b';
+  ctx.beginPath(); ctx.moveTo(t1.sx, t1.sy); ctx.lineTo(t2.sx, t2.sy);
+  ctx.lineTo(t2.sx, t2.sy + th); ctx.lineTo(t1.sx, t1.sy + th); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#cdc3ad';
+  ctx.beginPath(); ctx.moveTo(t3.sx, t3.sy); ctx.lineTo(t2.sx, t2.sy);
+  ctx.lineTo(t2.sx, t2.sy + th); ctx.lineTo(t3.sx, t3.sy + th); ctx.closePath(); ctx.fill();
+}
+
+/* 客先での立ち位置の目印 */
+function drawPad(x, y, color) {
+  tilePath(x, y);
+  ctx.fillStyle = color + '2e'; ctx.fill();
+  ctx.strokeStyle = color + '77'; ctx.lineWidth = 1.2; ctx.stroke();
+}
+
+function render() {
+  ctx.clearRect(0, 0, VW, VH);
+  /* 台の外 */
+  ctx.fillStyle = '#efe9db'; ctx.fillRect(0, 0, VW, VH);
+  drawBase();
+
+  /* 地面 */
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const t = tiles[y][x];
+      const p = iso(x + 1, y + 1, 0);
+      if (p.sx < -60 || p.sx > VW + 60 || p.sy < -60 || p.sy > VH + 120) continue;
+      const pal = GROUND[t];
+      tilePath(x, y);
+      ctx.fillStyle = pal[(x + y) & 1];
+      ctx.fill();
+    }
+  }
+  CLIENTS.forEach(c => drawPad(c.spot.x, c.spot.y, c.color));
+
+  /* 道の白線 */
+  ctx.strokeStyle = 'rgba(255,255,255,.42)'; ctx.lineWidth = 1.4 * cam.z; ctx.setLineDash([6 * cam.z, 6 * cam.z]);
+  strokeLine(2, 22, 42, 22); strokeLine(2, 33, 42, 33); strokeLine(22, 2, 22, 42);
+  ctx.setLineDash([]);
+
+  /* 立体物を奥から手前へ */
+  const ents = [];
+  buildings.forEach(b => ents.push({ k: (b.x + b.w - 1) + (b.y + b.h - 1), f: () => drawBuilding(b) }));
+  props.forEach(p => {
+    if (p.type === 'tree')      ents.push({ k: p.x + p.y, f: () => drawTree(iso(p.x + 0.5, p.y + 0.5, 0), p.small) });
+    else if (p.type === 'desk') ents.push({ k: p.x + p.y, f: () => drawDesk(p.x, p.y, p.color) });
+    else if (p.type === 'bench')ents.push({ k: p.x + p.y, f: () => drawBench(p.x, p.y) });
+    else if (p.type === 'lamp') ents.push({ k: p.x + p.y + 0.4, f: () => drawLamp(p.x, p.y) });
+  });
+  const heads = [];
+  agents.forEach(a => ents.push({ k: a.x + a.y + 0.5, f: () => heads.push({ a, m: drawAgent(a) }) }));
+  ents.sort((p, q) => p.k - q.k);
+  ents.forEach(e => e.f());
+
+  /* 名札と吹き出し（最前面） */
+  const zoomed = cam.z > 0.78;
+  heads.forEach(({ a, m }) => {
+    const busy = a.state !== 'idle';
+    /* 名札が団子にならないよう、社員ごとに高さを三段ずらす */
+    const lane = (a.lane % 3) * 11 * cam.z;
+    const top = m.base - m.bodyH - m.headR * 2 - lane - (a.state === 'work' ? 14 * cam.z : 5 * cam.z);
+    if (a.bubble) {
+      label(m.p.sx, top - 12 * cam.z, a.bubble, 'rgba(43,39,35,.92)', '#f6f2e8', Math.max(9, 10 * cam.z));
+      label(m.p.sx, top, a.def.name, 'rgba(255,255,255,.9)', '#3a352e', Math.max(8.5, 9.5 * cam.z));
+    } else if (busy || zoomed || a.id === selected) {
+      label(m.p.sx, top, a.def.name,
+        a.id === selected ? '#b03a2e' : 'rgba(255,255,255,.88)',
+        a.id === selected ? '#fff' : '#3a352e', Math.max(8.5, 9.5 * cam.z));
+    }
+  });
+
+  /* 看板 */
+  signs.forEach(s => {
+    const p = iso(s.x, s.y, 0);
+    if (s.big) {
+      ctx.font = '600 ' + (13 * cam.z) + 'px ' + 'var(--mincho)';
+      ctx.font = '600 ' + Math.max(11, 13 * cam.z) + 'px "Hiragino Mincho ProN","Yu Mincho",serif';
+      ctx.textAlign = 'center'; ctx.fillStyle = '#3a352e';
+      ctx.fillText(s.text, p.sx, p.sy - 14 * cam.z);
+      ctx.font = Math.max(8, 9 * cam.z) + 'px sans-serif'; ctx.fillStyle = '#8d8474';
+      ctx.fillText(s.sub, p.sx, p.sy - 3 * cam.z);
+      ctx.strokeStyle = '#b03a2e'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(p.sx - 34 * cam.z, p.sy - 10 * cam.z);
+      ctx.lineTo(p.sx + 34 * cam.z, p.sy - 10 * cam.z); ctx.stroke();
+    } else {
+      label(p.sx, p.sy - 4 * cam.z, s.text, 'rgba(255,255,255,.9)', s.color || '#3a352e', Math.max(9, 10 * cam.z));
+    }
+  });
+}
+function strokeLine(x0, y0, x1, y1) {
+  const a = iso(x0, y0, 0), b = iso(x1, y1, 0);
+  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+}
+
+/* ============================================================
+   9. 画面（右段・数値）の更新
+   ============================================================ */
+const dirty = { head:true, roster:true, board:true, log:true };
+const $ = id => document.getElementById(id);
+
+function stateOf(a) {
+  if (a.state === 'idle') return { t:'待機', c:'' };
+  if (a.rest) return { t: a.state === 'work' ? '休憩中' : '公園へ', c:'' };
+  if (a.place !== 'office') return { t: a.state === 'work' ? '客先で作業' : '移動中', c:'trip' };
+  if (a.state === 'back') return { t:'帰社中', c:'trip' };
+  if (a.state === 'walk') return { t:'移動中', c:'' };
+  return { t:'稼働中', c:'on' };
+}
+
+function paintHead() {
+  $('f-clock').textContent = clockText();
+  let w = 0, tr = 0, id = 0;
+  agents.forEach(a => {
+    if (a.state === 'idle' || a.rest) id++;
+    else if (a.place !== 'office') tr++;
+    else w++;
+  });
+  $('f-work').textContent = w; $('f-trip').textContent = tr;
+  $('f-idle').textContent = id; $('f-done').textContent = doneToday;
+}
+
+let selected = null;
+function paintRoster() {
+  const el = $('roster');
+  if (el.childElementCount !== agents.length) {
+    el.innerHTML = '';
+    agents.forEach(a => {
+      const r = document.createElement('div');
+      r.className = 'row'; r.dataset.id = a.id;
+      r.innerHTML = '<i class="pin"></i><span class="nm"></span><span class="rl"></span>' +
+                    '<span class="job"></span><span class="st"></span>';
+      r.onclick = () => selectAgent(a.id);
+      el.appendChild(r);
+    });
+  }
+  [...el.children].forEach((r, i) => {
+    const a = agents[i], s = stateOf(a);
+    r.classList.toggle('sel', a.id === selected);
+    r.querySelector('.pin').style.background = a.state === 'idle' ? '#cdc5b6' : a.def.color;
+    r.querySelector('.nm').textContent = a.def.name;
+    r.querySelector('.rl').textContent = a.def.role;
+    r.querySelector('.job').textContent = a.task ? (a.task.orderText.length > 14
+      ? a.task.orderText.slice(0, 14) + '…' : a.task.orderText) : '';
+    const st = r.querySelector('.st');
+    st.textContent = s.t; st.className = 'st ' + s.c;
+  });
+}
+
+function paintClients() {
+  const el = $('clients');
+  el.innerHTML = '';
+  CLIENTS.forEach(c => {
+    const here = agents.filter(a => a.place === c.id && a.state !== 'idle');
+    const d = document.createElement('div');
+    d.className = 'client';
+    d.innerHTML =
+      '<i class="mk" style="background:' + c.color + '"></i>' +
+      '<div><div class="cn">' + c.name + '</div><div class="cd">' + c.desc +
+      (here.length ? ' ／ ' + here.map(a => a.def.name).join('、') + ' 出張中' : '') + '</div></div>' +
+      '<div class="cnt"><b>' + (c.count || 0) + '</b><span>本日</span></div>';
+    el.appendChild(d);
+  });
+}
+
+function paintBoard() {
+  const el = $('board');
+  const live = tasks.filter(t => t.status !== 'done').slice(0, 8);
+  const done = tasks.filter(t => t.status === 'done').slice(0, 6);
+  const list = live.concat(done);
+  $('board-sub').textContent = '着手 ' + tasks.filter(t => t.status === 'doing').length +
+                               ' ／ 待ち ' + tasks.filter(t => t.status !== 'doing' && t.status !== 'done').length;
+  if (!list.length) { el.innerHTML = '<div class="empty">仕事はまだありません。下の欄から発注してください。</div>'; return; }
+  el.innerHTML = list.map(t => {
+    const s = t.status === 'doing' ? ['doing', '着手'] : t.status === 'done' ? ['done', '完了'] : ['', '待ち'];
+    const who = byId[t.staff];
+    const where = t.place === 'office' ? '自席' : clientById[t.place].short;
+    return '<div class="task"><span class="chip ' + s[0] + '">' + s[1] + '</span>' +
+           '<div class="tx"><div class="t">' + esc(t.orderText) + '</div>' +
+           '<div class="m">' + who.name + '／' + t.label + '／' + where + '</div></div></div>';
+  }).join('');
+  paintClients();
+}
+
+function paintLog() {
+  $('log').innerHTML = logs.slice(0, 26).map(l =>
+    '<div><span>' + l.time + '</span><b>' + esc(l.name) + '</b>' + esc(l.text) + '</div>').join('');
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+/* ============================================================
+   10. 操作
+   ============================================================ */
+const VIEWS = [
+  { id:'all',    name:'町ぜんぶ',       cx:22, cy:22, z:0.72 },
+  { id:'office', name:'会社',           cx:12, cy:12, z:1.35, color:'#2b2723' },
+  { id:'park',   name:'公園',           cx:32, cy:11, z:1.15, color:'#5f7d4d' },
+  ...CLIENTS.map(c => ({ id:c.id, name:c.short, cx:c.spot.x + 1, cy:c.spot.y + 4, z:1.3, color:c.color })),
+];
+let view = 'all';
+function paintTabs() {
+  $('tabs').innerHTML = VIEWS.map(v =>
+    '<button class="tab" data-v="' + v.id + '" aria-selected="' + (v.id === view) + '">' +
+    (v.color ? '<i class="dot" style="background:' + v.color + '"></i>' : '') + v.name + '</button>').join('');
+  [...$('tabs').children].forEach(b => b.onclick = () => {
+    view = b.dataset.v;
+    const v = VIEWS.find(x => x.id === view);
+    focus(v.cx, v.cy, v.z);
+    paintTabs();
+  });
+}
+
+function selectAgent(id) {
+  selected = selected === id ? null : id;
+  if (selected) {
+    const a = agentById[selected];
+    focus(a.x, a.y, Math.max(cam.z, 1.25));
+  }
+  dirty.roster = true;
+}
+
+/* 速度 */
+$('btn-pause').onclick = () => {
+  paused = !paused;
+  $('btn-pause').textContent = paused ? '再 開' : '一時停止';
+  $('btn-pause').setAttribute('aria-pressed', paused);
+};
+document.querySelectorAll('[data-spd]').forEach(b => b.onclick = () => {
+  speed = +b.dataset.spd; paused = false;
+  $('btn-pause').textContent = '一時停止'; $('btn-pause').setAttribute('aria-pressed', 'false');
+  document.querySelectorAll('[data-spd]').forEach(o => o.setAttribute('aria-pressed', o === b));
+});
+
+/* 発注 */
+function send() {
+  const v = $('q').value.trim();
+  if (!v) return;
+  submitOrder(v);
+  $('q').value = '';
+}
+$('send').onclick = send;
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+const SAMPLES = [
+  '認証まわりがどこにあるか探して、直し方の方針まで出して',
+  'テストが落ちる原因を追って直して',
+  'みなも堂の注文が二重に入る件を見に行って',
+  '緑岸精密の見積書の画面をきれいにして',
+  '向井田社労士の年度更新の手順をまとめて',
+  '今週のコミットを棚卸しして日報にして',
+];
+$('samples').innerHTML = SAMPLES.map((s, i) => '<button data-i="' + i + '">' + esc(s) + '</button>').join('');
+[...$('samples').children].forEach(b => b.onclick = () => submitOrder(SAMPLES[+b.dataset.i]));
+
+/* 視点操作 */
+let drag = null;
+cv.addEventListener('pointerdown', e => {
+  drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y, moved:false };
+  cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+});
+cv.addEventListener('pointermove', e => {
+  const r = cv.getBoundingClientRect();
+  hover(e.clientX - r.left, e.clientY - r.top);
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+  cam.x = camT.x = drag.cx + dx; cam.y = camT.y = drag.cy + dy;
+});
+cv.addEventListener('pointerup', e => {
+  if (drag && !drag.moved) {
+    const r = cv.getBoundingClientRect();
+    const hit = pickAgent(e.clientX - r.left, e.clientY - r.top);
+    if (hit) { selectAgent(hit.id); say(hit, pick(hit.def.says), 24); }
+    else selected = null, dirty.roster = true;
+  }
+  drag = null; cv.classList.remove('drag');
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  const k = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const nz = Math.max(0.45, Math.min(2.4, cam.z * k));
+  const f = nz / cam.z;
+  cam.x = camT.x = mx - (mx - cam.x) * f;
+  cam.y = camT.y = my - (my - cam.y) * f;
+  cam.z = camT.z = nz;
+}, { passive:false });
+
+function pickAgent(mx, my) {
+  let best = null, bestD = 22;
+  for (const a of agents) {
+    const p = iso(a.x + 0.5, a.y + 0.5, 0);
+    const d = Math.hypot(p.sx - mx, (p.sy - 12 * cam.z) - my);
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  return best;
+}
+const tip = $('tip');
+function hover(mx, my) {
+  const a = pickAgent(mx, my);
+  if (!a) { tip.classList.remove('on'); return; }
+  const p = iso(a.x + 0.5, a.y + 0.5, 0);
+  const s = stateOf(a);
+  tip.innerHTML = '<b>' + esc(a.def.name) + '</b>　' + s.t +
+    '<div class="r">' + a.def.role + '担当（' + a.def.agent + '）</div>' +
+    (a.task ? '<div class="r">' + esc(a.task.orderText) + '</div>' : '');
+  tip.style.left = p.sx + 'px'; tip.style.top = (p.sy - 34 * cam.z) + 'px';
+  tip.classList.add('on');
+}
+
+/* ============================================================
+   11. まわす
+   ============================================================ */
+let last = performance.now(), acc = 0;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+
+  if (!paused) simulate(dt * MIN_PER_SEC * speed);
+
+  /* 視点の追従 */
+  cam.x += (camT.x - cam.x) * 0.12;
+  cam.y += (camT.y - cam.y) * 0.12;
+  cam.z += (camT.z - cam.z) * 0.12;
+  if (selected && !drag) {
+    const a = agentById[selected];
+    if (a.state !== 'idle') focus(a.x, a.y, camT.z);
+  }
+
+  render();
+
+  acc += dt;
+  if (acc > 0.2) {
+    acc = 0;
+    if (dirty.head)  { paintHead();  dirty.head = false; }
+    if (dirty.roster){ paintRoster(); dirty.roster = false; }
+    if (dirty.board) { paintBoard(); dirty.board = false; }
+    if (dirty.log)   { paintLog();   dirty.log = false; }
+    $('stamp').textContent = 'MINAMO-CHO ／ ' + clockText() + ' ／ ' + agents.filter(a => a.state !== 'idle').length + ' ACTIVE';
+  }
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', () => { resize(); const v = VIEWS.find(x => x.id === view); focus(v.cx, v.cy, v.z); });
+resize();
+focus(22, 22, 0.72);
+cam.x = camT.x; cam.y = camT.y; cam.z = camT.z;
+paintTabs(); paintHead(); paintRoster(); paintClients(); paintBoard();
+log('朝礼', '本日の業務を開始しました');
+
+/* 開始直後から町が動いているように、朝一の仕事を積んでおく */
+(() => {
+  const seed = [
+    { s:'tanda',    t:'古い書き方が残っていないか探す', p:'office' },
+    { s:'kotani',   t:'ゆうべ届いた差分に目を通す',     p:'office' },
+    { s:'annai',    t:'年度更新の手順をまとめる',       p:'mukaida' },
+    { s:'kyujima',  t:'注文が二重に入る件を見に行く',   p:'minamo' },
+  ];
+  seed.forEach((j, i) => tasks.unshift({
+    id: ++taskSeq * 100, order: 0, seq: 0, orderText: j.t, staff: j.s, place: j.p,
+    label: byId[j.s].verb, minutes: 8 + i * 4, status:'queued',
+  }));
+  dispatch();
+})();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
